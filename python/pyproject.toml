@@ -9,7 +9,11 @@ description = "Court record text extraction, deterministic and AI methods compar
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "AGPL-3.0-or-later" }
-authors = [{ name = "Tim Thomas", email = "timthomas@berkeley.edu" }]
+authors = [
+  { name = "Cheng Ren" },
+  { name = "Tim Thomas", email = "timthomas@berkeley.edu" },
+  { name = "Aaron Culich", email = "aculich@berkeley.edu" },
+]
 keywords = ["eviction", "court records", "text extraction", "civil justice"]
 classifiers = [
   "License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)",

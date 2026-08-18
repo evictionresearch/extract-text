@@ -1,8 +1,11 @@
 Package: extracttext
 Title: Court Record Text Extraction, Deterministic and AI Compared
 Version: 0.1.0
-Authors@R:
-    person("Tim", "Thomas", , "timthomas@berkeley.edu", role = c("aut", "cre"))
+Authors@R: c(
+    person("Cheng", "Ren", role = "aut"),
+    person("Tim", "Thomas", , "timthomas@berkeley.edu", role = c("aut", "cre")),
+    person("Aaron", "Culich", , "aculich@berkeley.edu", role = "aut")
+  )
 Description: Extracts structured fields from United States court records, most
     often eviction and unlawful detainer filings, using rule-based and language
     model methods, then reports where the two disagree. Wraps the Python

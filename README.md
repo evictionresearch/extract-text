@@ -79,6 +79,11 @@ Commercial use is permitted. Building a closed-source product or hosted service 
 
 Separate terms govern the data. A software license reaches the software, not the records you extract with it, so the constraints that matter for court records live in `DATA-USE.md`. `ETHICS.md` states the uses this project will not support.
 
-## Citation
+## Authors
 
-See `CITATION.cff`.
+Cheng Ren (University at Albany, SUNY), Tim Thomas (Eviction Research Network, UC
+Berkeley), Aaron Culich (UC Berkeley).
+
+Citation metadata is in `CITATION.cff`. Author order there reflects
+contribution to the project and is separate from copyright ownership, which is
+governed by the CLA in `CONTRIBUTING.md`.

@@ -1,0 +1,34 @@
+# Never commit real court records or anything extracted from them.
+data/
+*.pdf
+*.csv
+*.parquet
+*.tsv
+!python/tests/fixtures/synthetic_*
+
+# Credentials
+.env
+.Renviron
+*.pem
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.ruff_cache/
+
+# R
+.Rproj.user/
+.Rhistory
+.RData
+.Ruserdata
+r/src/*.o
+r/src/*.so
+
+# OS
+.DS_Store

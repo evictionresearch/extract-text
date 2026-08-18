@@ -1,0 +1,12 @@
+cff-version: 1.2.0
+title: "extract-text: court record text extraction, deterministic and AI compared"
+message: "If you use this software, please cite it."
+type: software
+authors:
+  - family-names: Thomas
+    given-names: Tim
+    email: timthomas@berkeley.edu
+    affiliation: "Eviction Research Network, University of California, Berkeley"
+repository-code: "https://github.com/evictionresearch/extract-text"
+license: AGPL-3.0-or-later
+version: 0.1.0

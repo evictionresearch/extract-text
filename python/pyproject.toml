@@ -1,0 +1,45 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "extract-text"
+version = "0.1.0"
+description = "Court record text extraction, deterministic and AI methods compared"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "AGPL-3.0-or-later" }
+authors = [{ name = "Tim Thomas", email = "timthomas@berkeley.edu" }]
+keywords = ["eviction", "court records", "text extraction", "civil justice"]
+classifiers = [
+  "License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)",
+  "Programming Language :: Python :: 3",
+  "Topic :: Text Processing :: Linguistic",
+  "Intended Audience :: Science/Research",
+]
+
+# The core engine has one dependency. Both AI backends are optional: the local
+# backend uses the standard library, and the Anthropic SDK is only needed if
+# you call the API.
+dependencies = ["pydantic>=2.7"]
+
+[project.optional-dependencies]
+anthropic = ["anthropic>=0.69"]
+pdf = ["pdfplumber>=0.11"]
+dev = [
+  "extract-text[anthropic,pdf]",
+  "pytest>=8",
+  "ruff>=0.6",
+]
+
+[project.urls]
+Repository = "https://github.com/evictionresearch/extract-text"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/extract_text"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 88

@@ -1,0 +1,360 @@
+{
+  "$defs": {
+    "CourtRecord": {
+      "description": "A single eviction or unlawful detainer case.\n\nEvery field is optional. Court documents vary enormously by jurisdiction and\na missing field is information, not an error. Distinguishing \"the document\ndoes not say\" from \"the extractor failed to read it\" is the job of the\ncomparison report, not the schema.",
+      "properties": {
+        "amount_claimed": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Amount sought by the plaintiff, in dollars.",
+          "title": "Amount Claimed"
+        },
+        "case_number": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Case Number"
+        },
+        "case_type": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Case type as written on the document, e.g. 'Unlawful Detainer', 'Forcible Entry and Detainer', 'Eviction'. Do not normalize.",
+          "title": "Case Type"
+        },
+        "county": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "County"
+        },
+        "court_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Court Name"
+        },
+        "defendants": {
+          "items": {
+            "$ref": "#/$defs/Party"
+          },
+          "title": "Defendants",
+          "type": "array"
+        },
+        "disposition": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Disposition"
+        },
+        "disposition_date": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Disposition Date"
+        },
+        "filing_date": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Filing Date"
+        },
+        "judgment": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Judgment"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "plaintiffs": {
+          "items": {
+            "$ref": "#/$defs/Party"
+          },
+          "title": "Plaintiffs",
+          "type": "array"
+        },
+        "state": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "State as written on the document, which may be a full name or an abbreviation. Normalizing to USPS codes is a downstream concern.",
+          "title": "State"
+        }
+      },
+      "title": "CourtRecord",
+      "type": "object"
+    },
+    "Evidence": {
+      "description": "Where in the source document a single field came from.",
+      "properties": {
+        "grounded": {
+          "default": false,
+          "description": "True when the quote was found verbatim in the source text. A false value on an AI extraction means the model produced a quote the document does not contain.",
+          "title": "Grounded",
+          "type": "boolean"
+        },
+        "quote": {
+          "description": "Verbatim span of source text supporting the field.",
+          "title": "Quote",
+          "type": "string"
+        },
+        "span": {
+          "anyOf": [
+            {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "integer"
+                }
+              ],
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Character offsets of the quote in the source text. Populated by the deterministic engine directly, and by the AI backends by locating the returned quote.",
+          "title": "Span"
+        }
+      },
+      "required": [
+        "quote"
+      ],
+      "title": "Evidence",
+      "type": "object"
+    },
+    "Judgment": {
+      "description": "The disposition of the case, where one is recorded.",
+      "properties": {
+        "amount": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Money judgment in dollars, if any.",
+          "title": "Amount"
+        },
+        "date": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Date"
+        },
+        "in_favor_of": {
+          "anyOf": [
+            {
+              "enum": [
+                "plaintiff",
+                "defendant"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "In Favor Of"
+        },
+        "type": {
+          "anyOf": [
+            {
+              "enum": [
+                "possession",
+                "money",
+                "possession_and_money",
+                "default",
+                "dismissal",
+                "stipulation",
+                "other"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Type"
+        }
+      },
+      "title": "Judgment",
+      "type": "object"
+    },
+    "Party": {
+      "description": "A named party to the action.",
+      "properties": {
+        "address": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Address"
+        },
+        "attorney": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Attorney"
+        },
+        "is_business": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "True when the party appears to be a company, LLC, trust, or other entity rather than a natural person.",
+          "title": "Is Business"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "role": {
+          "enum": [
+            "plaintiff",
+            "defendant",
+            "other"
+          ],
+          "title": "Role",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "role"
+      ],
+      "title": "Party",
+      "type": "object"
+    }
+  },
+  "$id": "https://github.com/evictionresearch/extract-text/blob/main/schema/court_record.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Generated from extract_text.schema. Do not hand-edit; run python/scripts/build_schema.py instead.",
+  "properties": {
+    "backend": {
+      "description": "Backend identifier, e.g. 'rules', 'anthropic', 'local'.",
+      "title": "Backend",
+      "type": "string"
+    },
+    "evidence": {
+      "additionalProperties": {
+        "$ref": "#/$defs/Evidence"
+      },
+      "description": "Keyed by dotted field path, e.g. 'case_number', 'judgment.amount', 'defendants.0.name'.",
+      "title": "Evidence",
+      "type": "object"
+    },
+    "method": {
+      "enum": [
+        "deterministic",
+        "ai"
+      ],
+      "title": "Method",
+      "type": "string"
+    },
+    "record": {
+      "$ref": "#/$defs/CourtRecord"
+    }
+  },
+  "required": [
+    "record",
+    "method",
+    "backend"
+  ],
+  "title": "Extraction",
+  "type": "object"
+}

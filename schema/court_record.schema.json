@@ -1,7 +1,153 @@
 {
   "$defs": {
+    "Address": {
+      "description": "A postal address, kept both as printed and split into parts.\n\n`raw` is always populated when an address was found at all. The parts are\nfilled when the parser could separate them; a missing part means the\ndocument did not print it or the parser could not isolate it, and the raw\nstring is the fallback for review.",
+      "properties": {
+        "city": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "City"
+        },
+        "raw": {
+          "description": "The address as printed, joined onto one line.",
+          "title": "Raw",
+          "type": "string"
+        },
+        "state": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "State"
+        },
+        "street": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "House number and street, e.g. '1234 Example Ave S'.",
+          "title": "Street"
+        },
+        "unit": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Apartment, unit, suite, or space, as printed.",
+          "title": "Unit"
+        },
+        "zip": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "5-digit ZIP, or ZIP+4 when the document prints one.",
+          "title": "Zip"
+        }
+      },
+      "required": [
+        "raw"
+      ],
+      "title": "Address",
+      "type": "object"
+    },
+    "Attorney": {
+      "description": "Counsel of record, usually the plaintiff's attorney on a summons.\n\nOn Washington summonses this is the block in the bottom-right corner of\nthe page. It matters for two reasons: it identifies who is filing, and it\nis the classic wrong-answer trap, because a naive extractor returns the\nattorney's address as the tenant's.",
+      "properties": {
+        "address": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Address"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "bar_numbers": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "State bar numbers as printed (WSBA numbers in Washington), ';' separated.",
+          "title": "Bar Numbers"
+        },
+        "firm": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Firm"
+        },
+        "names": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Attorney name(s) as printed, '; ' separated.",
+          "title": "Names"
+        },
+        "phone": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Phone"
+        }
+      },
+      "title": "Attorney",
+      "type": "object"
+    },
     "CourtRecord": {
-      "description": "A single eviction or unlawful detainer case.\n\nEvery field is optional. Court documents vary enormously by jurisdiction and\na missing field is information, not an error. Distinguishing \"the document\ndoes not say\" from \"the extractor failed to read it\" is the job of the\ncomparison report, not the schema.",
+      "description": "A single eviction or unlawful detainer case.\n\nEvery field is optional. Court documents vary enormously by jurisdiction and\na missing field is information, not an error. Distinguishing \"the document\ndoes not say\" from \"the extractor failed to read it\" is the job of the\ncomparison report and the flags, not the schema.",
       "properties": {
         "amount_claimed": {
           "anyOf": [
@@ -15,6 +161,18 @@
           "default": null,
           "description": "Amount sought by the plaintiff, in dollars.",
           "title": "Amount Claimed"
+        },
+        "attorney": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Attorney"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Plaintiff-side counsel of record, as printed."
         },
         "case_number": {
           "anyOf": [
@@ -64,6 +222,18 @@
           ],
           "default": null,
           "title": "Court Name"
+        },
+        "defendant_address": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Address"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The defendant household's service address from the summons: the single most important field for eviction research, because it is what geocoding and neighborhood analysis are built on."
         },
         "defendants": {
           "items": {
@@ -145,14 +315,105 @@
       "title": "CourtRecord",
       "type": "object"
     },
+    "DocumentInfo": {
+      "description": "How the text was obtained from the file, for provenance.",
+      "properties": {
+        "file": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "File name, not the full path.",
+          "title": "File"
+        },
+        "n_pages": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "N Pages"
+        },
+        "ocr_mean_conf": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Mean OCR word confidence 0-100, when OCR ran. Low values mean poor scans.",
+          "title": "Ocr Mean Conf"
+        },
+        "text_source": {
+          "anyOf": [
+            {
+              "enum": [
+                "plain_text",
+                "pdf_text_layer",
+                "pdf_ocr",
+                "tiff_ocr",
+                "image_ocr"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "'pdf_text_layer' means the PDF carried digital text and OCR was never run; the *_ocr values mean the page images were read by OCR at 300 dpi.",
+          "title": "Text Source"
+        }
+      },
+      "title": "DocumentInfo",
+      "type": "object"
+    },
     "Evidence": {
       "description": "Where in the source document a single field came from.",
       "properties": {
+        "anchor": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "For positional extraction, the named rule that produced the value, e.g. 'to_block', 'premises_prose', 'attorney_block'. This is the audit trail: every value records the rule that found it.",
+          "title": "Anchor"
+        },
         "grounded": {
           "default": false,
-          "description": "True when the quote was found verbatim in the source text. A false value on an AI extraction means the model produced a quote the document does not contain.",
+          "description": "True when the quote was verified against the source: found verbatim in the text, or produced directly by a positional rule reading the page. A false value on an AI extraction means the quote could not be verified against the document.",
           "title": "Grounded",
           "type": "boolean"
+        },
+        "page": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "1-based page the value was read from, if known.",
+          "title": "Page"
         },
         "quote": {
           "description": "Verbatim span of source text supporting the field.",
@@ -179,7 +440,7 @@
             }
           ],
           "default": null,
-          "description": "Character offsets of the quote in the source text. Populated by the deterministic engine directly, and by the AI backends by locating the returned quote.",
+          "description": "Character offsets of the quote in the source text. Populated by the deterministic engine when it read flat text, and by the AI backends by locating the returned quote.",
           "title": "Span"
         }
       },
@@ -265,14 +526,13 @@
         "address": {
           "anyOf": [
             {
-              "type": "string"
+              "$ref": "#/$defs/Address"
             },
             {
               "type": "null"
             }
           ],
-          "default": null,
-          "title": "Address"
+          "default": null
         },
         "attorney": {
           "anyOf": [
@@ -330,6 +590,17 @@
       "title": "Backend",
       "type": "string"
     },
+    "document": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/DocumentInfo"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
     "evidence": {
       "additionalProperties": {
         "$ref": "#/$defs/Evidence"
@@ -337,6 +608,14 @@
       "description": "Keyed by dotted field path, e.g. 'case_number', 'judgment.amount', 'defendants.0.name'.",
       "title": "Evidence",
       "type": "object"
+    },
+    "flags": {
+      "description": "Named review flags, e.g. 'no_defendant_address', 'low_ocr_conf', 'defendant_equals_attorney'. An empty list means every check passed. A flagged document belongs in the review queue; it is never silently guessed at.",
+      "items": {
+        "type": "string"
+      },
+      "title": "Flags",
+      "type": "array"
     },
     "method": {
       "enum": [

@@ -22,7 +22,10 @@ from ..schema import AIExtraction, Extraction
 from .base import SYSTEM_PROMPT, ground
 
 DEFAULT_HOST = "http://localhost:11434"
-DEFAULT_MODEL = "llama3.2"
+
+# Same default as the vision lane: one model serves both, so a local setup
+# only ever needs one pull. See ai/vision.py for why this model.
+DEFAULT_MODEL = "qwen3.5:9b"
 
 
 class LocalBackend:
@@ -41,9 +44,13 @@ class LocalBackend:
         self.timeout = timeout
 
     def extract(self, text: str) -> Extraction:
+        from .vision import resolve_model
+
+        model = resolve_model(self.model, self.host)
         payload = {
-            "model": self.model,
+            "model": model,
             "stream": False,
+            "think": False,
             "format": AIExtraction.model_json_schema(),
             "messages": [
                 {"role": "system", "content": SYSTEM_PROMPT},
@@ -84,7 +91,7 @@ class LocalBackend:
                 f"Local model returned output that did not match the schema: {exc}"
             ) from exc
 
-        return ground(parsed, text, backend=f"{self.name}:{self.model}")
+        return ground(parsed, text, backend=f"{self.name}:{model}")
 
 
 def available(host: str | None = None) -> bool:

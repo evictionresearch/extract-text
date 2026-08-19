@@ -1,0 +1,44 @@
+name: model-watch
+
+# The package's standing improvement schedule: on the first of every month,
+# open the review issue that MAINTENANCE.md describes, so checking for a
+# better local model is an appointment, not an intention. Runs in GitHub's
+# cloud, so it fires whether or not any maintainer's machine is awake.
+
+on:
+  schedule:
+    - cron: "0 15 1 * *"   # 15:00 UTC on the 1st, monthly
+  workflow_dispatch: {}
+
+permissions:
+  issues: write
+  contents: read
+
+jobs:
+  open-review-issue:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Open the monthly review issue (skip if it already exists)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          title="Model and dependency review, $(date -u +%Y-%m)"
+          if gh issue list --state all --search "in:title \"$title\"" --json title --jq '.[].title' | grep -Fxq "$title"; then
+            echo "Issue already exists: $title"
+            exit 0
+          fi
+          gh issue create --title "$title" --body "$(cat <<'EOF'
+          Monthly review per MAINTENANCE.md. Close with notes even if the
+          answer is "no change."
+
+          - [ ] Newer vision-capable local model (7-14B, open license, runs in 16 GB) worth benchmarking?
+          - [ ] Update tag for the pinned default (`qwen3.5:9b`) worth re-benchmarking?
+          - [ ] poppler / tesseract / ollama releases that touch pinned behavior?
+          - [ ] `pip list --outdated`: anything security-relevant in pydantic or Pillow?
+          - [ ] Flag rates drifting on known corpora (a rising `no_defendant_address` usually means a form layout changed)?
+          - [ ] Open validation milestones moved? (AI-lane head-to-head; deterministic re-score after the street-direction port fix)
+
+          Procedure and decision log: MAINTENANCE.md.
+          EOF
+          )"

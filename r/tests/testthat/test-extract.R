@@ -19,6 +19,12 @@ synthetic <- paste(
   sep = "\n"
 )
 
+# The file fixtures live with the Python tests; present when running from a
+# full clone of the repository, absent under R CMD check's isolated copy.
+fixtures_dir <- testthat::test_path("..", "..", "..", "python", "tests", "fixtures")
+have_fixture_files <- dir.exists(fixtures_dir)
+have_system_tools <- all(nzchar(Sys.which(c("pdftotext", "pdfinfo", "pdftoppm"))))
+
 test_that("deterministic extraction reads the caption and scalars", {
   skip_if_not(extracttext_available(), "Python engine not installed")
 
@@ -59,4 +65,41 @@ test_that("comparison rejects objects that are not extractions", {
 
   out <- extract_deterministic(synthetic)
   expect_error(compare_extractions(out, list(record = NULL)), "Expected a result")
+})
+
+test_that("a summons PDF extracts the address and attorney block", {
+  skip_if_not(extracttext_available(), "Python engine not installed")
+  skip_if_not(have_fixture_files, "fixture files not present (not a full clone)")
+  skip_if_not(have_system_tools, "poppler not installed")
+
+  out <- extract_deterministic(file.path(fixtures_dir, "synthetic_summons_efiled.pdf"))
+
+  expect_equal(out$record$case_number, "25-2-00001-0")
+  expect_equal(out$record$defendant_address$street, "1234 EXAMPLE AVE S APT 5")
+  expect_equal(out$record$defendant_address$zip, "98100")
+  expect_equal(out$record$attorney$firm, "EXAMPLE LAW GROUP PLLC")
+  expect_equal(out$record$attorney$address$street, "100 MAIN ST STE 200")
+  expect_length(out$flags, 0)
+  expect_equal(out$evidence$defendant_address$anchor, "to_block")
+})
+
+test_that("scan_documents returns one tidy row per file and writes outputs", {
+  skip_if_not(extracttext_available(), "Python engine not installed")
+  skip_if_not(have_fixture_files, "fixture files not present (not a full clone)")
+  skip_if_not(have_system_tools, "poppler not installed")
+
+  out_dir <- file.path(tempdir(), "extracttext-test-scan")
+  results <- scan_documents(
+    file.path(fixtures_dir, "synthetic_summons_efiled.pdf"),
+    out_dir = out_dir
+  )
+
+  expect_equal(nrow(results), 1L)
+  expect_equal(results$case_number, "25-2-00001-0")
+  expect_equal(results$defendant_street, "1234 EXAMPLE AVE S APT 5")
+  expect_equal(results$defendant_zip, "98100")
+  expect_equal(results$method, "deterministic")
+  expect_true(file.exists(file.path(out_dir, "extracted.csv")))
+  expect_true(file.exists(file.path(out_dir, "extracted.jsonl")))
+  expect_identical(attr(results, "out_dir"), out_dir)
 })

@@ -121,7 +121,17 @@ class ComparisonReport:
 
 
 def compare(a: Extraction, b: Extraction) -> ComparisonReport:
-    """Compare two extractions field by field."""
+    """Compare two extractions field by field.
+
+    Address `raw` strings get one special rule: two raws that clear the
+    same-street similarity threshold (the 0.7 normalized edit-distance
+    metric the validation work is scored on) count as agreement, because a
+    verbatim string match would flag every cosmetic difference in how two
+    engines trimmed the same block. Component fields (street, city, zip)
+    still compare exactly.
+    """
+    from .similarity import SAME_STREET_THRESHOLD, address_similarity
+
     flat_a = flatten(a.record.model_dump())
     flat_b = flatten(b.record.model_dump())
 
@@ -138,6 +148,9 @@ def compare(a: Extraction, b: Extraction) -> ComparisonReport:
             status = "only_b"
         elif ca == cb:
             status = "agree"
+        elif path.endswith(".raw") and isinstance(va, str) and isinstance(vb, str):
+            sim = address_similarity(va, vb)
+            status = "agree" if sim is not None and sim >= SAME_STREET_THRESHOLD else "disagree"
         else:
             status = "disagree"
 

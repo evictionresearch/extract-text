@@ -1,0 +1,59 @@
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  python:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install system programs (poppler, tesseract)
+        run: sudo apt-get update && sudo apt-get install -y poppler-utils tesseract-ocr
+      - name: Install package
+        run: pip install -e "python[dev]"
+      - name: Run tests
+        # The live-model test skips itself when no Ollama server is present.
+        run: cd python && pytest -q
+      - name: Lint
+        run: cd python && ruff check src tests scripts
+
+  pii-sweep:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # the sweep reads all of git history
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Sweep for case-number and address shapes
+        run: python3 python/scripts/pii_sweep.py
+
+  r:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          use-public-rspm: true
+      - uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          working-directory: r
+          extra-packages: any::rcmdcheck
+      - name: R CMD check
+        # Engine-dependent tests skip themselves when the Python engine is
+        # not installed; the check still validates structure, docs, and code.
+        uses: r-lib/actions/check-r-package@v2
+        with:
+          working-directory: r
+          args: 'c("--no-manual", "--as-cran")'

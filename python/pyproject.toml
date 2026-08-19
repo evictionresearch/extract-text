@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "extract-text"
-version = "0.1.0"
+version = "0.2.0"
 description = "Court record text extraction, deterministic and AI methods compared"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -22,19 +22,24 @@ classifiers = [
   "Intended Audience :: Science/Research",
 ]
 
-# The core engine has one dependency. Both AI backends are optional: the local
-# backend uses the standard library, and the Anthropic SDK is only needed if
-# you call the API.
-dependencies = ["pydantic>=2.7"]
+# Two runtime dependencies: pydantic for the field contract, Pillow for TIFF
+# frames and page rendering. PDFs and OCR go through the poppler and
+# tesseract system programs (see `extract-text doctor`). The local AI backend
+# uses the standard library; the Anthropic SDK is only needed for the cloud
+# API backend, which is optional by design.
+dependencies = ["pydantic>=2.7", "pillow>=10"]
 
 [project.optional-dependencies]
 anthropic = ["anthropic>=0.69"]
-pdf = ["pdfplumber>=0.11"]
+parquet = ["pyarrow>=16"]
 dev = [
-  "extract-text[anthropic,pdf]",
+  "extract-text[anthropic,parquet]",
   "pytest>=8",
   "ruff>=0.6",
 ]
+
+[project.scripts]
+extract-text = "extract_text.cli:main"
 
 [project.urls]
 Repository = "https://github.com/evictionresearch/extract-text"
@@ -47,3 +52,11 @@ testpaths = ["tests"]
 
 [tool.ruff]
 line-length = 88
+
+[tool.ruff.lint]
+# Correctness and import hygiene. Style-opinion rules stay off: the engine
+# deliberately uses broad exception handling in the batch runner (one bad
+# document must never sink a scan) and ported code keeps its source's shape,
+# including the `l`-for-line idiom (E741) and small helper lambdas (E731).
+select = ["E4", "E7", "E9", "F", "I"]
+ignore = ["E741", "E731"]

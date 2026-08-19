@@ -16,7 +16,7 @@ import sys
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "src"))
 
-from extract_text.schema import Extraction  # noqa: E402
+from extract_text.schema import Extraction
 
 OUT = pathlib.Path(__file__).resolve().parents[2] / "schema" / "court_record.schema.json"
 

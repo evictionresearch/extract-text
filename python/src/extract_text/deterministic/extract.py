@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import re
 from datetime import date, datetime
-from typing import Any, Optional
+from typing import Any
 
 from ..schema import CourtRecord, Evidence, Extraction, Judgment, Party
 from .patterns import BUSINESS_MARKERS, CAPTIONS, PARTY_SPLIT, PATTERNS
@@ -22,7 +22,7 @@ _DATE_FORMATS = (
 )
 
 
-def parse_date(raw: str) -> Optional[date]:
+def parse_date(raw: str) -> date | None:
     """Parse the date shapes court documents actually use.
 
     Returns None rather than raising: an unparseable date is a data problem to
@@ -37,7 +37,7 @@ def parse_date(raw: str) -> Optional[date]:
     return None
 
 
-def parse_money(raw: str) -> Optional[float]:
+def parse_money(raw: str) -> float | None:
     digits = re.sub(r"[^\d.]", "", raw)
     try:
         return float(digits)
@@ -45,7 +45,7 @@ def parse_money(raw: str) -> Optional[float]:
         return None
 
 
-def _first_match(text: str, field: str) -> Optional[re.Match[str]]:
+def _first_match(text: str, field: str) -> re.Match[str] | None:
     for pattern in PATTERNS.get(field, []):
         match = pattern.search(text)
         if match:

@@ -1,6 +1,6 @@
 Package: extracttext
 Title: Court Record Text Extraction, Deterministic and AI Compared
-Version: 0.1.0
+Version: 0.2.0
 Authors@R: c(
     person("Cheng", "Ren", role = "aut"),
     person("Tim", "Thomas", , "timthomas@berkeley.edu", role = c("aut", "cre")),
@@ -8,19 +8,21 @@ Authors@R: c(
   )
 Description: Extracts structured fields from United States court records, most
     often eviction and unlawful detainer filings, using rule-based and language
-    model methods, then reports where the two disagree. Wraps the Python
-    extract_text engine through reticulate so that the Eviction Research Network
-    state pipelines can call it directly. Records extracted with a local model
-    never leave the machine.
+    model methods, then reports where the two disagree. Reads e-filed PDFs,
+    scanned PDFs, and TIFFs; extracts party names, the defendant service
+    address, and the plaintiff attorney block; and flags anything uncertain
+    for human review. Wraps the Python extract_text engine through reticulate.
+    Records processed with the default engines never leave the machine.
 License: AGPL (>= 3)
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
-RoxygenNote: 7.3.2
+RoxygenNote: 8.0.0
 Depends:
     R (>= 4.1)
 Imports:
     reticulate (>= 1.35),
-    tibble
+    tibble,
+    utils
 Suggests:
     testthat (>= 3.0.0)
 Config/testthat/edition: 3

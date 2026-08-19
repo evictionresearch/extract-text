@@ -1,0 +1,797 @@
+# The extract-text manual
+
+This manual explains how to install and use extract-text, a free, open-source
+tool that reads eviction court documents and turns them into a spreadsheet-style
+table of names, addresses, and case details. It is written for someone
+comfortable with either R or Python at an everyday level. It does not assume
+you know anything about PDF internals, optical character recognition, or
+artificial intelligence, and it explains each of those in plain terms at the
+point where they matter.
+
+Everything in this manual that shows example data uses invented documents. No
+real case, person, or address appears anywhere in this project, and the
+project's rules require it to stay that way.
+
+## Contents
+
+1. [What this tool does](#1-what-this-tool-does)
+2. [The two engines, and which to use](#2-the-two-engines-and-which-to-use)
+3. [What you need before installing](#3-what-you-need-before-installing)
+4. [Installation for Python users](#4-installation-for-python-users)
+5. [Installation for R users](#5-installation-for-r-users)
+6. [Setting up the AI engine (optional)](#6-setting-up-the-ai-engine-optional)
+7. [Checking your setup](#7-checking-your-setup)
+8. [Your first document](#8-your-first-document)
+9. [Processing a folder of documents](#9-processing-a-folder-of-documents)
+10. [The output, column by column](#10-the-output-column-by-column)
+11. [Flags and the review workflow](#11-flags-and-the-review-workflow)
+12. [How it works under the hood](#12-how-it-works-under-the-hood)
+13. [Accuracy, measured honestly](#13-accuracy-measured-honestly)
+14. [Privacy and security](#14-privacy-and-security)
+15. [Settings you may want to change](#15-settings-you-may-want-to-change)
+16. [Using this outside Washington](#16-using-this-outside-washington)
+17. [Speed and hardware](#17-speed-and-hardware)
+18. [Troubleshooting](#18-troubleshooting)
+19. [Glossary](#19-glossary)
+20. [References and how to cite](#20-references-and-how-to-cite)
+21. [Getting help](#21-getting-help)
+
+---
+
+## 1. What this tool does
+
+Eviction case files arrive as images of paper. A county archive typically
+holds a mix of three formats. Some documents are e-filed PDFs, where the text
+is digitally embedded and can be selected with a cursor. Some are scans, where
+the PDF is only a photograph of a page. Older archives often use TIFF image
+files, another photograph format. None of the three is a spreadsheet, and the
+information researchers and agencies need, who was filed against, where they
+live, who filed, is buried inside page images at a scale no person can read
+through.
+
+extract-text reads those files and produces a table with one row per document.
+The fields it is built to find, in order of how much they matter for housing
+research, are
+
+- the defendant's service address (the tenant household's address, which is
+  what mapping and neighborhood analysis are built on)
+- the names of the defendants and the plaintiff, as printed
+- the plaintiff attorney's firm, address, phone, and bar number
+- the case number, and general fields where documents carry them (court,
+  county, case type, filing date, judgment amounts and dates)
+
+Two independent engines can do the reading. One follows written rules and
+never involves any artificial intelligence. The other uses an AI model that
+runs entirely on your own computer. You choose one, the other, or both, every
+time you run the tool. Anything either engine is unsure about is flagged for a
+person to check rather than guessed at.
+
+The tool was built by the Eviction Research Network and validated on more than
+a million pages of Washington State court filings from four counties. The
+method behind it is peer reviewed (see [section 20](#20-references-and-how-to-cite)).
+It works anywhere court documents look broadly like American court documents,
+with the honest caveats in [section 16](#16-using-this-outside-washington).
+
+## 2. The two engines, and which to use
+
+**The deterministic engine** reads the document with written rules. It looks
+for the address in the places summonses put it, uses the geometry of the page
+to tell the tenant's address apart from the attorney's, and records, for every
+value it returns, exactly which rule found it and where on the page. It is
+called deterministic because the same input always produces the same output,
+which matters when results have to be reproducible, auditable, or defensible.
+It involves no AI of any kind, no model files, and no network activity, so it
+is the engine for agencies whose policies do not yet permit AI tools. Its
+limitation is coverage. Rules read the documents they were written for, and a
+document layout the rules have never seen, or handwriting, produces a flag
+instead of an answer.
+
+**The AI engine** shows a picture of the page to a language model running on
+your own computer and asks it, with a carefully designed request, to return
+the same fields. It reads layouts the rules were not written for and, notably,
+handwriting, which no conventional text-recognition software handles well. Its
+limitation is trust. A language model can produce a confident, fluent, wrong
+answer, so this engine's output is verified where possible (see grounding, in
+[section 12](#12-how-it-works-under-the-hood)) and is best used alongside the
+deterministic engine rather than alone.
+
+**Running both** is the recommended mode when you are allowed to use both. The
+deterministic answer fills the main columns, the AI answer lands in columns
+beside it, and every disagreement is measured and flagged. Agreement between
+two independent methods is good evidence a value is right. Disagreement tells
+you exactly which documents deserve a person's attention, and that is a far
+smaller pile than all of them.
+
+A plain decision guide, in one table.
+
+| Your situation | Use |
+|---|---|
+| Policy does not permit AI tools | `deterministic` |
+| You want maximum confidence and can use AI | `both` |
+| Your documents include handwriting or unusual layouts | `both` (the AI columns cover what rules miss) |
+| Quick exploration of a new corpus | `deterministic` first, look at flags, then decide |
+
+The engines never blend silently. A value in a deterministic column always
+came from rules; AI answers are always labeled as such.
+
+## 3. What you need before installing
+
+**A computer.** Any reasonably modern laptop or desktop on macOS, Linux, or
+Windows. The deterministic engine is light. The AI engine needs about 16 GB of
+memory to run comfortably.
+
+**Three helper programs**, all free and open source, installed once from your
+system's package manager.
+
+- **poppler** opens PDF files. It provides the small programs extract-text
+  uses to pull digital text out of e-filed PDFs and to turn scanned pages
+  into images.
+- **tesseract** performs optical character recognition, OCR for short. OCR is
+  software that looks at a picture of a page and works out what characters
+  are printed on it. It is what makes scanned documents readable at all, and
+  it is only used when a document has no digital text of its own.
+- **ollama** (optional, only for the AI engine) is a program that downloads
+  and runs AI models on your own machine, the way a music app plays files it
+  has downloaded. Nothing you process is sent anywhere; ollama is a local
+  program listening only to your own computer.
+
+**An internet connection during installation only.** Once the software and,
+optionally, the AI model are downloaded, everything runs with the network
+cable unplugged. That is a design requirement of this project, not an
+accident, and [section 14](#14-privacy-and-security) spells it out.
+
+Install commands for the helper programs, by operating system.
+
+| | poppler | tesseract | ollama |
+|---|---|---|---|
+| macOS (Homebrew) | `brew install poppler` | `brew install tesseract` | `brew install ollama`, or the installer at ollama.com |
+| Debian/Ubuntu | `sudo apt install poppler-utils` | `sudo apt install tesseract-ocr` | installer at ollama.com |
+| Windows | poppler for Windows build, added to PATH | UB Mannheim tesseract installer, added to PATH | installer at ollama.com |
+
+If any of that sounds unfamiliar, install what you can, then run the checkup
+in [section 7](#7-checking-your-setup). It looks at your machine and prints
+the exact command for anything missing.
+
+## 4. Installation for Python users
+
+You need Python 3.10 or newer. In a terminal,
+
+```bash
+pip install "extract-text @ git+https://github.com/evictionresearch/extract-text#subdirectory=python"
+```
+
+That installs the package and its two Python dependencies (pydantic, which
+enforces the data structure, and Pillow, which reads TIFF files). Two optional
+extras exist.
+
+```bash
+# adds .parquet output files alongside the CSV
+pip install "extract-text[parquet] @ git+https://github.com/evictionresearch/extract-text#subdirectory=python"
+
+# adds the cloud API backend. Read section 14 before considering this.
+pip install "extract-text[anthropic] @ git+https://github.com/evictionresearch/extract-text#subdirectory=python"
+```
+
+If you cloned the repository, `pip install -e "python[parquet]"` from the
+repository root does the same from your local copy.
+
+Installing the Python package also installs the `extract-text` command for
+your terminal, which can run everything with no Python code at all.
+
+## 5. Installation for R users
+
+You need R 4.1 or newer. The R package is a complete interface to the same
+engine; R users are not second-class here, and every capability in this
+manual has an R form.
+
+```r
+install.packages("remotes")
+remotes::install_github("evictionresearch/extract-text", subdir = "r")
+
+library(extracttext)
+extracttext_install()   # one time: sets up the Python engine behind the scenes
+```
+
+`extracttext_install()` creates a private Python environment named
+`r-extracttext` and installs the engine into it. You do not need to know
+Python or manage it afterward; the reticulate package carries R calls across
+to the engine automatically. Restart R after the install, then run
+`extracttext_doctor()` to confirm everything is in place.
+
+The helper programs in [section 3](#3-what-you-need-before-installing) are
+still needed, because the engine calls them no matter which language you work
+from.
+
+## 6. Setting up the AI engine (optional)
+
+Skip this section entirely if you will only use the deterministic engine.
+Nothing else in the tool depends on it.
+
+1. Install ollama (table in [section 3](#3-what-you-need-before-installing))
+   and start it. On macOS and Windows it runs as an app; on Linux,
+   `ollama serve` in a terminal.
+2. Download the model, once:
+
+   ```bash
+   ollama pull qwen3.5:9b
+   ```
+
+   This is about a 7 GB download. After it completes, the model lives on your
+   disk and no further downloads happen. If you already have `qwen3.5:latest`
+   and it points at the same 9B model, this command adds the exact tag name
+   without downloading anything again.
+
+The model, qwen3.5 9B, is the one this project currently recommends and tests
+against. In plain terms it is a vision-capable language model, a program that
+can look at an image and answer questions about it, with roughly nine billion
+internal parameters, which is small enough to run on an ordinary 16 GB
+workstation and large enough to read court documents well. It is released
+under the Apache 2.0 license, a permissive open-source license, which matters
+to agencies that must account for every component they run. The project
+re-evaluates this choice on a schedule (see `MAINTENANCE.md` in the
+repository) and the default will move when something better runs on the same
+class of hardware.
+
+If you pulled a different tag of the same model family (for example
+`ollama pull qwen3.5`, which gives `qwen3.5:latest`), extract-text will use it
+and print a note saying so. The output always records exactly which model
+produced it.
+
+## 7. Checking your setup
+
+One command examines your machine and reports what is ready, what is missing,
+and the exact command that fixes each missing piece.
+
+Terminal:
+
+```bash
+extract-text doctor
+```
+
+R:
+
+```r
+extracttext_doctor()
+```
+
+The report covers the helper programs, the Python engine, whether ollama is
+running, and whether the model is pulled. It reads none of your documents and
+touches no network beyond asking the ollama program on your own machine what
+models it has. When the last line says the deterministic engine can run, you
+are ready.
+
+## 8. Your first document
+
+The repository ships synthetic example documents in
+`python/tests/fixtures/`, generated by a script and containing no real
+information. `synthetic_summons_efiled.pdf` is a one-page Washington-style
+summons for an invented case. These examples are the right way to learn the
+tool before any real record is involved.
+
+Python:
+
+```python
+from extract_text import extract
+
+result = extract("synthetic_summons_efiled.pdf")
+
+result.record.case_number             # '25-2-00001-0'
+result.record.defendant_address.raw   # '... 1234 EXAMPLE AVE S APT 5 SEATTLE, WA 98100'
+result.record.defendant_address.zip   # '98100'
+[d.name for d in result.record.defendants]
+                                      # ['JANE Q. TENANT', 'JON Q. TENANT']
+result.record.attorney.firm           # 'EXAMPLE LAW GROUP PLLC'
+result.flags                          # []  (empty means every check passed)
+```
+
+R:
+
+```r
+library(extracttext)
+
+result <- extract_deterministic("synthetic_summons_efiled.pdf")
+
+result$record$case_number
+result$record$defendant_address$street
+result$record$attorney$firm
+result$flags
+
+record_to_row(result)   # the same thing as a one-row tibble
+```
+
+Terminal, no programming at all:
+
+```bash
+extract-text extract synthetic_summons_efiled.pdf
+```
+
+To run both engines on the same document and see where they agree,
+
+```python
+both = extract("synthetic_summons_efiled.pdf", engine="both")
+both.record.defendant_address.street     # the deterministic answer
+both.ai.record.defendant_address.raw     # the AI answer, kept separate
+both.comparison.needs_review             # fields a person should look at
+```
+
+```r
+rules <- extract_deterministic("synthetic_summons_efiled.pdf")
+model <- extract_ai("synthetic_summons_efiled.pdf")
+compare_extractions(rules, model)$needs_review
+```
+
+Every extracted value carries its evidence. `result$evidence` (R) or
+`result.evidence` (Python) maps each field to where it came from, including
+the named rule that produced it, such as `to_block` for the service-address
+rule. That audit trail is what lets a reviewer trace any cell in the final
+table back to a spot on the original page.
+
+## 9. Processing a folder of documents
+
+Point the batch runner at files or folders. It finds every PDF, TIFF, PNG,
+and JPEG underneath, processes them in a fixed order, and writes results as
+it goes.
+
+Terminal:
+
+```bash
+extract-text scan ~/data/summonses/2026-07/ --engine both \
+    --out ~/data/extractions/2026-07/ --review
+```
+
+Python:
+
+```python
+from extract_text import scan
+
+rows = scan("~/data/summonses/2026-07/", engine="both",
+            out_dir="~/data/extractions/2026-07/")
+```
+
+R:
+
+```r
+results <- scan_documents("~/data/summonses/2026-07/", engine = "both",
+                          out_dir = "~/data/extractions/2026-07/",
+                          review = TRUE)
+```
+
+The output directory receives
+
+- `extracted.csv`, one row per document, openable in anything
+- `extracted.parquet`, the same table in a faster format, written when the
+  parquet extra is installed
+- `extracted.jsonl`, the full detail per document (every field, its evidence,
+  its flags), one JSON object per line; this is the audit trail behind the CSV
+- `review/index.html`, when review is requested, described in
+  [section 11](#11-flags-and-the-review-workflow)
+
+Choose the output directory the way you would choose a filing cabinet for
+paper court records. These files contain whatever the documents contain,
+names and addresses included. Keep them on governed storage, never inside a
+code repository, and never anywhere publicly served. The repository's
+`DATA-USE.md` states the terms that travel with data extracted by the
+project's own team, and it is a sensible template for anyone else's practice.
+
+## 10. The output, column by column
+
+The main columns of `extracted.csv`, in the order they appear. The R
+functions return the same columns, from the same code, so the two can never
+drift apart.
+
+| Column | Meaning |
+|---|---|
+| `file` | Document file name |
+| `case_number` | Case number read from the document itself |
+| `plaintiffs` | Plaintiff name(s) as printed, separated by semicolons |
+| `defendant_names` | Defendant name(s) as printed, separated by semicolons |
+| `n_defendants` | How many defendants were named |
+| `defendant_address_raw` | The service address exactly as captured, one line |
+| `defendant_street` | House number and street, split out |
+| `defendant_unit` | Apartment, unit, or suite, when printed |
+| `defendant_city`, `defendant_state`, `defendant_zip` | The rest of the address, split out |
+| `defendant_anchor` | Which rule found the address (the audit trail; see section 12) |
+| `attorney_names`, `attorney_firm` | Plaintiff counsel, as printed |
+| `attorney_address_raw`, `attorney_street`, `attorney_unit`, `attorney_city`, `attorney_state`, `attorney_zip` | The attorney's address, kept firmly separate from the defendant's |
+| `attorney_phone`, `attorney_bar_numbers` | Contact and bar registration (WSBA numbers in Washington) |
+| `court_name`, `county`, `state`, `case_type` | Case-level fields as written on the document |
+| `filing_date`, `amount_claimed`, `judgment_amount`, `judgment_date`, `disposition`, `disposition_date` | Present when the document type carries them |
+| `n_ungrounded` | For AI output, how many values could not be verified against the document text (0 for deterministic output) |
+| `n_pages` | Pages in the file |
+| `text_source` | How the text was obtained. `pdf_text_layer` means digital text, no OCR involved. `pdf_ocr`, `tiff_ocr`, and `image_ocr` mean OCR read the page images |
+| `ocr_mean_conf` | OCR's own confidence in what it read, 0 to 100, only when OCR ran. Low values usually mean a poor scan |
+| `method`, `backend` | Which engine produced the row's main columns, and exactly which rules or model |
+| `flags` | Review flags, semicolon separated. Empty means every check passed |
+
+When the engine is `both`, these additional columns appear.
+
+| Column | Meaning |
+|---|---|
+| `ai_case_number`, `ai_plaintiff`, `ai_defendant_names`, `ai_defendant_address`, `ai_law_firm`, `ai_law_firm_address` | The AI engine's answers, never blended into the main columns |
+| `ai_backend` | Exactly which model produced them |
+| `ai_flags` | Flags raised by the AI lane itself |
+| `address_similarity` | How alike the two engines' addresses are, 0 to 1, using the same similarity measure as the validation work |
+| `address_same_street` | Whether that similarity clears the 0.7 threshold the validation work counts as a same-street match |
+| `case_number_agree` | Whether both engines read the same case number |
+
+## 11. Flags and the review workflow
+
+The design principle is flagged, never guessed. A document that fails any
+check gets a named flag and keeps moving; nothing invents an answer to keep a
+row looking complete. The flags and what to do about them.
+
+| Flag | What it means | What to do |
+|---|---|---|
+| `no_defendant_address` | No rule found a service address | Review the document; often handwriting or an unusual layout. In `both` mode, check the AI columns |
+| `defendant_address_incomplete` | A street was found but no city or ZIP | Usually recoverable by a person in seconds |
+| `defendant_block_low_conf` | OCR read the address block with low confidence | Poor scan or handwriting; verify against the page image |
+| `low_ocr_conf` | The whole page read poorly | Consider a better scan if one exists |
+| `no_text` | Nothing readable at all | Corrupt file or blank page |
+| `house_number_repaired` | OCR confused characters in the house number (a common example is reading 1234 as L234) and a documented repair was applied | Informational; spot-check a sample |
+| `pro_se_plaintiff` | The plaintiff appears self-represented | Informational; no attorney block is expected |
+| `no_attorney_block` | No attorney block was found and the plaintiff is not marked self-represented | Review |
+| `defendant_equals_attorney` | The two addresses came out identical, the classic wrong-address failure | Always review; the row is untrustworthy |
+| `case_number_mismatch` | The number on the document disagrees with the number the file was supposed to be | Filing or download mix-up; review |
+| `scan_error:*` | The file could not be processed at all | Check the file |
+| `engines_disagree_address` (both mode) | The two engines found different addresses | Review; one of them is wrong |
+| `only_ai_found_address` / `only_rules_found_address` (both mode) | One engine found an address, the other did not | Review the finder's answer against the page |
+| `vision_json_fallback` / `vision_no_fields` (AI lane) | The model's reply needed repair, or contained nothing | Treat that row's AI columns skeptically |
+
+The review page turns this into a workflow. `extract-text review --out DIR`
+(or `review = TRUE` in R, `--review` on the scan command) builds
+`review/index.html`, a single page showing each document's first-page image
+beside everything extracted from it, flagged documents first. A person scrolls,
+compares, and fixes the table where needed. No software is installed to view
+it; it is a plain HTML file.
+
+How much review to expect depends entirely on your documents. As one
+reference point, in the Washington validation work
+([section 13](#13-accuracy-measured-honestly)) roughly 84 to 100 percent of
+documents yielded an address depending on the era and format of the corpus,
+and the genuinely wrong addresses among extractions were about 1.5 percent,
+concentrated in rows that were already flagged. Plan for a person to look at
+the flagged minority, plus a small random sample of unflagged rows as a
+standing habit.
+
+## 12. How it works under the hood
+
+You do not need this section to use the tool. It is here because
+understanding the mechanism makes the flags and the failure modes make sense,
+and because this project believes tools used on court records should be
+explainable to the people affected by them.
+
+**Reading the file.** An e-filed PDF carries its text digitally, with the
+position of every word on the page, so the tool reads that directly and
+perfectly; OCR never runs. A scanned PDF or TIFF is only a picture, so the
+tool renders each needed page at 300 dots per inch and hands it to tesseract,
+the OCR program, which returns its best guess at every word, that word's
+position, and a confidence score. Either way, the result is the same thing, a
+list of words with page coordinates. The engine only reads the pages it needs
+(the first two and the last, where summons fields live), and reads deeper
+only when a document turns out to be a combined bundle.
+
+**Why positions matter.** Court pleading paper prints a rail of line numbers,
+1 through 26, down the left margin of every page. To OCR, those digits are
+just more text, and naive extraction interleaves them into whatever sits
+beside them, so an address like 123 4th Street S, Seattle comes out as
+123 4th Street S 17 18 Seattle. This exact failure is documented in the
+project's 2024 paper. Because every word here carries its position, the rail
+is identified geometrically, digits in the margin band, and deleted before
+any text is assembled. The same positional information is what tells a
+bottom-right attorney block apart from a mid-page service block, which no
+amount of text-only pattern matching can do reliably.
+
+**The anchor ladder.** The defendant's address is searched for by four named
+rules in a fixed order, and the first to succeed wins. `to_block` finds the
+mid-page service block that begins TO: or TO DEFENDANT. `premises_prose`
+finds sentences of the form "premises located at ...". `address_stack` finds
+a bare street line with a city line under it in the body of older summonses.
+`caption_cell` finds an address printed inside the caption's defendant cell.
+Every extracted address records which anchor produced it, in the
+`defendant_anchor` column, so systematic problems can be traced to a specific
+rule and fixed.
+
+**The attorney block.** Found geometrically in the bottom-right region,
+scored on whether it contains a firm-like name, a street, a city line, and a
+phone number, with form-publisher footers explicitly vetoed. It is extracted
+partly for its own value and partly as a defense, because knowing where the
+attorney's address is stops it from being mistaken for the tenant's. If the
+two ever come out identical the row is flagged `defendant_equals_attorney`
+rather than passed through.
+
+**The AI engine.** A language model is a program trained on enormous amounts
+of text to predict what comes next, which in practice makes it able to answer
+questions about content it is shown. A vision model is one that can also look
+at images. The AI engine renders page one of the document as an image, sends
+it to the qwen3.5 model running inside ollama on your machine, and asks one
+fixed, carefully worded question requesting six fields back in a rigid
+format, with instructions to say NA rather than guess. The reply is parsed
+strictly, with two documented fallback parsers for near-miss replies, and
+mapped into the same fields the deterministic engine produces.
+
+**Grounding, the defense against confident nonsense.** Language models
+sometimes produce fluent answers that the document does not support. Where
+document text is available (always, in `both` mode), each AI answer is
+checked for whether it actually appears in the document, allowing for line
+wrapping. Answers that cannot be found are marked unverified, counted in
+`n_ungrounded`, and listed for review. The model is deliberately never asked
+to rate its own confidence, because that rating would be generated by the
+same process that generated any error.
+
+**Reproducibility.** The deterministic engine is reproducible by
+construction, with pinned OCR settings and ordered rules. The AI engine is
+pinned as far as an AI engine can be, temperature zero and a fixed seed, but
+a model update or different hardware can still change its output, which is
+one more reason the two engines stay separate and labeled.
+
+## 13. Accuracy, measured honestly
+
+The numbers below come from the Eviction Research Network's validation runs
+of July 2026, scoring the Washington scanner that this package's
+deterministic engine is a direct port of, against more than 5,100
+hand-labeled addresses from real Washington cases. (The labeled data lives in
+the network's governed research archive, not in this repository.) Similarity
+is a normalized edit-distance measure between the extracted address and the
+hand label, where 1.0 is identical; 0.7 or above corresponds to the same
+street and is the threshold the 2024 paper used.
+
+| Truth set | n | Address found | Mean similarity | Same street (at least 0.7) | ZIP agreement |
+|---|---|---|---|---|---|
+| King County 2013 scans (dissertation labels) | 200 | 83.5% | 0.867 | 94.0% | 90.7% |
+| King County 2017 e-filed (legal-aid intake labels) | 100 | 90.0% | 0.886 | 90.0% | 94.3% |
+| Pierce County, hand-swiped labels | 11 | 100% | 0.922 | 100% | 90.9% |
+| Pierce County, manual labels (includes handwritten forms) | 6 | 66.7% | 0.897 | 100% | 100% |
+
+For context, the pipeline published in the 2024 paper scored a 0.82 mean
+similarity on the same truth data; the current engine runs 0.87 to 0.92.
+E-filed documents are the easiest and most reliable format. The misses in the
+Pierce manual set are handwritten forms, which is precisely the case the AI
+lane exists for; in bench testing the AI engine returned structured fields
+for all 300 pages of a Pierce County test set and recovered a handwritten
+service address that OCR returned as noise.
+
+Read the table with these cautions.
+
+- The numbers describe Washington documents from specific counties and eras.
+  They are evidence of how the method behaves, not a promise about your
+  corpus. Different jurisdictions will differ.
+- The AI lane is spot-validated, not yet formally scored against the same
+  labeled sets. A head-to-head is the project's next validation milestone,
+  and `MAINTENANCE.md` tracks it.
+- Part of the sub-0.7 residue in the table is the metric, not the extraction;
+  for example, extractions that included unit numbers the hand labels
+  omitted score low despite being more complete than the label.
+- This package's port makes one deliberate narrowing of a validated pattern
+  (a street-direction boundary fix, documented in the source), which should
+  only remove a class of wrong answers; re-scoring on the labeled sets is on
+  the maintenance schedule.
+
+If you need numbers for your own jurisdiction, the path is the one this
+project used. Have people hand-label a few hundred documents, run the tool,
+and score the two against each other with the similarity functions shipped in
+`extract_text.similarity`. [Section 16](#16-using-this-outside-washington)
+says more.
+
+## 14. Privacy and security
+
+Court records name real people at the worst moments of their housing lives.
+This project treats that as a design constraint, and the constraint is
+simple to state. With the default engines, no document, no page image, no
+extracted value, and no fragment of any of them leaves your computer, ever.
+
+What backs that claim.
+
+- The deterministic engine is rules running in-process, plus two local
+  programs (poppler, tesseract) that read files on disk. There is no network
+  code in that path at all.
+- The AI engine talks only to ollama, which is a program on your own machine
+  serving a model from your own disk. The address it uses is localhost, which
+  is computer-speak for "this machine and nowhere else."
+- The tool contains no telemetry, no usage reporting, no update checks, and
+  no cloud anything. After installation it runs fully offline.
+- The code is open source under a license (AGPL-3.0) that requires anyone who
+  modifies and serves it to publish their modifications. You, or your
+  security team, can read every line and verify each statement above, and
+  the project considers that checkability part of the security story.
+
+One exception exists and is opt-in three times over. A backend for Anthropic's
+cloud API ships in the package for corpora that are already cleared for
+third-party processing. It is never a default, it requires installing a
+separate extra, it requires an API key, and its own documentation repeats
+this warning. If your records must stay local, simply never type
+`backend="anthropic"`, and nothing will ever leave.
+
+Two practices this project follows and recommends.
+
+- **Code and data live apart.** The repository holds code and synthetic
+  examples only. Outputs, which contain names and addresses, go to governed
+  storage. The repository's rules (`CONTRIBUTING.md`) forbid real records in
+  code, tests, fixtures, and documentation, and `python/scripts/pii_sweep.py`
+  checks the repository, including its git history, for anything shaped like
+  a real case number or address. Run it before sharing any fork.
+- **Treat outputs as what they are.** A table of names and addresses
+  extracted from court records identifies people. Store it with the same
+  access controls you would give the source documents, and read `ETHICS.md`
+  and `DATA-USE.md`, which state the uses this project supports and refuses.
+
+## 15. Settings you may want to change
+
+Everything below has a sensible default, and the defaults are the tested
+configuration. Change them knowingly.
+
+| Setting | Where | Default | Why change it |
+|---|---|---|---|
+| `engine` | every entry point | `deterministic` | `ai` or `both`, per section 2 |
+| `model` | AI calls, `--model` | `qwen3.5:9b` | A newer recommended model, or a larger one if you have the memory |
+| `host` | AI backends, or the `OLLAMA_HOST` environment variable | `http://localhost:11434` | Ollama running on another port, or a shared machine inside your own network |
+| `temperature` | AI backends | `0.0` | Higher values make the model more variable; there is no good reason for that here |
+| `seed` | AI backends | `42` | Reproducibility bookkeeping |
+| `dpi` | vision rendering | `150` | Raise if page images are unusually dense |
+| `page` | vision backend | `1` | Extract from a different page of the file |
+| `expected_case_number` | deterministic calls | none | Enables the mismatch flag when you already know which case a file should be |
+| `limit` | scan | all | Trial runs on the first N documents |
+| `parquet` | scan | write if available | Force on (error if pyarrow missing) or off |
+
+The OCR settings, engine choice inside tesseract, 300 dpi rasterization, and
+page selection, are deliberately pinned rather than exposed, because they are
+part of what was validated. They live in one place in the source
+(`documents.py`) if a fork truly needs different ones.
+
+## 16. Using this outside Washington
+
+The package was trained and validated on Washington unlawful detainer
+documents. What transfers, and what to check, if your documents come from
+somewhere else.
+
+**What transfers as-is.** The file handling (e-filed, scanned, TIFF), the
+line-number rail removal (pleading paper is near-universal in American
+courts), the general field patterns (case numbers, dates, amounts, captions),
+the service-block and premises anchors (TO: blocks and "premises located at"
+phrasing are standard summons furniture), the attorney-block geometry
+(bottom-right placement is convention), the AI engine (nothing about it is
+Washington-specific), and the whole flag-and-review design.
+
+**What is Washington-tuned.** Three things in
+`python/src/extract_text/deterministic/summons.py`, each marked at its
+definition. The city-state-ZIP pattern expects WA or Washington as the state
+token. The strict case-number format (##-2-#####-#) is the Washington
+superior court convention; elsewhere, the generic case-number patterns still
+apply. Bar numbers are recognized by the WSBA label. Adapting these for
+another state is a contained, reviewable change, and the project welcomes
+such contributions as pull requests (see `CONTRIBUTING.md`; note the rule
+that examples must be synthetic).
+
+**How to validate in a new place.** Do not trust transferred rules blind, and
+do not trust the AI lane blind either. Sample a few hundred documents, have
+people record the true address for each, run the tool, and score with
+`extract_text.similarity.address_similarity`. That is the same procedure the
+Washington numbers come from, and it turns "it seems to work" into a number
+you can put in a methods section.
+
+## 17. Speed and hardware
+
+Measured behavior, so you can plan capacity.
+
+- The deterministic engine runs at roughly 5 seconds per document on an
+  ordinary laptop CPU when OCR is involved, and much faster on e-filed PDFs,
+  which skip OCR entirely.
+- The AI engine benchmarked 300 summons pages in 83 minutes on ordinary
+  hardware, roughly 17 seconds per page, and matched that rate on the
+  machine this package was built on.
+- Memory: the deterministic engine is light; the AI engine wants about 16 GB
+  of system memory with the 9B model.
+- Marginal cost: zero. No per-page fees, no cloud bill, no license cost
+  anywhere in the stack.
+
+Worked example. A county receiving about 700 filings a month can expect the
+deterministic pass over a month's summonses to take on the order of an hour
+on one workstation, and an AI pass over the same documents to run overnight.
+At a 90 percent address yield, the flagged review pile is about 70 documents
+a month, which is an hour or two of a person's time with the review page.
+
+## 18. Troubleshooting
+
+Each entry pairs the message you will actually see with the fix.
+
+**"The program 'pdftotext' is needed to read text out of PDF files and is
+not installed."** Install poppler (table in section 3), then rerun
+`extract-text doctor` to confirm.
+
+**"The program 'tesseract' is needed to read scanned pages (OCR) and is not
+installed."** Install tesseract. Only scanned documents need it; e-filed
+PDFs work without it.
+
+**"No local model server at http://localhost:11434."** Ollama is not
+running. Start the ollama app, or run `ollama serve` in a terminal, and
+leave it running while you work.
+
+**"The model 'qwen3.5:9b' is not pulled on this machine."** Run
+`ollama pull qwen3.5:9b` once and retry.
+
+**"note: model 'qwen3.5:9b' is not pulled; using 'qwen3.5:latest' from the
+same family."** Not an error. You have a same-family model and it was used;
+the output records which. As of August 2026 `qwen3.5:latest` points at the
+same 9B model as `qwen3.5:9b`, so in that case nothing differs but the name.
+Run `ollama pull qwen3.5:9b` if you want the pinned tag present, which costs
+nothing when the weights are already on disk.
+
+**"The Python engine is not available. Run extracttext_install() once, then
+restart R."** Exactly that. If it persists after a restart, run
+`reticulate::py_config()` and check that the `r-extracttext` environment is
+the one selected.
+
+**Rows full of `no_text` or very low `ocr_mean_conf`.** Your scans are poor.
+If re-scanning at 300 dpi is possible, do that; if not, the AI lane reads
+bad pages better than OCR does, and the review page shows you the worst.
+
+**A defendant address that is obviously the law firm's.** That is the
+failure this tool was built to prevent, so treat it seriously. Check whether
+the row is flagged `defendant_equals_attorney` (it should be). If you can
+share the document layout with the maintainers with a synthetic mock-up, not
+the real page, it helps the next release.
+
+**Windows notes.** All three helper programs have Windows builds, and the
+paths must be on PATH (the doctor checks). Everything else is identical.
+
+## 19. Glossary
+
+- **anchor** A named extraction rule tied to a place or phrasing on the
+  page. Recorded with every value it produces.
+- **deterministic** Producing the same output for the same input, every
+  time. Rules are deterministic; AI models are not.
+- **e-filed PDF** A PDF whose text is digital, selectable, and exact. The
+  best input this tool can receive.
+- **grounding** Verifying an AI answer by finding it in the document text.
+  Ungrounded answers are labeled unverified, never quietly kept.
+- **OCR (optical character recognition)** Software that reads pictures of
+  text into machine text. Necessary for scans, imperfect by nature, and
+  the source of the confidence scores in the output.
+- **language model** A program trained on very large amounts of text to
+  continue or answer text. A **vision model** additionally accepts images.
+- **local model** A language model whose files sit on your own disk and
+  whose computation runs on your own processor. The opposite of a cloud API.
+- **Ollama** The open-source program this project uses to run local models.
+- **parquet** A compressed columnar file format for tables, faster and
+  smaller than CSV, readable by R (arrow), Python (pandas or polars), and
+  most databases.
+- **pleading paper** Court stationery with numbered lines down the margin.
+  The source of the rail digits this tool strips.
+- **service address** The address at which a defendant is served notice,
+  printed on the summons. For research purposes, the tenant household's
+  address.
+- **similarity (edit distance)** A 0-to-1 measure of how alike two strings
+  are, based on how many single-character changes turn one into the other.
+  The validation metric of this project; 0.7 or above means same street in
+  practice.
+- **summons** The document notifying a defendant of the case against them.
+  Page one carries most of what this tool extracts.
+
+## 20. References and how to cite
+
+The method this package implements is described in
+
+> Thomas, Tim, Alex Ramiller, Cheng Ren, and Ott Toomet. 2024. "Toward a
+> National Eviction Data Collection Strategy Using Natural Language
+> Processing." *Cityscape* 26(1). U.S. Department of Housing and Urban
+> Development.
+> https://www.huduser.gov/portal/periodicals/cityscape/vol26num1/article12.html
+> (also on JSTOR: https://www.jstor.org/stable/48766080)
+
+To cite the software itself, use the metadata in `CITATION.cff` at the
+repository root, which citation managers and GitHub read directly.
+
+The default AI model, qwen3.5 9B, is an open-weights model released under
+the Apache License 2.0 and run through Ollama.
+
+## 21. Getting help
+
+- Setup problems: run the doctor first; it answers most of them.
+- Bugs and feature requests: open an issue at
+  https://github.com/evictionresearch/extract-text/issues. Never paste a
+  real document, a real name, a real address, or a real case number into an
+  issue; reproduce problems with the synthetic fixtures or a synthetic
+  mock-up of your layout.
+- Security or privacy problems: do not open a public issue; write to
+  timthomas@berkeley.edu.
+- Collaboration, validation partnerships, and data questions: same address,
+  and see `ETHICS.md` for what this project will and will not support.

@@ -11,16 +11,28 @@ from typing import TYPE_CHECKING, Any
 
 from .base import SYSTEM_PROMPT, ExtractionBackend, ground
 from .local_backend import LocalBackend
+from .vision import (
+    DEFAULT_VISION_MODEL,
+    VISION_PROMPT,
+    LocalVisionBackend,
+    available,
+    pulled_models,
+)
 
 if TYPE_CHECKING:  # pragma: no cover
     from .anthropic_backend import AnthropicBackend
 
 __all__ = [
-    "AnthropicBackend",
-    "LocalBackend",
-    "ExtractionBackend",
+    "DEFAULT_VISION_MODEL",
     "SYSTEM_PROMPT",
+    "VISION_PROMPT",
+    "AnthropicBackend",
+    "ExtractionBackend",
+    "LocalBackend",
+    "LocalVisionBackend",
+    "available",
     "ground",
+    "pulled_models",
 ]
 
 

@@ -8,6 +8,10 @@ on:
 jobs:
   python:
     runs-on: ubuntu-latest
+    # A stalled Ubuntu mirror once held this job open for the full six-hour
+    # ceiling, twice over, before GitHub cancelled the run. Every job gets a
+    # bound so an unreachable mirror fails in minutes instead of hours.
+    timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
@@ -18,7 +22,15 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       - name: Install system programs (poppler, tesseract)
-        run: sudo apt-get update && sudo apt-get install -y poppler-utils tesseract-ocr
+        # Explicit retries and per-connection timeouts: without them apt waits
+        # on a dead mirror indefinitely rather than moving to the next one.
+        run: |
+          sudo apt-get update \
+            -o Acquire::Retries=3 \
+            -o Acquire::http::Timeout=20 \
+            -o Acquire::https::Timeout=20
+          sudo apt-get install -y --no-install-recommends \
+            -o Acquire::Retries=3 poppler-utils tesseract-ocr
       - name: Install package
         run: pip install -e "python[dev]"
       - name: Run tests
@@ -29,6 +41,7 @@ jobs:
 
   pii-sweep:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
         with:
@@ -41,6 +54,7 @@ jobs:
 
   r:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: r-lib/actions/setup-r@v2

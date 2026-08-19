@@ -1,0 +1,656 @@
+<!--
+  Address Check: a swipe-to-validate card game for building a human-verified
+  training set of court-record address extractions.
+
+  Design follows braindr (https://braindr.us), by Anisha Keshavan, Jason D.
+  Yeatman, and Ariel Rokem. See:
+    Keshavan A, Yeatman JD, Rokem A (2019). "Combining Citizen Science and Deep
+    Learning to Amplify Expertise in Neuroimaging." Frontiers in Neuroinformatics
+    13:29. https://doi.org/10.3389/fninf.2019.00029
+  Two things are borrowed directly: the one-tap binary judgement on a single
+  image, and scoring raters against items with known answers so that ratings can
+  be weighted by reliability rather than counted equally.
+
+  Self-contained. No frameworks, no network calls, no analytics. It reads
+  ./deck.json and images from ./crops/, and writes ratings to localStorage until
+  you export them.
+-->
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Address Check</title>
+
+<style>
+  :root {
+    --bg: #f4f6f8;  --panel: #ffffff;  --ink: #16202a;  --muted: #5d6b7a;
+    --line: #dfe5ec; --yes: #1f9d55;  --no: #d64545;    --accent: #2b6cb0;
+    --gold: #b7791f; --shadow: 0 2px 10px rgba(16,32,48,.10);
+  }
+  :root:not([data-theme="light"]) { }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #11161c; --panel: #1a222c; --ink: #e8eef4; --muted: #9fb0c0;
+      --line: #2b3745; --yes: #35c07a; --no: #f0736b; --accent: #7ab3ea;
+      --gold: #e2b04a; --shadow: 0 2px 10px rgba(0,0,0,.45);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #11161c; --panel: #1a222c; --ink: #e8eef4; --muted: #9fb0c0;
+    --line: #2b3745; --yes: #35c07a; --no: #f0736b; --accent: #7ab3ea;
+    --gold: #e2b04a; --shadow: 0 2px 10px rgba(0,0,0,.45);
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 16px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    -webkit-font-smoothing: antialiased; overflow-x: hidden;
+  }
+  .wrap { max-width: 640px; margin: 0 auto; padding: 12px 14px 40px; }
+
+  header { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  header h1 { font-size: 17px; margin: 0; letter-spacing: -.01em; flex: 1; }
+  .chip {
+    font-size: 12px; font-weight: 600; padding: 3px 9px; border-radius: 999px;
+    background: var(--panel); border: 1px solid var(--line); color: var(--muted);
+    white-space: nowrap;
+  }
+  .chip.streak { color: var(--gold); border-color: var(--gold); }
+
+  .bar { height: 5px; background: var(--line); border-radius: 3px; overflow: hidden; margin-bottom: 14px; }
+  .bar > i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .3s; }
+
+  /* card stack */
+  .stack { position: relative; min-height: 330px; }
+  .card {
+    position: absolute; inset: 0; background: var(--panel); border: 1px solid var(--line);
+    border-radius: 16px; box-shadow: var(--shadow); padding: 16px;
+    display: flex; flex-direction: column; gap: 12px;
+    touch-action: pan-y; user-select: none; -webkit-user-select: none;
+  }
+  .card.behind { transform: scale(.96) translateY(10px); opacity: .55; pointer-events: none; }
+  .card.gone { transition: transform .32s ease, opacity .32s ease; opacity: 0; }
+
+  .imgbox {
+    background: #fff; border: 1px solid var(--line); border-radius: 10px;
+    padding: 8px; overflow-x: auto; min-height: 96px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .imgbox img { max-width: 100%; height: auto; display: block; image-rendering: -webkit-optimize-contrast; }
+
+  .ask { font-size: 13px; color: var(--muted); text-align: center; margin: 0; }
+  .guess {
+    font: 600 19px/1.35 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    text-align: center; padding: 12px 10px; background: var(--bg);
+    border: 1px dashed var(--line); border-radius: 10px; word-break: break-word;
+  }
+
+  .verdict {
+    position: absolute; top: 18px; font: 800 26px/1 sans-serif; letter-spacing: .06em;
+    padding: 7px 12px; border-radius: 9px; border: 3px solid currentColor;
+    opacity: 0; transition: opacity .12s; pointer-events: none;
+  }
+  .verdict.y { left: 18px; color: var(--yes); transform: rotate(-12deg); }
+  .verdict.n { right: 18px; color: var(--no); transform: rotate(12deg); }
+
+  .btns { display: flex; gap: 12px; margin-top: 14px; }
+  button {
+    flex: 1; font: 600 15px/1 inherit; padding: 15px 10px; border-radius: 12px;
+    border: 1px solid var(--line); background: var(--panel); color: var(--ink);
+    cursor: pointer; transition: transform .08s;
+  }
+  button:active { transform: scale(.97); }
+  button.no  { color: var(--no);  border-color: var(--no); }
+  button.yes { color: var(--yes); border-color: var(--yes); }
+  .mini { display: flex; gap: 10px; margin-top: 10px; }
+  .mini button { flex: 1; padding: 9px; font-size: 13px; font-weight: 500; color: var(--muted); }
+
+  /* optional correction step, offered after a "does not match" */
+  .fix { display: flex; flex-direction: column; gap: 10px; }
+  .fix .lead { font-size: 13px; color: var(--muted); text-align: center; margin: 0; }
+  .fix .lead b { color: var(--ink); }
+  .fix input {
+    font: 600 17px/1.3 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    padding: 12px; border-radius: 10px; border: 2px solid var(--accent);
+    background: var(--panel); color: var(--ink); width: 100%;
+  }
+  .fix input:focus { outline: none; border-color: var(--yes); }
+  .fix .row { display: flex; gap: 10px; }
+  .fix .row button { padding: 12px; }
+  .fix .save { color: var(--yes); border-color: var(--yes); }
+
+  .hint { text-align: center; font-size: 12px; color: var(--muted); margin-top: 12px; }
+  kbd {
+    font: 600 11px/1 ui-monospace, monospace; border: 1px solid var(--line);
+    border-bottom-width: 2px; border-radius: 4px; padding: 2px 5px; background: var(--panel);
+  }
+
+  .panel {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 14px;
+    padding: 16px; margin-top: 16px;
+  }
+  .panel h2 { font-size: 15px; margin: 0 0 8px; }
+  .panel p, .panel li { font-size: 14px; color: var(--muted); }
+  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; text-align: center; }
+  .stats div b { display: block; font-size: 22px; color: var(--ink); }
+  .stats div span { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+
+  .badges { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+  .badge {
+    font-size: 12px; font-weight: 600; padding: 5px 10px; border-radius: 999px;
+    border: 1px solid var(--line); color: var(--muted); opacity: .35;
+  }
+  .badge.on { opacity: 1; color: var(--gold); border-color: var(--gold); }
+
+  .toast {
+    position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%) translateY(20px);
+    background: var(--ink); color: var(--bg); padding: 9px 16px; border-radius: 999px;
+    font-size: 13px; font-weight: 600; opacity: 0; transition: all .25s; pointer-events: none; z-index: 50;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  footer { margin-top: 22px; font-size: 12px; color: var(--muted); }
+  footer a { color: var(--accent); }
+  .done { text-align: center; padding: 34px 16px; }
+  .done h2 { font-size: 20px; margin: 0 0 8px; }
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>Address Check</h1>
+    <span class="chip" id="chipPts">0 pts</span>
+    <span class="chip streak" id="chipStreak" hidden>🔥 0</span>
+  </header>
+  <div class="bar"><i id="bar"></i></div>
+
+  <div id="app">
+    <div class="stack" id="stack"></div>
+    <div class="btns">
+      <button class="no"  id="bNo">✗ &nbsp;Does not match</button>
+      <button class="yes" id="bYes">✓ &nbsp;Matches</button>
+    </div>
+    <div class="mini">
+      <button id="bSkip">Can't tell</button>
+      <button id="bUndo">Undo</button>
+    </div>
+    <p class="hint">
+      Swipe the card, or press <kbd>←</kbd> no &nbsp; <kbd>→</kbd> yes &nbsp; <kbd>space</kbd> can't tell &nbsp; <kbd>U</kbd> undo
+    </p>
+  </div>
+
+  <div class="panel">
+    <h2>Your session</h2>
+    <div class="stats">
+      <div><b id="sDone">0</b><span>rated</span></div>
+      <div><b id="sBest">0</b><span>best streak</span></div>
+      <div><b id="sFix">0</b><span>corrections</span></div>
+    </div>
+    <div class="badges" id="badges"></div>
+    <p class="hint" style="text-align:left;margin:12px 0 6px">
+      Your name or initials, so ratings can be pooled and scored per person:
+    </p>
+    <input id="rater" type="text" placeholder="e.g. TT" autocomplete="off"
+           spellcheck="false" aria-label="Your name or initials"
+           style="width:100%;padding:10px;border-radius:10px;border:1px solid var(--line);
+                  background:var(--bg);color:var(--ink);font:inherit">
+    <div class="mini">
+      <button id="bExport">Export my ratings</button>
+      <button id="bReset">Start over</button>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>How to judge a card</h2>
+    <p>You are checking one thing: does the typed address below the picture say
+      the same thing as the address in the picture?</p>
+    <ul>
+      <li><b>Matches</b> if they carry the same street number, street, unit,
+        city and ZIP. Ignore differences of spacing, capitals and punctuation,
+        and ignore ordinary abbreviations: <i>WA</i> and <i>WASHINGTON</i> are
+        the same answer, as are <i>St</i> and <i>Street</i>, <i>Apt</i> and
+        <i>Apartment</i>, <i>S</i> and <i>South</i>. A missing ZIP is only a
+        mismatch if the picture shows one.</li>
+      <li><b>Does not match</b> if anything meaningful differs, including a
+        missing unit or apartment number, a missing or wrong direction such as
+        <i>SE</i> against <i>S</i>, or a wrong digit.</li>
+      <li><b>Can't tell</b> if the picture is too blurred or cut off to read.
+        This is a useful answer, not a failure.</li>
+    </ul>
+    <p>After you mark one wrong you can type what the picture actually says.
+      That is optional, and worth extra points, because a correction teaches
+      the extractor far more than a rejection does. Skip it whenever you would
+      rather keep moving.</p>
+    <p>Some cards arrive with no typed address at all and ask you to write one.
+      Those are filings the reader could not make out, usually because they
+      were filled in by hand. There is no other way to get them into the data,
+      so they are worth the most.</p>
+    <p>Black bars are deliberate. Names are covered because only the address
+      needs checking.</p>
+  </div>
+
+  <footer id="foot"></footer>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function () {
+  "use strict";
+
+  // Look for the deck beside the page first, then one level down, then one up.
+  // A real deck sits beside index.html; the demo deck sits in game/demo/. This
+  // way the app works whether the server was started in the deck folder, in
+  // game/, or in the repo root, instead of 404ing and looking broken.
+  var DECK_PATHS = ["./deck.json", "./demo/deck.json", "./game/demo/deck.json",
+                    "../deck.json"];
+  var STORE = "addrcheck.v1";
+  var deck = [], i = 0, log = [], startedAt = Date.now();
+  var pts = 0, streak = 0, best = 0, correcting = false;
+
+  var BADGES = [
+    { id: "first",  n: 1,   label: "First call" },
+    { id: "ten",    n: 10,  label: "Warmed up" },
+    { id: "fifty",  n: 50,  label: "Half century" },
+    { id: "century",n: 100, label: "Century" },
+    { id: "streak10", streak: 10, label: "🔥 10 in a row" },
+    { id: "streak25", streak: 25, label: "🔥 25 in a row" },
+    { id: "fix1",  fixes: 1,  label: "✎ First correction" },
+    { id: "fix10", fixes: 10, label: "✎ 10 corrections" },
+    { id: "hand1", hands: 1,  label: "✍ Read the handwriting" },
+    { id: "hand10", hands: 10, label: "✍ 10 by hand" }
+  ];
+
+  var $ = function (id) { return document.getElementById(id); };
+
+  function toast(msg) {
+    var t = $("toast"); t.textContent = msg; t.classList.add("show");
+    clearTimeout(t._t); t._t = setTimeout(function () { t.classList.remove("show"); }, 1400);
+  }
+
+  function save() {
+    try {
+      localStorage.setItem(STORE, JSON.stringify({ i: i, log: log, pts: pts, best: best }));
+    } catch (e) { /* private mode: ratings stay in memory for this session */ }
+  }
+  function load() {
+    try {
+      var s = JSON.parse(localStorage.getItem(STORE) || "null");
+      if (s && Array.isArray(s.log)) { i = s.i || 0; log = s.log; pts = s.pts || 0; best = s.best || 0; }
+    } catch (e) { /* ignore corrupt state */ }
+  }
+
+  function render() {
+    var st = $("stack");
+    st.innerHTML = "";
+    if (i >= deck.length) { finish(); return; }
+    // draw the next card behind the current one so the stack reads as a deck
+    if (deck[i + 1]) st.appendChild(build(deck[i + 1], true));
+    st.appendChild(build(deck[i], false));
+    update();
+  }
+
+  function build(card, behind) {
+    if (card.mode === "transcribe") return buildTranscribe(card, behind);
+    var el = document.createElement("div");
+    el.className = "card" + (behind ? " behind" : "");
+    var img = document.createElement("div");
+    img.className = "imgbox";
+    var im = document.createElement("img");
+    im.src = card.img; im.alt = "Address as printed in the court document";
+    im.loading = "eager";
+    im.onerror = function () { img.textContent = "Image did not load"; };
+    img.appendChild(im);
+
+    var ask = document.createElement("p");
+    ask.className = "ask";
+    ask.textContent = "Does the typed address below say the same as the picture?";
+
+    var g = document.createElement("div");
+    g.className = "guess"; g.textContent = card.guess;
+
+    var vy = document.createElement("div"); vy.className = "verdict y"; vy.textContent = "MATCH";
+    var vn = document.createElement("div"); vn.className = "verdict n"; vn.textContent = "NO";
+
+    el.appendChild(img); el.appendChild(ask); el.appendChild(g);
+    el.appendChild(vy); el.appendChild(vn);
+    if (!behind) drag(el, vy, vn);
+    return el;
+  }
+
+  // A transcription card carries no guess. It is used for filings the
+  // extractor could not read at all, which in practice means handwritten ones:
+  // OCR returns nothing for pen, so there is no proposed address to agree or
+  // disagree with. Typing it is the only way these documents, the hardest and
+  // most valuable in the archive, get into the training set.
+  function buildTranscribe(card, behind) {
+    var el = document.createElement("div");
+    el.className = "card fix" + (behind ? " behind" : "");
+
+    var img = document.createElement("div");
+    img.className = "imgbox";
+    var im = document.createElement("img");
+    im.src = card.img;
+    im.alt = "Address region of a court document the reader could not parse";
+    im.onerror = function () { img.textContent = "Image did not load"; };
+    img.appendChild(im);
+
+    var lead = document.createElement("p");
+    lead.className = "lead";
+    lead.innerHTML = "The reader could not make out this one. " +
+                     "<b>Type the address you see</b>, or say it is unreadable.";
+
+    var input = document.createElement("input");
+    input.type = "text";
+    input.placeholder = "street, city, state ZIP";
+    input.setAttribute("autocapitalize", "characters");
+    input.setAttribute("autocomplete", "off");
+    input.setAttribute("spellcheck", "false");
+    input.setAttribute("aria-label", "Address as printed or written");
+
+    var row = document.createElement("div");
+    row.className = "row";
+    var cant = document.createElement("button");
+    cant.textContent = "Can't read it";
+    var savb = document.createElement("button");
+    savb.className = "save";
+    savb.textContent = "Save  +40";
+
+    cant.onclick = function () {
+      if (correcting) { correcting = false; commit(card, "skip", ""); }
+    };
+    savb.onclick = function () {
+      var v = input.value.trim();
+      if (!v) { cant.click(); return; }
+      if (correcting) { correcting = false; commit(card, "transcribed", v); }
+    };
+    input.addEventListener("keydown", function (e) {
+      e.stopPropagation();
+      if (e.key === "Enter") savb.click();
+      else if (e.key === "Escape") cant.click();
+    });
+
+    row.appendChild(cant); row.appendChild(savb);
+    el.appendChild(img); el.appendChild(lead); el.appendChild(input); el.appendChild(row);
+    if (!behind) {
+      correcting = true;
+      setTimeout(function () { input.focus(); }, 30);
+    }
+    return el;
+  }
+
+  function drag(el, vy, vn) {
+    var x0 = null, y0 = null, dx = 0, moved = false;
+    function down(e) {
+      var p = e.touches ? e.touches[0] : e;
+      x0 = p.clientX; y0 = p.clientY; dx = 0; moved = false;
+      el.style.transition = "none";
+    }
+    function move(e) {
+      if (x0 === null) return;
+      var p = e.touches ? e.touches[0] : e;
+      dx = p.clientX - x0;
+      var dy = p.clientY - y0;
+      if (Math.abs(dx) < Math.abs(dy) && !moved) return;   // let the page scroll
+      moved = true;
+      if (e.cancelable) e.preventDefault();
+      el.style.transform = "translateX(" + dx + "px) rotate(" + (dx / 22) + "deg)";
+      vy.style.opacity = dx > 40 ? Math.min(1, (dx - 40) / 60) : 0;
+      vn.style.opacity = dx < -40 ? Math.min(1, (-dx - 40) / 60) : 0;
+    }
+    function up() {
+      if (x0 === null) return;
+      el.style.transition = "";
+      if (dx > 90) { fly(el, 1); answer("yes"); }
+      else if (dx < -90) { fly(el, -1); answer("no"); }
+      else { el.style.transform = ""; vy.style.opacity = 0; vn.style.opacity = 0; }
+      x0 = null;
+    }
+    el.addEventListener("mousedown", down);
+    el.addEventListener("touchstart", down, { passive: true });
+    window.addEventListener("mousemove", move);
+    el.addEventListener("touchmove", move, { passive: false });
+    window.addEventListener("mouseup", up);
+    el.addEventListener("touchend", up);
+  }
+
+  function fly(el, dir) {
+    el.classList.add("gone");
+    el.style.transform = "translateX(" + (dir * 620) + "px) rotate(" + (dir * 22) + "deg)";
+  }
+
+  function answer(verdict) {
+    var card = deck[i];
+    if (!card) return;
+    // A "no" is worth more if we learn what the right answer was, so offer the
+    // correction step. It stays optional: skipping it keeps the rating and
+    // moves on, which is what keeps a long session bearable.
+    if (verdict === "no") { setTimeout(function () { askCorrection(card); }, 200); return; }
+    commit(card, verdict, "");
+  }
+
+  function commit(card, verdict, correction) {
+    log.push({
+      id: card.id, verdict: verdict, correction: correction || "",
+      ms: Date.now() - (log.length ? log[log.length - 1]._t || startedAt : startedAt),
+      _t: Date.now()
+    });
+    if (verdict === "skip") { streak = 0; }
+    else {
+      streak += 1; best = Math.max(best, streak);
+      // a small streak multiplier, capped, so speed is rewarded but not gamed
+      pts += 10 + Math.min(streak, 10);
+      // typing beats swiping, and typing an address nothing could read beats
+      // both, because those documents have no other route into the data
+      if (verdict === "transcribed") { pts += 40; }
+      else if (correction) { pts += 25; }
+    }
+    i += 1; save();
+    checkBadges();
+    setTimeout(render, verdict === "skip" ? 0 : 180);
+  }
+
+  function askCorrection(card) {
+    var st = $("stack");
+    st.innerHTML = "";
+    var el = document.createElement("div");
+    el.className = "card fix";
+
+    var img = document.createElement("div");
+    img.className = "imgbox";
+    var im = document.createElement("img");
+    im.src = card.img; im.alt = "Address as printed in the court document";
+    img.appendChild(im);
+
+    var lead = document.createElement("p");
+    lead.className = "lead";
+    lead.innerHTML = "Optional: type what the picture actually says. " +
+                     "<b>Enter</b> to save, <b>Esc</b> to skip.";
+
+    var input = document.createElement("input");
+    input.type = "text";
+    input.value = card.guess;                // edit rather than retype
+    input.setAttribute("autocapitalize", "characters");
+    input.setAttribute("autocomplete", "off");
+    input.setAttribute("spellcheck", "false");
+    input.setAttribute("aria-label", "Correct address as printed");
+
+    var row = document.createElement("div");
+    row.className = "row";
+    var skip = document.createElement("button");
+    skip.textContent = "Skip, just mark it wrong";
+    var savb = document.createElement("button");
+    savb.className = "save"; savb.textContent = "Save correction  +25";
+
+    function done(text) {
+      if (correcting) { correcting = false; commit(card, "no", text); }
+    }
+    skip.onclick = function () { done(""); };
+    savb.onclick = function () {
+      var v = input.value.trim();
+      done(v && v !== card.guess ? v : "");
+    };
+    input.addEventListener("keydown", function (e) {
+      e.stopPropagation();
+      if (e.key === "Enter") { savb.click(); }
+      else if (e.key === "Escape") { skip.click(); }
+    });
+
+    row.appendChild(skip); row.appendChild(savb);
+    el.appendChild(img); el.appendChild(lead); el.appendChild(input); el.appendChild(row);
+    st.appendChild(el);
+    correcting = true;
+    input.focus();
+    input.setSelectionRange(input.value.length, input.value.length);
+  }
+
+  function undo() {
+    if (!log.length) { toast("Nothing to undo"); return; }
+    var last = log.pop();
+    i = Math.max(0, i - 1);
+    if (last.verdict !== "skip") { pts = Math.max(0, pts - 10 - (last.correction ? 25 : 0)); }
+    streak = 0; correcting = false; save(); render(); toast("Undone");
+  }
+
+  function checkBadges() {
+    var n = log.filter(function (r) { return r.verdict !== "skip"; }).length;
+    var f = log.filter(function (r) { return r.correction; }).length;
+    var h = log.filter(function (r) { return r.verdict === "transcribed"; }).length;
+    BADGES.forEach(function (b) {
+      var got = b.n ? n >= b.n
+              : b.fixes ? f >= b.fixes
+              : b.hands ? h >= b.hands
+              : best >= b.streak;
+      var el = document.querySelector('[data-badge="' + b.id + '"]');
+      if (el && got && !el.classList.contains("on")) {
+        el.classList.add("on"); toast("Badge earned: " + b.label);
+      }
+    });
+  }
+
+  function update() {
+    $("chipPts").textContent = pts + " pts";
+    var cs = $("chipStreak");
+    cs.hidden = streak < 3; cs.textContent = "🔥 " + streak;
+    $("bar").style.width = (deck.length ? (i / deck.length) * 100 : 0) + "%";
+    var n = log.filter(function (r) { return r.verdict !== "skip"; }).length;
+    $("sDone").textContent = n;
+    $("sBest").textContent = best;
+    $("sFix").textContent = log.filter(function (r) { return r.correction; }).length;
+  }
+
+  function finish() {
+    $("app").innerHTML =
+      '<div class="done"><h2>Deck complete</h2>' +
+      '<p>You rated ' + log.length + ' cards. Export them and send the file back ' +
+      'so the ratings can be pooled.</p></div>';
+    $("bar").style.width = "100%";
+  }
+
+  function exportRatings() {
+    var who = ($("rater").value || "").trim();
+    if (!who) {
+      $("rater").focus();
+      toast("Add your name or initials first");
+      return;
+    }
+    var out = {
+      version: 1,
+      rater: who,
+      started: new Date(startedAt).toISOString(),
+      exported: new Date().toISOString(),
+      ratings: log.map(function (r) {
+        return { id: r.id, verdict: r.verdict, correction: r.correction || "", ms: r.ms };
+      })
+    };
+    var blob = new Blob([JSON.stringify(out, null, 1)], { type: "application/json" });
+    var a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    // name the file after the rater, so pooled exports do not collide as
+    // ratings(1).json, ratings(2).json and lose track of who is who
+    a.download = "ratings-" + who.replace(/[^A-Za-z0-9_-]+/g, "_") + ".json";
+    a.click();
+    setTimeout(function () { URL.revokeObjectURL(a.href); }, 2000);
+    toast("Exported " + log.length + " ratings");
+  }
+
+  // wiring
+  $("bYes").onclick = function () {
+    if (correcting) return;
+    var c = document.querySelector(".card:not(.behind)"); if (c) fly(c, 1); answer("yes");
+  };
+  $("bNo").onclick = function () {
+    if (correcting) return;
+    var c = document.querySelector(".card:not(.behind)"); if (c) fly(c, -1); answer("no");
+  };
+  $("bSkip").onclick = function () { if (!correcting) answer("skip"); };
+  $("bUndo").onclick = undo;
+  $("bExport").onclick = exportRatings;
+  $("bReset").onclick = function () {
+    if (!confirm("Discard this session's ratings and start over?")) return;
+    localStorage.removeItem(STORE); i = 0; log = []; pts = 0; streak = 0; best = 0;
+    startedAt = Date.now(); render();
+  };
+  document.addEventListener("keydown", function (e) {
+    if (correcting) return;              // the correction box owns the keyboard
+    if (e.key === "ArrowRight") $("bYes").click();
+    else if (e.key === "ArrowLeft") $("bNo").click();
+    else if (e.key === " ") { e.preventDefault(); $("bSkip").click(); }
+    else if (e.key === "u" || e.key === "U") undo();
+  });
+
+  $("rater").value = localStorage.getItem("addrcheck.rater") || "";
+  $("rater").addEventListener("input", function () {
+    try { localStorage.setItem("addrcheck.rater", this.value.trim()); } catch (e) { /* private mode */ }
+  });
+  $("rater").addEventListener("keydown", function (e) { e.stopPropagation(); });
+
+  $("badges").innerHTML = BADGES.map(function (b) {
+    return '<span class="badge" data-badge="' + b.id + '">' + b.label + "</span>";
+  }).join("");
+
+  $("foot").innerHTML =
+    'Built for the <a href="https://evictionresearch.net">Eviction Research Network</a>. ' +
+    'The swipe-to-rate design and the practice of weighting raters against known-answer ' +
+    'items follow <b>braindr</b>, by Anisha Keshavan, Jason D. Yeatman and Ariel Rokem ' +
+    '(<a href="https://doi.org/10.3389/fninf.2019.00029">Front. Neuroinform. 13:29, 2019</a>).';
+
+  function findDeck(paths, tried) {
+    tried = tried || [];
+    if (!paths.length) return Promise.reject(tried);
+    var url = paths[0];
+    return fetch(url, { cache: "no-store" })
+      .then(function (r) {
+        if (!r.ok) throw new Error(r.status);
+        return r.json().then(function (d) { return { deck: d, base: url }; });
+      })
+      .catch(function () {
+        tried.push(url);
+        return findDeck(paths.slice(1), tried);
+      });
+  }
+
+  findDeck(DECK_PATHS)
+    .then(function (found) {
+      // images in the deck are relative to the deck file, not to this page
+      var dir = found.base.replace(/[^/]*$/, "");
+      deck = found.deck.map(function (c) {
+        return { id: c.id, guess: c.guess, mode: c.mode || "match",
+                 img: /^(https?:|\/|data:)/.test(c.img) ? c.img : dir + c.img };
+      });
+      load(); checkBadges(); render();
+      if (!deck.length) {
+        $("stack").innerHTML = '<div class="card"><p class="ask">The deck is empty.</p></div>';
+      }
+    })
+    .catch(function (tried) {
+      $("stack").innerHTML =
+        '<div class="card"><p class="ask"><b>No deck found</b><br>' +
+        'Looked for: <code>' + tried.join("</code>, <code>") + '</code><br><br>' +
+        'Build the demo deck and serve it:<br>' +
+        '<code>python3 game/make_demo_deck.py</code><br>' +
+        '<code>cd game/demo &amp;&amp; python3 -m http.server 8000</code><br>' +
+        'then open <code>http://localhost:8000/</code>' +
+        '<br><br><small>Opening the file directly with file:// will not work; ' +
+        'the browser blocks reading the deck that way.</small></p></div>';
+    });
+})();
+</script>

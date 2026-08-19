@@ -162,12 +162,48 @@ def _first_street_match(t):
     return None
 
 
+def _skip_rail_house_number(t, sm):
+    """Reject a house number that is really a pleading line number.
+
+    When the line-number rail drifts out of the margin band, OCR reads its
+    digit as the first word of the address line and the street pattern takes it
+    as the house number: "13 39 Sudden Valley Drive" for a house at 39, and
+    "18 1234 Example Ave S" for one at 1234. Both were found by a human rating
+    real extractions, and both are silently wrong rather than obviously broken,
+    which is the dangerous kind: a geocoder will happily place number 13.
+
+    The tell is a short integer in rail range sitting immediately before
+    another number that starts a perfectly good address of its own. A genuine
+    "13 39th Ave" is safe, because "39th Ave" has no whitespace after its
+    digits and so cannot start a match.
+
+    The correction is made here rather than by dropping the rail word earlier.
+    Removing those words at the word level was tried: it detected the rails
+    correctly, but changed which block the extractor selected on one filing in
+    250, once swapping a correct defendant address for the plaintiff
+    attorney's. Fixing it at parse time cannot move a block boundary.
+    """
+    if sm is None:
+        return sm
+    house = sm.group(1)
+    if not (len(house) <= 2 and 1 <= int(house) <= 28):
+        return sm
+    after = sm.start(1) + len(house)
+    if not re.match(r"\s+\d{1,6}\s", t[after:]):
+        return sm
+    alt = _first_street_match(t[after:])
+    if alt is None or alt.start() > 2:
+        return sm
+    shifted = STREET_RE.search(t, after)
+    return shifted if shifted is not None else sm
+
+
 def parse_address(text):
     """Split a joined address string into components; returns None if no
     street pattern is present. Keeps the raw string alongside components."""
     t = re.sub(r"\s+", " ", text).strip(" ,.;")
     repaired = False
-    sm = _first_street_match(t)
+    sm = _skip_rail_house_number(t, _first_street_match(t))
     t2, n_fix = repair_house_numbers(t)
     if n_fix:
         # the repaired text competes by POSITION: the true address sits at the

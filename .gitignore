@@ -6,6 +6,19 @@ data/
 *.tsv
 !python/tests/fixtures/synthetic_*
 
+# Validation game decks. Card crops are images of real filings, roughly 18 KB
+# each, so a full deck runs to several megabytes of court records. Decks live
+# in the governed data tree and are never committed. `game/demo/` is rebuilt from
+# the synthetic fixtures by game/make_demo_deck.py, so it is not committed
+# either and the repo carries no card images at all.
+game/demo/
+game/crops/
+game/deck.json
+game/gold.csv
+**/deck.json
+**/cards.csv
+**/gold.csv
+
 # Credentials
 .env
 .Renviron

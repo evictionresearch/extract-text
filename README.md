@@ -9,6 +9,10 @@ Network](https://evictionresearch.net), validated on more than a million
 pages of Washington State filings, and designed to work anywhere court
 documents follow American conventions.
 
+There are **three** parts: two engines that read documents, and a card game
+that lets people check the reading. The engines are only as good as what has
+been measured about them, and the game is how that measurement happens.
+
 Two independent engines do the reading, and you choose per run.
 
 - **Deterministic.** Written rules plus page geometry. No AI of any kind, no
@@ -24,6 +28,16 @@ Run both and the package compares them on every document, measuring address
 agreement with the same similarity metric the validation work uses and
 flagging every disagreement for human review. Anything either engine is
 unsure about is flagged, never guessed.
+
+And the third part:
+
+- **Address Check** (`game/`). A phone-friendly card game that shows a picture
+  of an address as printed on a filing next to the address an engine read, and
+  asks a person whether they say the same thing. Answers become a labeled
+  training set, broken down by county, year, anchor and text source, so a
+  weakness local to one jurisdiction shows up instead of being averaged away.
+  It is the only part of the package that produces ground truth, and it costs
+  a rater about ten seconds a card.
 
 **Privacy is the design constraint, not a feature.** With the default
 engines, documents, page images, and extracted values never leave your
@@ -105,9 +119,52 @@ scoring.
 schema/          Shared field contract (JSON Schema), generated from the Python models
 python/          The engine, the CLI, tests, and synthetic fixtures
 r/               The R package (full interface via reticulate)
+game/            Address Check, for building a human-verified training set
 docs/            The manual
 MAINTENANCE.md   The improvement schedule: model reviews, benchmarks, release checklist
 ```
+
+## Address Check: the human validation game
+
+Every accuracy number in this package that is worth anything came from a
+person looking at a page. `game/` is the tool that makes that cheap enough to
+do at volume.
+
+A card shows a cropped picture of the address as printed on the filing and the
+address an engine read. The rater swipes: same, or not the same. Marking one
+wrong opens an optional box to type what the picture actually says, and a
+correction is worth more than a rejection because it says what the right
+answer was. About ten seconds a card on a phone.
+
+```bash
+python3 game/make_demo_deck.py          # synthetic, no real data
+cd game/demo && python3 -m http.server 8000
+```
+
+Then on a real corpus:
+
+```bash
+python3 python/scripts/build_card_deck.py --archive ARCHIVE --out DECK --n 700
+```
+
+**What comes out.** `score_ratings.py` weights each rater by their accuracy on
+hidden cards whose answer is already known, drops anyone at chance, and writes
+one row per card with a verdict, a confidence and the typed correction. It
+also breaks accuracy down **by county, state, year, anchor and text source**,
+which is the point: a rule that holds in one county can fail in the next, and
+averaging hides it. The first round of real ratings showed a 19-point gap
+between two Washington counties.
+
+**Names are never shown.** They are painted over before the crop is taken, and
+a card is withheld entirely unless a name was actually covered. Full reasoning
+in `game/README.md`.
+
+The design follows **braindr** by Anisha Keshavan, Jason D. Yeatman, and Ariel
+Rokem, *Combining Citizen Science and Deep Learning to Amplify Expertise in
+Neuroimaging*, Frontiers in Neuroinformatics 13:29 (2019),
+<https://doi.org/10.3389/fninf.2019.00029>. Two ideas are taken directly: the
+one-tap judgement on a single image, and weighting raters against known-answer
+items rather than counting every vote equally.
 
 The method is peer reviewed: Thomas, Ramiller, Ren, and Toomet (2024),
 "Toward a National Eviction Data Collection Strategy Using Natural Language

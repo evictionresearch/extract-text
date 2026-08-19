@@ -387,12 +387,12 @@ drift apart.
 | `defendant_names` | Defendant name(s) as printed, separated by semicolons |
 | `n_defendants` | How many defendants were named |
 | `defendant_address_raw` | The service address exactly as captured, one line |
-| `defendant_street` | House number and street, split out |
-| `defendant_unit` | Apartment, unit, or suite, when printed |
+| `defendant_street` | House number and street, including any unit designator that is part of the street line |
+| `defendant_unit` | Apartment, unit, or suite on its own, when printed. This repeats what is already inside `defendant_street`; see the note below the table |
 | `defendant_city`, `defendant_state`, `defendant_zip` | The rest of the address, split out |
 | `defendant_anchor` | Which rule found the address (the audit trail; see section 12) |
 | `attorney_names`, `attorney_firm` | Plaintiff counsel, as printed |
-| `attorney_address_raw`, `attorney_street`, `attorney_unit`, `attorney_city`, `attorney_state`, `attorney_zip` | The attorney's address, kept firmly separate from the defendant's |
+| `attorney_address_raw`, `attorney_street`, `attorney_unit`, `attorney_city`, `attorney_state`, `attorney_zip` | The attorney's address, kept firmly separate from the defendant's. `attorney_unit` repeats what is inside `attorney_street`, as above |
 | `attorney_phone`, `attorney_bar_numbers` | Contact and bar registration (WSBA numbers in Washington) |
 | `court_name`, `county`, `state`, `case_type` | Case-level fields as written on the document |
 | `filing_date`, `amount_claimed`, `judgment_amount`, `judgment_date`, `disposition`, `disposition_date` | Present when the document type carries them |
@@ -402,6 +402,17 @@ drift apart.
 | `ocr_mean_conf` | OCR's own confidence in what it read, 0 to 100, only when OCR ran. Low values usually mean a poor scan |
 | `method`, `backend` | Which engine produced the row's main columns, and exactly which rules or model |
 | `flags` | Review flags, semicolon separated. Empty means every check passed |
+
+One thing to watch in the address columns. The `unit` column repeats
+information that is already contained in the `street` column, rather than
+holding a piece removed from it. If a summons prints "1234 Example Ave S Apt
+5", then `defendant_street` is the whole of "1234 Example Ave S Apt 5" and
+`defendant_unit` is "Apt 5". Pasting the two columns together therefore
+produces "1234 Example Ave S Apt 5 Apt 5". Use `street` on its own when you
+want the full street line, `address_raw` when you want the address as
+captured, and `unit` only when you need the unit by itself, for example to
+count multi-unit buildings. The same applies to `attorney_street` and
+`attorney_unit`.
 
 When the engine is `both`, these additional columns appear.
 

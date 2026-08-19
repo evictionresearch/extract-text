@@ -12,7 +12,7 @@ decisions. If you maintain a fork, adopt the same cadence.
 | Monthly, 1st of the month | A "model and dependency review" issue opens automatically with the checklist below | GitHub Actions (`model-watch.yml`) |
 | Quarterly, or when a notable local model releases | Full model review (procedure below), decision logged here | Maintainer, prompted by the monthly issue |
 | Before any release or external share | PII sweep over tree and history, full checks, version bump in all four places | Maintainer, checklist below |
-| Open validation milestones | AI-lane head-to-head against the labeled Washington sets; deterministic re-score after the street-direction port fix | Maintainer, tracked in issues |
+| Open validation milestones | AI-lane head-to-head against the labeled Washington sets; deterministic re-score against `nlp1_paper_data.csv` | Maintainer, tracked in issues |
 
 ## Monthly review checklist
 
@@ -63,6 +63,260 @@ To evaluate a candidate:
 | Date | Default | Decision and evidence |
 |---|---|---|
 | 2026-08-18 | `qwen3.5:9b` | Initial pin. Vision-capable, 9.7B parameters, Apache 2.0, runs in 16 GB through Ollama. Benchmarked by Cheng Ren on 300 Pierce County summons page-1 images: structured fields for all 300 in 1:22:40 (about 17 s/page); recovered a handwritten service address OCR could not read. Tag verified against ollama.com/library/qwen3.5/tags on 2026-08-18: `9b` exists at 6.6 GB, and `latest` currently points at the same model (digest `6488c96fa5fa`), so a machine holding either tag is running identical weights. Formal head-to-head against the labeled truth sets is an open milestone. |
+
+## Port fidelity, measured on real documents (2026-08-18)
+
+The deterministic engine is a port of a scanner validated in July 2026 against
+5,100+ hand-labeled addresses. The question for this package is therefore not
+"is it accurate" but "does it reproduce the tool that was already shown to be
+accurate." That was measured by running both engines over the same real
+Washington filings and comparing field by field.
+
+**Setup.** 400 documents, sampled with a fixed seed across 15 county-years
+(Pierce 2004 to 2017, King 2013, Whatcom), 366 requiring OCR and 34 with a
+text layer. Record-level output stayed in the governed data tree; only
+aggregates left it.
+
+**Result.** Neither engine raised an error on any of the 400. These fields
+were byte-identical across all 400 documents:
+
+- `defendant_address_raw` (mean similarity 1.0000, 100% identical)
+- `defendant_zip`, `defendant_anchor`
+- `attorney_firm`, `attorney_zip`, `attorney_phone`, `attorney_names`
+- `flags`, including the counts of all seven flag types that fired
+
+Address yield was identical at 268/400 (67.0%), and 235/400 (58.8%) came
+through with no flag at all. Yield splits 85.3% on text-layer PDFs against
+65.3% on OCR, which is the expected penalty for scanned pages.
+
+**Where they differ, and which is right.** Differences concentrate in the
+component fields that the deliberate `STREET_RE` deviation touches. A blind
+adjudication was run: page images were read independently and the true value
+recorded before any engine output was inspected.
+
+- `defendant_street`, 85 differences. Every one traced to direction handling.
+  In the 3 that fell in the blind sample, the port was correct and the
+  original wrong all 3 times, truncating `SE` to `S` and `SOUTH #208` to `S`.
+  This matters more than it looks: 39th Ave S and 39th Ave SE are different
+  streets, so the original was not merely incomplete, it was pointing at the
+  wrong place.
+- `attorney_street` (84) and `attorney_city` (50) move together. 35 cases show
+  the original absorbing the first letter of the city into a phantom trailing
+  direction, which is what produces a city of "Eattle". The port declines the
+  match and recovers the correct city.
+- `defendant_names` (36) and `doc_case_number` (3) are pure gains where the
+  original returned nothing.
+
+**Regression watch.** Across all fields the port lost 13 values and gained 36.
+Every loss sits on a document already carrying a flag (`no_defendant_address`,
+`defendant_equals_attorney`, or `case_number_mismatch`), so the port returns
+blank exactly where the record was already headed for review. Under
+flagged-never-guessed, a blank there is the better answer.
+
+Of the 5 documents where the port produced a *shorter* street than the
+original, reading the pages settled it as 2 wins for the port (the original
+supplied a wrong direction), 2 wins for the original (it recovered a direction
+from the "SO." abbreviation), and 1 tie where OCR interleaved a party name
+into the address line and both engines failed.
+
+## Known gaps in the address vocabulary
+
+Found by the run above. These affect **both** engines, so they are inherited
+limitations rather than port regressions, and they are the highest-value
+improvements available. Measured against the 268 extracted defendant
+addresses in that sample:
+
+| Form | Share | Status |
+|---|---|---|
+| `NE` `NW` `SE` `SW` | 19.4% | handled (this is what the port fixed) |
+| `NORTH` `SOUTH` `EAST` `WEST` | 28.4% | handled |
+| `N.E.` `S.W.` with periods | 6.0% | **truncated to a single letter** |
+| `SO.` / `NO.` abbreviation | 3.7% | **direction dropped** |
+| `SOUTHWEST` `SOUTHEAST` and kin | 0.7% | **direction dropped** |
+
+Cause: `DIRECTION` lists single letters before pairs, so `N` wins before `NE`
+is tried. The `(?!\w)` guard rescues the bare two-letter forms by forcing
+backtracking, but a period satisfies the guard, and the spelled-out compounds
+and `SO.` are absent from the vocabulary entirely.
+
+A candidate fix passes all 16 known cases, including every regression guard
+the `(?!\w)` rule was written for. It has **not** been applied, because it
+changes extraction behavior and belongs in a re-score:
+
+```python
+DIRECTION = (r"(?:NORTHEAST|NORTHWEST|SOUTHEAST|SOUTHWEST|NORTH|SOUTH|EAST|WEST"
+             r"|[NS]\.?[EW]|SO\.|[NSEW])")
+```
+
+A second, smaller gap: `UNIT` does not allow a `#` between the keyword and the
+identifier, so "Apt. # 201" loses its unit while "Apt. 201" and "#201" both
+work. Allowing an optional `#?\s?` after each keyword fixes it and passes the
+same guards.
+
+### The line-number rail, measured and partly fixed
+
+An earlier note here called this low priority, on the grounds that a stray
+rail digit leaves "a stray token inside an otherwise correct address". **That
+was wrong.** Human rating of real output found the rail digit taking the place
+of the house number: `13 39 EXAMPLE VALLEY DRIVE` for a house at 39, and
+`18 1234 SAMPLE AVE SW` for one at 1234. A wrong house number is a wrong
+address, and a plausible one, so a geocoder will place it without complaint.
+Two of 24 corrections in the first rating round were this.
+
+Measured on the offending pages, the rails sat at x1 = 0.149 and 0.156, past
+the 0.145 band, missing the cutoff by as little as 0.004. They are unmistakable
+as columns: on one page fifteen rail digits shared x1 between 0.155 and 0.156.
+
+**What was tried and reverted.** Detecting the column per page and dropping
+every member at the word level. It found the rails correctly and produced
+cleaner clustered lines, but on 1 filing in 250 it changed which block the
+extractor chose, turning a correct defendant address into the plaintiff
+attorney's address. The rail digits were evidently propping up a block
+boundary the extractor relies on. `layout.rail_columns` keeps the detector,
+unused, because it is a sound measurement and may become safe if the block
+extractor changes.
+
+**What shipped.** `summons._skip_rail_house_number` rejects a house number in
+rail range (1 to 28) when another number follows it that starts a perfectly
+good address of its own. It cannot move a block boundary because it runs after
+block selection. Over 250 real cards it changed 3 addresses, all correctly,
+and lost none. A genuine low house number is safe: "13 39th EXAMPLE AVE S" stays at
+13, because "39th" has no space after its digits and cannot begin a match.
+
+## First human-rated results (2026-08-18, one rater, n=71)
+
+A single rater worked through 79 cards of the Washington deck. Small, and one
+person, so treat it as a direction finder rather than a rate. It is still the
+first time this engine's output has been judged by a human against the page.
+
+**Extraction was judged correct on 66.2% of 71 settled cards.** Well below the
+July 2026 similarity scores, which is expected: this test asks whether the
+whole address is right, including unit and direction, where the Levenshtein
+metric gives credit for being close.
+
+What the 24 typed corrections changed:
+
+| Correction | Count |
+|---|---|
+| Added a unit or apartment the engine dropped | 11 |
+| Fixed a wrong or missing direction | 6 |
+| Removed junk the engine added | 3 |
+| Other | 3 |
+| Added other dropped words | 1 |
+
+**Dropped units are the largest single failure, ahead of directions.** That
+reorders the priority in the vocabulary fix: the `UNIT` pattern deserves at
+least as much attention as `DIRECTION`. Several corrections show units the
+engine never had a chance at, such as a suite following a comma
+("Commercial St., Suite 460"), which `(\s+UNIT)?` cannot reach because it
+requires whitespace directly after the street.
+
+The round also exposed a parse bug: "and all others residing at" was read as a
+party plus a city, producing `1800 OTHERS TEXAS ST, Residing, WA`. "Residing"
+is not a city and should never appear in that field.
+
+Two process lessons, both fixed:
+
+- **Probes were monotonous.** All eight the rater saw altered the house number,
+  because `corrupt()` tried that first and only fell back to ZIP. A rater
+  learns to check the leading digits and the probe stops measuring general
+  attention. It now picks at random among house number, ZIP and unit.
+- **The guideline was ambiguous on abbreviations.** A card was marked wrong for
+  showing `WA` where the page read `WASHINGTON`. The instructions now say
+  abbreviations count as matching.
+
+The probes did work as intended otherwise. Both misses took 8 and 9 seconds
+against 13 to 31 seconds for every correct answer, so they caught genuine
+lapses in attention rather than being unfair.
+
+**Accuracy is not one number.** The same round, broken down:
+
+| Slice | n | Correct |
+|---|---|---|
+| Whatcom | 44 | 72.7% |
+| Pierce | 26 | 53.8% |
+| tiff_ocr | 44 | 72.7% |
+| pdf_ocr | 20 | 55.0% |
+| `to_block` anchor | 58 | 70.7% |
+
+A 19-point gap between two counties in the same state, on one rater's cards.
+Small enough to be noise and large enough to check, which is why
+`score_ratings.py` now reports accuracy by state, county, year, anchor and
+text source as a matter of course. Counties use different forms, vendors and
+scanners, so a rule that holds in one can fail in the next, and a single
+headline number hides exactly the pattern worth acting on. Older Pierce years
+looked worst of all (2005: 25% on 8 cards), which fits: those are the
+typewriter-era and fill-in-form filings.
+
+## Handwritten filings: how many there are, and why they are hard to use
+
+Swept 5,817 Washington documents (Pierce, Whatcom, King) on 2026-08-18 looking
+for filings whose service address was written by hand. Two things came out of
+it, one about the corpus and one about the method.
+
+**Confidence cannot find handwriting.** Tesseract does not return
+low-confidence words for pen, it returns nothing at all, so a page with a
+wholly handwritten address block still reports about 93 mean confidence from
+its printed template. On a hand-labeled example the handwritten page was
+indistinguishable from printed ones on every confidence statistic tried,
+including confidence measured inside the service block.
+
+What does work is comparing ink against OCR coverage: dark pixels inside the
+service band that no word box accounts for. Measured only in the text column,
+since pleading rules and the line-number rail otherwise put unexplained ink on
+every page. Validated against images, a genuinely handwritten form scored
+0.837 and 0.505 where ordinary printed filings scored 0.001 to 0.12.
+
+**They are rare.** Of 4,819 measurable scans:
+
+| Unexplained ink | Documents | Share |
+|---|---|---|
+| >= 0.25 | 98 | 2.0% |
+| >= 0.35 | 51 | 1.1% |
+| >= 0.45 | 12 | 0.25% |
+| >= 0.55 | 6 | 0.12% |
+
+Precision in the top band is roughly half. Spot-checking found true
+handwriting at 0.837 and 0.505, but a printed form using dot leaders
+(`.....Candice Vaughn`) scored 0.646 and a printed address inside a ruled box
+scored 0.43, both false positives. **The honest rate is about 0.1% to 0.3%**,
+so an archive of roughly 52,000 documents holds on the order of 50 to 150
+handwritten filings, not thousands. Candidates at or above 0.35 are listed in
+the sweep output for review.
+
+**They cannot yet enter a rated deck safely.** A handwritten filing yields no
+extracted address, so it cannot be a match/no-match card; it has to be a
+transcription card that asks a person to type what they see. But the crop for
+one is cut from a printed "TO:" label with no OCR output beneath it, so
+word-box redaction has nothing to act on and the defendant's name sits in the
+picture. Blanking the first row of ink works on printed-but-unparseable
+filings and fails on handwriting, where descenders and the form's ruled lines
+join the rows into one band that spans the whole crop. `render_card` refuses
+rather than emitting a black rectangle, which means the genuinely handwritten
+cards are dropped by the safety guard.
+
+So handwriting needs either per-card human review before use, or a real
+handwriting recogniser. It is the clearest case for the AI lane: Cheng Ren's
+qwen benchmark recovered a handwritten service address that OCR could not
+read, and this sweep is the measurement of how much of the corpus that
+capability would unlock.
+
+## Other reasons extraction fails
+
+Reading the failures rather than counting them changed what looks worth
+fixing. In a hand-inspected sample of documents where no address was found,
+handwriting was one case in eight. The rest were printed and readable:
+
+- **Streets with no type word.** "5037 So. Orchard", "1419-A South
+  Ainsworth", "112 West Meeker". `STREET_RE` requires a suffix, and Tacoma
+  in particular names many streets without one. This looks like the single
+  largest cause.
+- **Dot leaders.** `.....Candice Vaughn`, `....4815 115th St Ct SW....`
+  Filler dots run into the tokens and defeat the pattern.
+- **Superscript ordinals.** "150<sup>TH</sup> ST. SW" survives OCR as
+  something the number pattern does not match.
+- **Genuinely absent.** Some summonses simply do not print the defendant's
+  address on page one, and returning nothing is correct.
 
 ## Observed engine differences
 
@@ -117,6 +371,8 @@ spot runs, not measured rates; quantifying them is part of that milestone.
 - **The port note**: `STREET_RE` in `summons.py` carries a word-boundary
   guard on the trailing street direction that the validated Washington
   scanner lacked. It strictly narrows matching (fixes "ST STE 200" and
-  "AVE SEATTLE" misreads). Re-scoring the labeled sets with this port is an
-  open milestone; until then, treat the July 2026 numbers as the ported
-  original's and this engine's as expected-equal-or-better.
+  "AVE SEATTLE" misreads). The 400-document run above confirms the direction
+  of the change on real filings: identical output on the primary address
+  field, and correct where the two engines disagree. A formal re-score
+  against the labeled sets is still open, so treat the July 2026 numbers as
+  the ported original's and this engine's as expected-equal-or-better.

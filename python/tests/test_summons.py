@@ -165,3 +165,66 @@ def test_blank_text_flags_nothing_and_extracts_nothing():
     x = extract_deterministic("This page intentionally left blank.")
     assert x.record.defendant_address is None
     assert x.record.defendants == []
+
+
+# ---------------------------------------------------------------------------
+# line-number rail: column detection
+# ---------------------------------------------------------------------------
+
+def _w(page, x0, x1, y0, text):
+    from extract_text.layout import Word
+    return Word(page, x0, y0, x1, y0 + 0.012, text)
+
+
+def test_rail_columns_are_detected_where_the_fixed_band_misses_them():
+    """The rail drifts. On real filings it has sat at x1 = 0.149 and 0.156,
+    past the 0.145 cutoff, letting a line number reach the address. Detection
+    is by column, since a rail has a dozen siblings and a house number none.
+
+    Detection only. Stripping these at the word level was tried and reverted;
+    see `layout.rail_columns` and `summons._skip_rail_house_number`."""
+    from extract_text.layout import rail_columns
+    words = [_w(1, 0.148, 0.156, 0.10 + i * 0.03, str(i + 1)) for i in range(12)]
+    words.append(_w(1, 0.150, 0.180, 0.53, "39"))
+    cols = rail_columns(words)
+    assert 1 in cols and any(abs(c - 0.152) < 0.01 for c in cols[1])
+
+
+def test_a_lone_number_forms_no_column():
+    """A house number has no siblings, so it can never look like a rail."""
+    from extract_text.layout import rail_columns
+    assert rail_columns([_w(1, 0.150, 0.180, 0.53, "17")]) == {}
+
+
+def test_a_mid_page_column_of_numbers_is_not_a_rail():
+    """Tables of figures sit mid-page; rails live in the margins."""
+    from extract_text.layout import rail_columns
+    words = [_w(1, 0.45, 0.47, 0.10 + i * 0.03, str(i + 1)) for i in range(12)]
+    assert rail_columns(words) == {}
+
+
+def test_the_fixed_band_still_strips_short_rails():
+    from extract_text.layout import strip_line_number_rail
+    words = [_w(1, 0.10, 0.13, 0.10 + i * 0.03, str(i + 1)) for i in range(3)]
+    words.append(_w(1, 0.20, 0.30, 0.20, "PINE"))
+    assert {w.text for w in strip_line_number_rail(words)} == {"PINE"}
+
+
+# ---------------------------------------------------------------------------
+# rail digit glued to the house number
+# ---------------------------------------------------------------------------
+
+def test_a_rail_digit_is_not_taken_as_the_house_number():
+    """Found by a human rating real output: "13 39 EXAMPLE VALLEY DRIVE" is a
+    house at 39, and "18 1234 SAMPLE AVE SW" one at 1234."""
+    from extract_text.deterministic.summons import parse_address
+    assert parse_address("13 39 EXAMPLE VALLEY DRIVE, Sampleton, WA 98100")["street"].startswith("39 ")
+    assert parse_address("18 1234 SAMPLE AVE SW #55, Sampleton, WA")["street"].startswith("1234 ")
+
+
+def test_a_genuine_low_house_number_survives():
+    """"13 39th EXAMPLE AVE S" is a real house at 13. It is safe because "39th" has no
+    space after its digits and so cannot begin a street match of its own."""
+    from extract_text.deterministic.summons import parse_address
+    assert parse_address("13 39th EXAMPLE AVE S, Sampleton, WA 98100")["street"].startswith("13 ")
+    assert parse_address("29 ST. SAMPLE AVENUE #1002 SAMPLETON")["street"].startswith("29 ")

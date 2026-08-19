@@ -75,12 +75,73 @@ def cluster_lines(words):
     return sorted((Line(ln) for ln in lines), key=lambda l: (l.page, l.y0, l.x0))
 
 
+#: fixed margin bands, kept as a floor for pages with too few rail digits to
+#: form a detectable column
+RAIL_LEFT_MAX = 0.145
+RAIL_RIGHT_MIN = 0.92
+#: a rail column must have at least this many members and sit within this
+#: horizontal spread
+RAIL_MIN_MEMBERS = 5
+RAIL_X_TOL = 0.020
+#: rails live in the margins; a column of numbers mid-page is a table
+RAIL_SEARCH_LEFT = 0.30
+RAIL_SEARCH_RIGHT = 0.72
+
+
+def rail_columns(words):
+    """Find the x positions where a page prints its line-number rail.
+
+    Returns {page: [x_centre, ...]}. A rail is a column: five or more short
+    integers stacked at one x in a margin. A house number has no siblings.
+
+    **Not used for stripping.** Removing every column member at the word level
+    was tried and reverted: it detected rails correctly and produced cleaner
+    lines, but on one filing in 250 it changed which block the extractor chose,
+    once turning a correct defendant address into the plaintiff attorney's.
+    The rail digits were apparently propping up a block boundary the extractor
+    depends on. The narrow fix in `summons.parse_address` handles the damage
+    those digits actually do without touching block selection.
+
+    Kept because it is the measurement issue #4 asked for, and because a future
+    change to the block extractor may make word-level stripping safe.
+    """
+    by_page = {}
+    for w in words:
+        if not re.fullmatch(r"\d{1,2}", w.text) or not 1 <= int(w.text) <= 28:
+            continue
+        mid = (w.x0 + w.x1) / 2
+        if mid > RAIL_SEARCH_LEFT and mid < RAIL_SEARCH_RIGHT:
+            continue
+        by_page.setdefault(w.page, []).append(mid)
+
+    out = {}
+    for page, xs in by_page.items():
+        xs.sort()
+        cols, cur = [], [xs[0]]
+        for x in xs[1:]:
+            if x - cur[-1] <= RAIL_X_TOL:
+                cur.append(x)
+            else:
+                cols.append(cur)
+                cur = [x]
+        cols.append(cur)
+        found = [sum(c) / len(c) for c in cols if len(c) >= RAIL_MIN_MEMBERS]
+        if found:
+            out[page] = found
+    return out
+
+
 def strip_line_number_rail(words):
-    """Drop the pleading-paper rail before line clustering: 1-2 digit integers
-    (1-28) whose entire box sits in the left (or right) margin band. Removing
-    them at the word level also un-glues lines OCR merged with the rail
-    ("17 18 TO: ...") — the structural fix for the row-numbers-inside-
+    """Drop the pleading-paper rail before line clustering: short integers that
+    belong to the page's line-number column, or that sit in the margin bands.
+    Removing them at the word level also un-glues lines OCR merged with the
+    rail ("17 18 TO: ..."), the structural fix for the row-numbers-inside-
     addresses failure documented in the Cityscape paper.
+
+    Two rules run together. A column detected on the page itself (see
+    `_rail_columns`) catches rails that drifted out of the fixed band, which is
+    how a rail digit ends up prefixed to a house number. The fixed band still
+    applies, so pages with only a handful of numbered lines are still cleaned.
 
     OCR sometimes mangles rail digits into confusable letters ("l4", "t6",
     "2L" for 14/16/21) which the digits-only pattern misses; in the LEFT band
@@ -89,9 +150,9 @@ def strip_line_number_rail(words):
     real words ("TO" on a tight-margin scan never contains a digit)."""
     keep = []
     for w in words:
-        in_left = w.x1 < 0.145
+        in_left = w.x1 < RAIL_LEFT_MAX
         if re.fullmatch(r"\d{1,2}", w.text) and 1 <= int(w.text) <= 28 \
-                and (in_left or w.x0 > 0.92):
+                and (in_left or w.x0 > RAIL_RIGHT_MIN):
             continue
         if in_left and re.fullmatch(r"[0-9OoIiLl|SsZzBGTtJj]{1,2}", w.text) \
                 and any(c.isdigit() for c in w.text):

@@ -351,6 +351,36 @@ shows, not the document. Two round-1 corrections faithfully transcribed the
 attorney's address because that is what the card showed. Treat corrections on
 cards whose extraction later changes blocks as stale, and re-rate them.
 
+## Vision readings as game cards (2026-08-20)
+
+36 documents the improved engine still fails on were read from page images by
+a vision model (Claude, in-session). The readings did NOT enter any truth set.
+Each became a game card (`V####`, `source=claude-vision`) built by
+`build_vision_cards.py`: the reading is the typed guess, the reader's own
+name extraction feeds the redaction, and the standard withhold rule applies.
+People confirm or reject them by swiping, and `score_ratings.py` reports
+accuracy per reader (rules vs claude-vision), so the two are judged on the
+same footing.
+
+Of the 36: **28 yielded readings** (21 built into cards; 7 had no locatable
+crop anchor and are held for the transcription flow) and **8 were skips** —
+and the skips are the finding. Four pro se fill-in forms carried the
+**plaintiff's own address or the courthouse's address in the TO field**; a
+reader that transcribes the TO block without checking whose name heads it
+proposes the wrong household with full confidence. Any AI-lane prompt should
+carry this check, and three of the four were handwritten, exactly the
+documents the AI lane exists for.
+
+The vision set also included readable handwriting (three filings), compound
+suffixes, superscript ordinals, and a "1415 & 1417" dual house number —
+coverage the deterministic engine cannot reach today.
+
+**Round 2 deck** (`round2/serve`): 180 cards = 129 whose extraction changed
+under the improvement pass + 21 conversions + 21 vision cards + 9 probes.
+Round 1 stays frozen for raters mid-deck; the corrections lesson (a
+correction validates the shown crop, not the document) applies when
+comparing rounds.
+
 ## Other reasons extraction fails
 
 Reading the failures rather than counting them changed what looks worth

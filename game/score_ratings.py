@@ -89,6 +89,21 @@ def main():
 
     dd = Path(os.path.expanduser(args.deck_dir))
     cards = {r["card_id"]: r for r in csv.DictReader(open(dd / "cards.csv"))}
+    for r in cards.values():
+        r.setdefault("source", "rules")
+    # vision cards (V####) carry a model's reading rather than the engine's;
+    # they live in their own manifest so provenance is never mixed up
+    vpath = dd / "vision_cards.csv"
+    if vpath.exists():
+        for r in csv.DictReader(open(vpath)):
+            if r.get("status") == "ok":
+                cards[r["card_id"]] = {
+                    "card_id": r["card_id"], "county": r.get("county", ""),
+                    "state": "WA", "year": r.get("year", ""),
+                    "display": r.get("address", ""),
+                    "anchor": "vision", "text_source": r.get("crop_kind", ""),
+                    "flags": "", "source": r.get("source", "vision"),
+                }
     gold = {r["probe_id"]: r for r in csv.DictReader(open(dd / "gold.csv"))}
 
     ratings = load_ratings(args.ratings)
@@ -165,6 +180,7 @@ def main():
         fix = Counter(v["fix"]).most_common(1)
         rows.append({
             "card_id": cid,
+            "source": card.get("source", "rules"),
             "county": card.get("county", ""),
             "state": card.get("state", "") or "WA",
             "year": card.get("year", ""),
@@ -204,7 +220,8 @@ def main():
     # can fail in Whatcom. Breaking the result down is how a pattern local to
     # one jurisdiction gets noticed instead of being averaged away, and it is
     # what makes the same deck useful when a new county or state is added.
-    for key, label in (("state", "state"), ("county", "county"), ("year", "year")):
+    for key, label in (("source", "reader"), ("state", "state"),
+                       ("county", "county"), ("year", "year")):
         groups = defaultdict(list)
         for r in rows:
             if r["label"] in ("correct", "incorrect"):

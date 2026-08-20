@@ -138,6 +138,31 @@ wrong. Those have to stay visible or the exercise is pointless.
 **Before showing a deck to anyone outside the data agreement**, settle the
 audience question. See issue #3.
 
+## Vision cards: model readings enter the game, not the truth set
+
+Some documents defeat the deterministic engine entirely: handwriting,
+superscript ordinals, clerk-omitted street names. A vision model (Claude
+reading page images, or the local qwen lane) can often still read them — but
+a model's reading is a **proposal, not ground truth**, so it enters the game
+as a card exactly like an engine extraction: a person swipes, and only
+confirmed readings graduate to the training set.
+
+`python/scripts/build_vision_cards.py` turns a readings CSV (address + party
+names per document) into cards with ids `V####` and a `source` column, so
+`score_ratings.py` reports accuracy per reader — rules vs claude-vision vs
+qwen — on the same footing. The reader supplies the names it saw, which is
+what makes redaction work on documents where the engine parsed no parties:
+the same withhold-if-nothing-redacted rule applies.
+
+Two lessons from the first vision round, worth keeping:
+
+- On pro se fill-in forms the TO field frequently holds the **plaintiff's or
+  even the courthouse's** address, not the defendant's. A reader that blindly
+  transcribes the TO block will propose the wrong household with full
+  confidence. Of 36 pages read, 4 were this trap; they were recorded as skips.
+- Reading the *names* is what makes the cards safe to show, so a reader that
+  only extracts addresses cannot feed the game.
+
 ## Attention probes
 
 Roughly 8% of the deck is a copy of a real card whose typed address has had one

@@ -45,9 +45,13 @@ def _toks(s):
 
 def build_one(row, out_dir):
     from extract_text import documents
-    from extract_text.cards import (NEVER_REDACT, locate_address,
-                                    locate_service_band, render_card,
-                                    safe_to_show)
+    from extract_text.cards import (
+        NEVER_REDACT,
+        locate_address,
+        locate_service_band,
+        render_card,
+        safe_to_show,
+    )
 
     cid = row["card_id"]
     rec = dict(row, status="", crop="", redacted="", crop_kind="")

@@ -420,11 +420,18 @@ Not scan quality: rules gaps. The mechanisms, each traced on a real page:
 |---|---|---|---|---|---|
 | July 2026 original (200-sample) | 83.5% | 0.867 | 94.0% | 78.5% | 90.7% |
 | This engine, before mining | 85.2% | 0.875 | 95.6% | 81.5% | 93.4% |
-| This engine, after mining | ~92% | ~0.91 | ~98% | ~91% | ~96% |
+| This engine, after mining | **92.4%** | **0.907** | **98.3%** | **90.8%** | **96.3%** |
 
-(HJP n=877 moved similarly: yield 90.0 -> ~96%, >=0.7-all 81.0 -> ~95%.
-Exact final-run numbers live in `_rescore_2026-08-20/full/` beside the
-per-case scores; the table's last row is from the confirming run.)
+HJP (King 2017, n=877): yield 90.0 -> **95.6%**, mean 0.886 -> **0.926**,
+>=0.7-on-extracted 90.0 -> **99.5%**, >=0.7-on-all 81.0 -> **95.1%**.
+Per-case scores live in `_rescore_2026-08-20/full/` on governed storage.
+
+**Round 3 of the game** was rebuilt from this run by `build_truth_round.py`:
+356 cards — the 317 remaining engine-vs-truth disagreements (median ratio
+0.89: mostly unit/direction shading, no wholesale errors left in the deck),
+plus 19 truth-exact cards shown unaltered as yes-probes and 20 one-digit
+corruptions as no-probes. Rater time now goes only where the engine and a
+hand label disagree, and the swipe adjudicates which one is right.
 
 **The precision trade, made explicitly.** The counsel-block vetoes refuse 87
 answers the previous pass emitted: 53 were wrong (attorney offices standing

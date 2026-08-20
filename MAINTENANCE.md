@@ -12,7 +12,7 @@ decisions. If you maintain a fork, adopt the same cadence.
 | Monthly, 1st of the month | A "model and dependency review" issue opens automatically with the checklist below | GitHub Actions (`model-watch.yml`) |
 | Quarterly, or when a notable local model releases | Full model review (procedure below), decision logged here | Maintainer, prompted by the monthly issue |
 | Before any release or external share | PII sweep over tree and history, full checks, version bump in all four places | Maintainer, checklist below |
-| Open validation milestones | AI-lane head-to-head against the labeled Washington sets; deterministic re-score against `nlp1_paper_data.csv` | Maintainer, tracked in issues |
+| Open validation milestones | AI-lane head-to-head against the labeled Washington sets (deterministic re-score: **done 2026-08-20**, see below) | Maintainer, tracked in issues |
 
 ## Monthly review checklist
 
@@ -350,6 +350,35 @@ city honestly emptied, one is the same wrong block both ways.
 shows, not the document. Two round-1 corrections faithfully transcribed the
 attorney's address because that is what the card showed. Treat corrections on
 cards whose extraction later changes blocks as stale, and re-rate them.
+
+## The formal re-score: this engine vs the July truth sets (2026-08-20)
+
+The ground-truth file (`nlp1_paper_data.csv`, 5,171 labeled rows) and the
+July validation kit were located on the external archive volume and copied
+into the governed data tree, unblocking the milestone. The packaged engine —
+port plus every deviation shipped since (direction/unit vocabulary, rail
+guard, no-suffix parser, city veto, attorney demotion) — was run over the
+**exact documents** the July validation used (the kit's manifests pin them),
+and scored with the kit's own `validate.py`, so the metric is byte-for-byte
+the paper's.
+
+| Set | n | Yield | Mean ratio | >=0.7 (extr.) | >=0.7 (all) | ZIP agree |
+|---|---|---|---|---|---|---|
+| King HJP, July | 100 | 90.0% | 0.886 | 90.0% | 81.0% | 94.3% |
+| King HJP, **now** | 100 | **92.0%** | **0.888** | **90.2%** | **83.0%** | **94.4%** |
+| King thesis, July | 200 | 83.5% | 0.867 | 94.0% | 78.5% | 90.7% |
+| King thesis, **now** | 200 | **84.0%** | **0.869** | 94.0% | **79.0%** | **92.1%** |
+| King manual / Pierce | 27 | — | — | — | — | unchanged |
+
+**Equal or better on every column of every set; no regression anywhere.**
+The July numbers may now be claimed by this engine, not merely inherited
+from the ported original.
+
+Why these gains look small next to the strict-metric jump (66% → est. 80-85%
+whole-address-correct): this scorer is the paper's forgiving Levenshtein
+ratio, where a dropped unit costs a few characters. The improvement pass
+mostly fixed exactly the things this metric barely sees. Both numbers are
+true; they answer different questions.
 
 ## Vision readings as game cards (2026-08-20)
 

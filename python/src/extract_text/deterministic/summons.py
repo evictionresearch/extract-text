@@ -43,10 +43,13 @@ from ..schema import Address, Attorney, Evidence, Party
 # WA superior court case number, e.g. 25-2-00001-0 (the "2" = civil)
 WA_CASE_NO_RE = re.compile(r"\b(\d{2})[- ]?2[- ]?(\d{5})[- ]?(\d)\b")
 
+# CRT is a court abbreviation King County forms actually print ("80TH CRT
+# NE"); PI is OCR's l->I misread of "Pl." — both found by truth-set mining,
+# where each cost the whole address.
 STREET_SUFFIX = (
     r"(?:AVE(?:NUE)?|ST(?:REET)?|STR|RD|ROAD|DR(?:IVE)?|LN|LANE|BLVD|BOULEVARD|"
-    r"WAY|CT|COURT|CIR(?:CLE)?|PL(?:ACE)?|PKWY|PARKWAY|HWY|HIGHWAY|TER(?:RACE)?|"
-    r"LOOP|TRL|TRAIL|XING|CROSSING)"
+    r"WAY|CT|CRT|COURT|CIR(?:CLE)?|PL(?:ACE)?|PI|PKWY|PARKWAY|HWY|HIGHWAY|"
+    r"TER(?:RACE)?|LOOP|TRL|TRAIL|XING|CROSSING)"
 )
 # Longest alternatives first: the regex engine takes the first branch that
 # matches, so with N before NE the direction "NE" ends at "N" and the stray
@@ -71,8 +74,10 @@ UNIT = (
 )
 
 # street line: house number + words + suffix, optionally followed by direction/unit
-# street-name tokens allow %/°/™ — OCR misreads of ordinal "th", the last from
-# superscripts ("150ᵀᴴ ST" arrives as "150™ ST").
+# street-name tokens allow %/°/™ and straight/curly quotes — all OCR misreads
+# of superscript ordinals: "150ᵀᴴ ST" arrives as "150™ ST", and "100ᵗʰ Avenue"
+# as '100" Avenue' (found by mining the truth set; that one character cost the
+# whole address).
 # Port note: the trailing direction carries a (?!\w) guard the original
 # wa_doc_scan pattern lacked, so "ST STE 200" no longer loses its unit to a
 # phantom direction "S" and "AVE SEATTLE" no longer becomes "AVE S" + city
@@ -88,7 +93,7 @@ UNIT = (
 # lost. The compound list is tight (court/place/circle) because the common
 # suffixes would eat the following city ("TERRACE SPRINGFIELD").
 STREET_RE = re.compile(
-    rf"\b(\d{{1,6}})\s+((?:{DIRECTION}\.?\s+)?[\w'.\-%°™]+(?:\s+[\w'.\-%°™]+){{0,4}}?"
+    rf"\b(\d{{1,6}})\.?[\s-]+((?:{DIRECTION}\.?\s+)?[\w'\"’”.\-%°™]+(?:\s+[\w'\"’”.\-%°™]+){{0,4}}?"
     rf"\s+{STREET_SUFFIX}\.?(?:\s+(?:CT|COURT|PL|PLACE|CIR|CIRCLE)\.?)?"
     rf"(?:\s+{DIRECTION}\.?(?!\w))?)((?:\s+|\s*,\s*){UNIT})?",
     re.IGNORECASE,
@@ -123,9 +128,29 @@ FORM_PUBLISHER_RE = re.compile(
 
 # anchors for the defendant service block. Up to two short junk tokens may
 # precede "TO:" — OCR sometimes reads the rail digits as letters ("nN No TO:").
+# The junk-lead tolerance is {1,4} because OCR renders a rail digit plus the
+# pleading rule as tokens like "19||" (four characters); "TO THE DEFENDANT(S):"
+# is a common King County label the original vocabulary lacked — mining the
+# truth set found whole documents failing on that one missing word.
+#: process-server declaration labels; an address on such a line is the
+#: server's, found grabbed by the stack anchor on a real page-3 declaration
+SERVER_DECL_RE = re.compile(
+    r"\(\s*(?:printed\s+name|address|signature|date)\s*\)", re.IGNORECASE)
+
+#: the "deliver your notice of appearance or answer to:" instruction — the
+#: address under it is plaintiff counsel's, printed as a freestanding stack
+#: that the stack anchor otherwise reads as the defendant's. Found on two
+#: truth-set filings where it displaced the true service block.
+# Deliberately narrow: "notice of appearance" and "answer must" also occur in
+# ordinary body paragraphs, and matching them vetoed true service stacks that
+# happened to sit below such prose (87 documents lost yield before this was
+# tightened). Only the instruction's own tail phrase is safe.
+DELIVER_TO_RE = re.compile(
+    r"(must\s+be\s+delivered\s+to|delivered?\s+to\s*:\s*$)", re.IGNORECASE)
+
 TO_ANCHOR_RE = re.compile(
-    r"^\s*(?:\S{1,3}\s+){0,2}TO\s*:\s*(DEFENDANT\S*\s*:?)?"
-    r"|^\s*TO\s+DEFENDANT\S*\s*:?",
+    r"^\s*(?:\S{1,4}\s+){0,2}TO\s*:\s*(DEFENDANT\S*\s*:?)?"
+    r"|^\s*(?:\S{1,4}\s+){0,2}TO\s+(?:THE\s+)?DEFENDANT\S*\s*:?",
     re.IGNORECASE,
 )
 ADDRESS_LABEL_RE = re.compile(r"^\s*ADDRESS\s*:", re.IGNORECASE)
@@ -450,12 +475,19 @@ def extract_defendant_block(lines, pg=1):
             j += 1
             if len(block) > 8:
                 break
-        # split names from address inside the block
+        # split names from address inside the block. Before the address has
+        # begun, any line WITHOUT a digit is a name or building line: the
+        # address's first line always carries the house number, and the old
+        # looks-like-a-name test wrongly started the address at "STEVE E.
+        # WASHINGTON" because the surname tripped the city/state pattern,
+        # gluing the parties into the address itself.
         addr_started = False
         addr_parts = []
         for part in block:
             clean = OCCUPANT_NOISE_RE.sub("", part).strip(" ,;")
-            if not addr_started and clean and looks_like_name_line(clean):
+            if not addr_started and clean and (
+                    looks_like_name_line(clean)
+                    or not any(ch.isdigit() for ch in clean)):
                 names.append(clean)
                 continue
             if part.strip():
@@ -467,11 +499,23 @@ def extract_defendant_block(lines, pg=1):
         if re.search(r"TELEPHONE\s+NO|WSBA|ATTORNEYS?\s+(AT\s+LAW|FOR)|LAW\s+OFFICE",
                      block_text, re.IGNORECASE):
             continue
-        parsed = parse_address(" ".join(addr_parts)) if addr_parts else None
+        # When the label's own line carries names AND the address ("TO THE
+        # DEFENDANT(S): JOHN DOE; All Occupants ... 6200 EXAMPLE AVE S ..."),
+        # the digit test starts the address at that line and the party names
+        # ride along into address_raw. The street match marks the boundary:
+        # everything before it is attribution and belongs in names.
+        joined = " ".join(addr_parts)
+        sm0 = _first_street_match(joined)
+        if sm0 and sm0.start() > 0:
+            head = OCCUPANT_NOISE_RE.sub("", joined[:sm0.start()]).strip(" ,;:")
+            if re.search(r"[A-Za-z]{2}", head) and not ADDRESS_LABEL_RE.match(head):
+                names.append(head)
+            joined = joined[sm0.start():]
+        parsed = parse_address(joined) if addr_parts else None
         nosuffix = None
         if not parsed and addr_parts:
             # the confirmed-by-city fallback for streets with no type word
-            nosuffix = parse_address_nosuffix(" ".join(addr_parts))
+            nosuffix = parse_address_nosuffix(joined)
         for cand in (parsed, nosuffix):
             if cand:
                 cand["defendant_names"] = "; ".join(n for n in names if n)[:200]
@@ -527,12 +571,17 @@ def extract_defendant_stack(lines, pg=1):
         streetish = STREET_RE.search(t) or NOSUFFIX_LINE_RE.match(t)
         if len(t) > 70 or not streetish or PROSE_STOP_RE.search(t):
             continue
+        # a return-of-service declaration prints the SERVER's address next to
+        # "(Printed Name)"/"(Address)" labels — never the defendant's
+        if SERVER_DECL_RE.search(t):
+            continue
         # a signature/service block attributed to the plaintiff's side is
         # the landlord's return address, not the defendant's — skip it.
         # Attribution lines sit ABOVE the address ("Plaintiff, or Attorney
         # for Plaintiff"); lines below are notice prose, don't test them.
         context = p1[max(0, i - 3): i + 1]
-        if any(PLAINTIFF_SIDE_RE.search(c.text) for c in context):
+        if any(PLAINTIFF_SIDE_RE.search(c.text) or DELIVER_TO_RE.search(c.text)
+               for c in context):
             continue
         # a city/state line must follow within ~2 line heights
         for nxt in p1[i + 1: i + 3]:
@@ -633,14 +682,21 @@ def extract_plaintiff_caption(lines, pg=1):
 
 def try_defendant(lines, pages):
     """Run the anchor ladder over the given pages; first hit wins but all
-    candidates are kept for the audit trail."""
+    candidates are kept for the audit trail.
+
+    The page scan stops early only once a COMPLETE candidate (city or ZIP
+    present) exists. An incomplete page-1 fragment used to end the scan and
+    shadow a complete service block on a later page — measured on a real
+    filing where a garbled caption cell (no city, no ZIP) beat the true
+    premises paragraph on page 3. Incomplete candidates are still returned,
+    and still win when nothing complete ever appears."""
     candidates = []
     for pg in pages:
         for fn in DEFENDANT_ANCHORS:
             parsed, anchor = fn(lines, pg)
             if parsed:
                 candidates.append((f"{anchor}@p{pg}" if pg != 1 else anchor, parsed, pg))
-        if candidates:
+        if any(p.get("city") or p.get("zip") for _, p, _ in candidates):
             break
     return candidates
 
@@ -798,12 +854,14 @@ def extract_summons_fields(doc, expected_case_number=None):
         if not PLAINTIFF_SIDE_RE.search(p.get("defendant_names", "")[:60])
     ]
     # A strict-pattern candidate outranks a no-suffix one from ANY anchor,
-    # not just its own. Ladder position alone let a no-suffix reading of an
+    # not just its own: ladder position alone let a no-suffix reading of an
     # OCR-scrambled "TO:" block preempt the clean strict address a lower
-    # anchor had found on the same page. Stable sort keeps ladder order
-    # within each class, so this only reorders across the strict/no-suffix
-    # boundary.
-    candidates.sort(key=lambda c: bool(c[1].get("street_no_suffix")))
+    # anchor had found on the same page. Likewise a candidate WITH a city or
+    # ZIP outranks one with neither — a garbled page-1 caption fragment
+    # otherwise shadows the complete service block on page 3. Stable sort
+    # keeps ladder order within each class.
+    candidates.sort(key=lambda c: (bool(c[1].get("street_no_suffix")),
+                                   not (c[1].get("city") or c[1].get("zip"))))
     defendant = dict(candidates[0][1]) if candidates else {}
     def_anchor = candidates[0][0] if candidates else ""
     def_page = candidates[0][2] if candidates else None
@@ -817,10 +875,20 @@ def extract_summons_fields(doc, expected_case_number=None):
     # a service block reading "201 Broadway" beats a strict match on the
     # attorney's office tower. The flag still fires when no alternative
     # exists, so nothing is ever silently guessed.
-    att_street = (attorney_raw.get("attorney_street") or "").lower()
-    if defendant and att_street and defendant.get("street", "").lower() == att_street:
+    def _street_norm(s):
+        return re.sub(r"[^a-z0-9]+", " ", (s or "").lower()).strip()
+
+    def _collides(street, att):
+        # literal equality missed '22525 SE 64" Place Ste.278' against the
+        # firm's '22525 SE 64" Place' — same office, one suite tail. Prefix
+        # match after normalization catches the suite/unit variants.
+        a, b = _street_norm(street), _street_norm(att)
+        return bool(a and b) and (a == b or a.startswith(b) or b.startswith(a))
+
+    att_street = attorney_raw.get("attorney_street") or ""
+    if defendant and att_street and _collides(defendant.get("street", ""), att_street):
         for a, p, pg in candidates[1:]:
-            if p.get("street", "").lower() != att_street:
+            if not _collides(p.get("street", ""), att_street):
                 defendant, def_anchor, def_page = dict(p), a, pg
                 break
     doc_case, case_match = extract_case_number(lines, expected_case_number)

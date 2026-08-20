@@ -96,11 +96,27 @@ def extract_from_document(doc, expected_case_number: str | None = None) -> Extra
 
     fields, evidence, flags = extract_summons_fields(doc, expected_case_number)
     # fallback: combined summons+complaint bundles can bury the service
-    # block or premises language on interior pages
-    if not fields["defendant_address"] and doc.n_pages > 2:
+    # block or premises language on interior pages. The interior pass also
+    # runs when the primary pages produced only a SUSPECT answer — one that
+    # collides with the attorney's street, or one with neither city nor ZIP —
+    # because both are the signature of the true block living on a page the
+    # primary pass never read. The interior result is kept only when it is
+    # actually better: it must not itself be suspect.
+    def _suspect(fl, addr):
+        if addr is None:
+            return True
+        if "defendant_equals_attorney" in fl:
+            return True
+        return not (addr.city or addr.zip)
+
+    first_addr = fields["defendant_address"]
+    if doc.n_pages > 2 and _suspect(flags, first_addr):
         added = documents.load_fallback_pages(doc)
         if added:
-            fields, evidence, flags = extract_summons_fields(doc, expected_case_number)
+            f2, e2, fl2 = extract_summons_fields(doc, expected_case_number)
+            if f2["defendant_address"] is not None and (
+                    first_addr is None or not _suspect(fl2, f2["defendant_address"])):
+                fields, evidence, flags = f2, e2, fl2
 
     base = extract_from_text(doc.text)
     record = _merge(base, fields)

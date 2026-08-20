@@ -307,3 +307,27 @@ def test_quoted_unit_identifier():
     from extract_text.deterministic.summons import parse_address
     p = parse_address('1234 115th St Ct SW unit "O" Sampleton, Wa. 98100')
     assert p and 'unit "O"' in p["street"]
+
+
+def test_a_page_tall_ocr_smear_cannot_seed_a_runaway_cluster():
+    """One quarter-page-tall box (the pleading rule misread as 'ee') seeded a
+    cluster that swallowed 56 words including the whole TO: block. Found by
+    mining the full truth set: the single largest failure class (683 cases)."""
+    from extract_text.layout import Word, cluster_lines, strip_line_number_rail
+    words = [Word(1, 0.06, 0.30, 0.08, 0.55, "ee", 27.0)]        # the smear
+    for i, t in enumerate(("TO:", "PAT", "EXAMPLEY")):
+        words.append(Word(1, 0.20 + i * 0.1, 0.40, 0.26 + i * 0.1, 0.412, t))
+    for i, t in enumerate(("1234", "EXAMPLE", "AVE")):
+        words.append(Word(1, 0.20 + i * 0.1, 0.42, 0.26 + i * 0.1, 0.432, t))
+    lines = cluster_lines(strip_line_number_rail(words))
+    texts = [ln.text for ln in lines]
+    assert "TO: PAT EXAMPLEY" in texts          # rows stay separate lines
+    assert "1234 EXAMPLE AVE" in texts
+    assert not any("ee" in t.split() for t in texts)
+
+
+def test_normal_and_letterhead_words_survive_the_height_filter():
+    from extract_text.layout import Word, strip_line_number_rail
+    ws = [Word(1, 0.2, 0.10, 0.3, 0.112, "normal"),
+          Word(1, 0.2, 0.05, 0.5, 0.078, "LETTERHEAD")]   # h=0.028, tall but real
+    assert len(strip_line_number_rail(ws)) == 2

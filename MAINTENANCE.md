@@ -380,6 +380,60 @@ ratio, where a dropped unit costs a few characters. The improvement pass
 mostly fixed exactly the things this metric barely sees. Both numbers are
 true; they answer different questions.
 
+## Failure mining at full scale (2026-08-20)
+
+With the archive volume mounted, the validation stopped being a sample: all
+5,168 labeled truth cases (of 5,171) have documents on the volume, and the
+engine now runs and scores against every one of them in ~36 minutes. That
+changed how improvement works. Instead of reading a handful of failures, the
+engine's misses were classified programmatically against ground truth, the
+dominant classes were read as page images, and each mechanism was fixed and
+re-measured on the full set.
+
+**What the mining found.** 903 failures; 683 were "no yield on an OCR'd
+PDF" — and 90% of those had readable text and a findable attorney block.
+Not scan quality: rules gaps. The mechanisms, each traced on a real page:
+
+- a page-tall OCR smear of the pleading rule seeding a runaway line cluster
+  that swallowed the whole service block (fixed structurally in
+  `cluster_lines`: junk may join a line, only text-sized words define its
+  band);
+- superscript ordinals arriving as quote characters ('100" Avenue');
+- the "TO THE DEFENDANT(S):" label missing from the anchor vocabulary, and
+  junk leads one character wider than its tolerance ("19||");
+- hyphenated house-ordinals ("229-17TH STREET"), trailing-period house
+  numbers ("2360. NE Park Drive"), "CRT" and OCR's "PI" for "Pl.",
+  standalone pipe tokens from split ordinals;
+- names glued into `address_raw` when the label line carries both (the
+  street match now marks the name/address boundary);
+- an incomplete page-1 fragment ending the page scan and shadowing the
+  complete service block on page 3 (complete-beats-incomplete, across the
+  whole ladder);
+- process-server declarations and "must be delivered to:" counsel blocks
+  read as defendant stacks (vetoed — and the veto itself was measured,
+  found over-broad, and narrowed: its first form cost 34 correct answers
+  to prose false-fires).
+
+**Results on the full truth set** (paper metric, kit scorer):
+
+| King thesis, n=4,254 | Yield | Mean ratio | >=0.7 (extr.) | >=0.7 (all) | ZIP |
+|---|---|---|---|---|---|
+| July 2026 original (200-sample) | 83.5% | 0.867 | 94.0% | 78.5% | 90.7% |
+| This engine, before mining | 85.2% | 0.875 | 95.6% | 81.5% | 93.4% |
+| This engine, after mining | ~92% | ~0.91 | ~98% | ~91% | ~96% |
+
+(HJP n=877 moved similarly: yield 90.0 -> ~96%, >=0.7-all 81.0 -> ~95%.
+Exact final-run numbers live in `_rescore_2026-08-20/full/` beside the
+per-case scores; the table's last row is from the confirming run.)
+
+**The precision trade, made explicitly.** The counsel-block vetoes refuse 87
+answers the previous pass emitted: 53 were wrong (attorney offices standing
+in for defendants — the classic failure, silent until now), 34 were right.
+Refusals are flagged and reviewable; silent wrong addresses are not. Two
+documents remain honest losses where the only address on the page sits in
+the bottom-right mailing-certificate corner that deliberately belongs to
+counsel rules.
+
 ## Vision readings as game cards (2026-08-20)
 
 36 documents the improved engine still fails on were read from page images by

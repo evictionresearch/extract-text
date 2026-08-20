@@ -138,6 +138,23 @@ wrong. Those have to stay visible or the exercise is pointless.
 **Before showing a deck to anyone outside the data agreement**, settle the
 audience question. See issue #3.
 
+## Truth rounds: spend raters only where labels disagree
+
+When a hand-labeled truth set exists (`nlp1_paper_data.csv` for Washington),
+most cards would waste rater time re-confirming what the labels already
+settle. `python/scripts/build_truth_round.py` builds a round from a
+truth-scored run instead:
+
+- **Disagreement cards** — engine answer differs from the truth label. These
+  are the only cards that need human eyes: the engine is wrong, or the
+  years-old label is wrong, and the swipe adjudicates.
+- **Real gold probes** — cards whose engine answer matches truth exactly are
+  shown either unaltered (correct answer *yes*) or with one digit changed
+  (correct answer *no*). Earlier rounds could only corrupt text to make
+  no-probes; a truth set finally provides yes-probes, so a rater who rejects
+  everything is caught as surely as one who accepts everything.
+- Clear agreements never reach the deck; the label settles them.
+
 ## Vision cards: model readings enter the game, not the truth set
 
 Some documents defeat the deterministic engine entirely: handwriting,

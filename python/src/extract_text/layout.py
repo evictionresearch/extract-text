@@ -55,16 +55,34 @@ class Line:
 
 
 def cluster_lines(words):
-    """Group words into visual lines by vertical overlap (deterministic)."""
+    """Group words into visual lines by vertical overlap (deterministic).
+
+    A word may JOIN a line whose band its midpoint falls in, but only
+    text-sized words get to DEFINE the band. Without that asymmetry a single
+    tall OCR smear (the pleading paper's vertical rule read as letters) seeds
+    a line whose envelope spans several visual rows, and every later word
+    whose midpoint falls inside is swallowed — on a measured King filing one
+    such cluster ate 56 words including the whole "TO:" service block, which
+    then read as a bag-of-words scramble no anchor could match. Mining the
+    5,168-case truth set showed this to be the engine's single largest
+    failure class. Junk still lands in whichever line it overlaps, where it
+    costs a stray token; it can no longer merge rows.
+    """
+    if not words:
+        return []
+    heights = sorted(w.y1 - w.y0 for w in words)
+    text_h = max(0.006, heights[len(heights) // 2]) * 2.5
+
     lines = []
     for w in sorted(words, key=lambda w: (w.page, w.y0, w.x0)):
         placed = False
         for ln in lines:
             if ln[0].page != w.page:
                 continue
-            # overlap test against the running line's vertical band
-            ly0 = min(x.y0 for x in ln)
-            ly1 = max(x.y1 for x in ln)
+            # band from text-sized members only; junk members don't grow it
+            band = [x for x in ln if (x.y1 - x.y0) <= text_h] or ln
+            ly0 = min(x.y0 for x in band)
+            ly1 = max(x.y1 for x in band)
             mid = (w.y0 + w.y1) / 2
             if ly0 - 0.004 <= mid <= ly1 + 0.004:
                 ln.append(w)
@@ -131,9 +149,27 @@ def rail_columns(words):
     return out
 
 
+#: No printed word on a court filing is taller than a twentieth of the page
+#: (the median word is about 0.010; letterhead tops out near 0.03). Boxes
+#: taller than this are OCR smears of page furniture — most often the
+#: pleading paper's vertical rule read as a letter or two ('ee', height 0.25,
+#: confidence 27, on a measured King filing).
+WORD_MAX_HEIGHT = 0.05
+
+
 def strip_line_number_rail(words):
-    """Drop the pleading-paper rail before line clustering: short integers that
-    belong to the page's line-number column, or that sit in the margin bands.
+    """Drop page furniture before line clustering: implausibly tall boxes,
+    then short integers that belong to the line-number column or margin bands.
+
+    The tall-box drop matters far more than it looks. `cluster_lines` grows a
+    line's vertical band as it absorbs words, so a single quarter-page-tall
+    smear seeds a runaway cluster that swallows everything whose midpoint
+    falls inside it — on one measured filing, 56 words spanning a quarter of
+    the page, including the entire "TO:" service block, which then reads as a
+    bag-of-words scramble no anchor can match. Mining the full 5,168-case
+    truth set found this to be the single largest failure class: 683 of 903
+    failures were no-yield documents, 90% of which had readable text and a
+    findable attorney block.
     Removing them at the word level also un-glues lines OCR merged with the
     rail ("17 18 TO: ..."), the structural fix for the row-numbers-inside-
     addresses failure documented in the Cityscape paper.
@@ -150,6 +186,12 @@ def strip_line_number_rail(words):
     real words ("TO" on a tight-margin scan never contains a digit)."""
     keep = []
     for w in words:
+        if (w.y1 - w.y0) > WORD_MAX_HEIGHT:
+            continue
+        # standalone pipes are the pleading rule or a split ordinal ("12th"
+        # read as "| 2th"); no address contains a bare pipe
+        if re.fullmatch(r"[|¦]{1,2}\.?", w.text):
+            continue
         in_left = w.x1 < RAIL_LEFT_MAX
         if re.fullmatch(r"\d{1,2}", w.text) and 1 <= int(w.text) <= 28 \
                 and (in_left or w.x0 > RAIL_RIGHT_MIN):

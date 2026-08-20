@@ -308,6 +308,49 @@ qwen benchmark recovered a handwritten service address that OCR could not
 read, and this sweep is the measurement of how much of the corpus that
 capability would unlock.
 
+## The 2026-08-20 improvement pass
+
+Every fix below traces to a failure class found by measurement (the 400-doc
+A/B, the human rating round, or reading failed pages). Applied together and
+measured together.
+
+1. **No-suffix streets** ("1949 S. Sprague"-shaped), the largest cause of
+   `no_defendant_address`. New `parse_address_nosuffix`: one backtracking
+   pattern for house + optional direction + at most two name tokens +
+   optional unit + a confirming city line. Every use flagged
+   `street_no_suffix`. Converted 21 of 159 former failures (13%).
+2. **Phantom cities.** "Residing" and firm names before "WA" are vetoed
+   (`CITY_VETO`); the city search continues past a vetoed match instead of
+   stopping, recovering the real city later in the block.
+3. **Dot leaders** collapse to spaces before parsing; **superscript
+   ordinals** ("150ᵀᴴ" arriving as "150™") join the street token class;
+   **compound suffixes** ("115th St Ct SW", "88th Street Court SW") get an
+   optional second type word; **quoted unit identifiers** ('unit "O"') parse.
+
+Two selection rules had to come with it, both learned the hard way:
+
+- **Strict beats no-suffix across the whole ladder.** Anchor priority alone
+  let a no-suffix reading of an OCR-scrambled "TO:" block preempt the clean
+  strict address a lower anchor had found on the same page. The candidate
+  list now sorts strict-first, stable within each class.
+- **An attorney collision demotes the winner.** When the chosen street equals
+  the attorney's, the first non-colliding candidate on the audit trail takes
+  over. On two rated cards this recovered the true defendant address
+  ("Bakerview", "Broadway" — both suffix-less, both previously replaced by
+  the attorney's office) from filings where the failure had been invisible.
+
+**Measurement.** 85 tests pass, including 10 new. Across 250 real cards:
+zero addresses lost, zero house numbers changed. Against the 24 human
+corrections: 15 better, 5 same, 4 nominally worse — and every "worse" was
+adjudicated on the page image: two are wins (the attorney-collision cards,
+where the human had corrected a crop of the attorney block), one is a phantom
+city honestly emptied, one is the same wrong block both ways.
+
+**A lesson for the game.** A typed correction validates the region the crop
+shows, not the document. Two round-1 corrections faithfully transcribed the
+attorney's address because that is what the card showed. Treat corrections on
+cards whose extraction later changes blocks as stale, and re-rate them.
+
 ## Other reasons extraction fails
 
 Reading the failures rather than counting them changed what looks worth

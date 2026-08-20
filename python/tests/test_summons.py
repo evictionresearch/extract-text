@@ -228,3 +228,82 @@ def test_a_genuine_low_house_number_survives():
     from extract_text.deterministic.summons import parse_address
     assert parse_address("13 39th EXAMPLE AVE S, Sampleton, WA 98100")["street"].startswith("13 ")
     assert parse_address("29 ST. SAMPLE AVENUE #1002 SAMPLETON")["street"].startswith("29 ")
+
+
+# ---------------------------------------------------------------------------
+# the 2026-08 improvement pass: no-suffix streets, city veto, OCR forms
+# ---------------------------------------------------------------------------
+
+def test_a_street_with_no_type_word_parses_when_a_city_confirms_it():
+    """Tacoma names many streets with no suffix; these were the largest cause
+    of no_defendant_address. The city line is the confirmation, and the
+    street_no_suffix marker keeps the output reviewable as a class."""
+    from extract_text.deterministic.summons import parse_address, parse_address_nosuffix
+    text = "1949 S. Exemplar, Sampleton WA 98100"
+    assert parse_address(text) is None          # strict pass cannot see it
+    p = parse_address_nosuffix(text)
+    assert p and p["street"] == "1949 S. Exemplar" and p["city"] == "Sampleton"
+    assert p["street_no_suffix"] is True
+
+
+def test_nosuffix_backtracking_never_splits_a_word():
+    """With an optional separator the regex split 'Puyallup' into street
+    'Puyal' + city 'lup'. The mandatory separator makes that unsatisfiable."""
+    from extract_text.deterministic.summons import parse_address_nosuffix
+    p = parse_address_nosuffix("112 West Mockford Sampleton, WA 98100")
+    assert p and p["street"] == "112 West Mockford" and p["city"] == "Sampleton"
+
+
+def test_nosuffix_rejects_caption_fragments_and_bare_directions():
+    from extract_text.deterministic.summons import parse_address_nosuffix
+    assert parse_address_nosuffix(
+        "CASE NO. 25 2 00001 0 EVICTIONS SUMMONS Residential Washington") is None
+    assert parse_address_nosuffix("1502 SOUTH Sampleton, WA 98100") is None
+
+
+def test_nosuffix_rejects_a_form_that_dropped_the_street_name():
+    """A clerk once printed a bare '1234 Street #11' — suffix words are not street
+    names, and rejecting lets the ladder fall through to the caption."""
+    from extract_text.deterministic.summons import parse_address_nosuffix
+    assert parse_address_nosuffix("1234 Street #11 Sampleton, WA 98100") is None
+
+
+def test_prose_and_firm_names_never_become_cities():
+    from extract_text.deterministic.summons import parse_address
+    p = parse_address("900 EXAMPLE STREET Quibble Pllc, WA 98100")
+    assert p and p["city"] == "" and p["zip"] == "98100"
+
+
+def test_city_search_continues_past_a_vetoed_match():
+    from extract_text.deterministic.summons import parse_address
+    p = parse_address("1800 EXAMPLE ST all others residing at Washington "
+                      "SAMPLETON, WA 98100")
+    assert p and p["city"] == "Sampleton"
+
+
+def test_dot_leaders_do_not_break_the_street():
+    from extract_text.deterministic.summons import parse_address
+    p = parse_address('.....1234 EXAMPLE AVE S APT 5..... Sampleton, Wa. 98100')
+    assert p and p["street"].upper().endswith("APT 5") and p["city"] == "Sampleton"
+
+
+def test_superscript_ordinal_and_comma_unit():
+    """'150ᵀᴴ' arrives from OCR as '150™'."""
+    from extract_text.deterministic.summons import parse_address
+    p = parse_address("1234 150™ ST. SW, #37 SAMPLETON, WA 98100")
+    assert p and "#37" in p["street"] and p["city"] == "Sampleton"
+
+
+def test_compound_suffix_street_court():
+    from extract_text.deterministic.summons import parse_address
+    p = parse_address("1234 67th Street Court SW, #14, Sampleton, WA 98100")
+    assert p and p["street"].startswith("1234 67th Street Court SW")
+    # and the compound tail must never eat a city
+    q = parse_address("742 EVERGREEN TERRACE SPRINGFIELD, WA 98100")
+    assert q and q["street"] == "742 EVERGREEN TERRACE" and q["city"] == "Springfield"
+
+
+def test_quoted_unit_identifier():
+    from extract_text.deterministic.summons import parse_address
+    p = parse_address('1234 115th St Ct SW unit "O" Sampleton, Wa. 98100')
+    assert p and 'unit "O"' in p["street"]

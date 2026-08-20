@@ -71,6 +71,22 @@ SYNTHETIC_WHITELIST = [
     # Rail-digit regression probes. The leading 1-2 digit number stands in for a
     # pleading line number glued to the house number; the streets are invented.
     "13 39 EXAMPLE VALLEY DRIVE",
+    # Improvement-pass regression tests, all invented (Sampleton / Exemplar /
+    # Mockford / Quibble are not real places, streets, or firms)
+    "1949 S. Exemplar",
+    "112 West Mockford",
+    "1234 Street #11",
+    "1234 Street",
+    "3116 Street",              # docstring shape for the clerk-omitted name
+    "900 EXAMPLE STREET",
+    "EXAMPLE STREET Quibble Pllc",
+    "1800 EXAMPLE ST",
+    "1234 67th Street Court",
+    "1234 150",                 # superscript-ordinal probe "1234 150(TM) ST"
+    "1234 115th St Ct",
+    "742 EVERGREEN TERRACE",    # fictional address from The Simpsons
+    "EVERGREEN TERRACE SPRINGFIELD",
+    "25 2 00001 0",             # the synthetic case number, spaced form
     "18 1234 SAMPLE AVE",
     "13 39th EXAMPLE AVE",
     "29 ST. SAMPLE AVENUE",

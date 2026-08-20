@@ -62,13 +62,17 @@ DIRECTION = (
 # Unit keywords tolerate an optional "#" before the identifier: forms print
 # "Apt. # 201" as readily as "Apt. 201", and the first human rating round
 # found dropped units to be the single largest correction category (11 of 24).
+# The identifier may be quoted — fill-in forms print 'unit "O"'.
+_UNIT_ID = r"[\"']?[\w-]+[\"']?"
 UNIT = (
-    r"(?:#\s?[\w-]+|APT\.?\s?#?\s?[\w-]+|UNIT\s?#?\s?[\w-]+|STE\.?\s?#?\s?[\w-]+|"
-    r"SUITE\s?#?\s?[\w-]+|SPACE\s?#?\s?[\w-]+|TRLR\s?#?\s?[\w-]+|LOT\s?#?\s?[\w-]+)"
+    rf"(?:#\s?{_UNIT_ID}|APT\.?\s?#?\s?{_UNIT_ID}|UNIT\s?#?\s?{_UNIT_ID}|"
+    rf"STE\.?\s?#?\s?{_UNIT_ID}|SUITE\s?#?\s?{_UNIT_ID}|SPACE\s?#?\s?{_UNIT_ID}|"
+    rf"TRLR\s?#?\s?{_UNIT_ID}|LOT\s?#?\s?{_UNIT_ID})"
 )
 
 # street line: house number + words + suffix, optionally followed by direction/unit
-# street-name tokens allow %/° — common OCR misreads of ordinal "th".
+# street-name tokens allow %/°/™ — OCR misreads of ordinal "th", the last from
+# superscripts ("150ᵀᴴ ST" arrives as "150™ ST").
 # Port note: the trailing direction carries a (?!\w) guard the original
 # wa_doc_scan pattern lacked, so "ST STE 200" no longer loses its unit to a
 # phantom direction "S" and "AVE SEATTLE" no longer becomes "AVE S" + city
@@ -77,9 +81,16 @@ UNIT = (
 # The unit group accepts a comma separator ("Commercial St., Suite 460") —
 # found by human rating, where a comma-led suite was unreachable because the
 # group required whitespace immediately after the street.
+# Compound suffixes: Pierce County names streets "115th St Ct SW" and
+# "88th Street Court SW" — a second type word directly after the first. The
+# lazy name expansion stops at the first suffix, so without the optional
+# compound tail the street truncates at "St" and the court and direction are
+# lost. The compound list is tight (court/place/circle) because the common
+# suffixes would eat the following city ("TERRACE SPRINGFIELD").
 STREET_RE = re.compile(
-    rf"\b(\d{{1,6}})\s+((?:{DIRECTION}\.?\s+)?[\w'.\-%°]+(?:\s+[\w'.\-%°]+){{0,4}}?"
-    rf"\s+{STREET_SUFFIX}\.?(?:\s+{DIRECTION}\.?(?!\w))?)((?:\s+|\s*,\s*){UNIT})?",
+    rf"\b(\d{{1,6}})\s+((?:{DIRECTION}\.?\s+)?[\w'.\-%°™]+(?:\s+[\w'.\-%°™]+){{0,4}}?"
+    rf"\s+{STREET_SUFFIX}\.?(?:\s+(?:CT|COURT|PL|PLACE|CIR|CIRCLE)\.?)?"
+    rf"(?:\s+{DIRECTION}\.?(?!\w))?)((?:\s+|\s*,\s*){UNIT})?",
     re.IGNORECASE,
 )
 # city, state zip — the state token is configurable per jurisdiction; the
@@ -217,10 +228,51 @@ def _skip_rail_house_number(t, sm):
     return shifted if shifted is not None else sm
 
 
+# Words that end up in front of "WA"/"Washington" without being a city.
+# "and all others residing at ... Washington" makes a city of "Residing";
+# a signature block makes one of "Swanson Pllc". No Washington place name
+# contains any of these, so one of them anywhere in the captured city means
+# the capture is prose or a firm name, and an empty city (with the ZIP kept)
+# is the honest answer. Found by human rating of real extractions.
+CITY_VETO = {
+    "residing", "resident", "residents", "occupant", "occupants", "others",
+    "pllc", "llc", "llp", "inc", "ps", "esq", "wsba", "attorney", "attorneys",
+    "law", "office", "offices", "firm", "associates", "plaintiff", "plaintiffs",
+    "defendant", "defendants", "county", "superior", "court",
+    # courtroom vocabulary that reaches the no-suffix street parser, where a
+    # case-caption fragment ("9 EVICTIONS SUMMONS Residential") would
+    # otherwise read as house + street + city
+    "summons", "eviction", "evictions", "residential", "notice", "lawsuit",
+    "deadline", "response", "washington", "judge", "clerk", "cause",
+}
+
+
+def _clean_city(raw_city):
+    """The city as CITY_WA_RE captured it, cleaned of OCR junk and prose.
+
+    Margin/OCR junk glues onto the city's head ("Ny Oo Seattle", "W Federal
+    Way" from an absorbed direction letter, "C Bellingham" from a "#C" that
+    lost its #) — lead tokens without a true vowel are not city names (y alone
+    doesn't clear "Yn"), and neither are 1-2 letter fragments ("Oo", "Ob")
+    except the genuine "La" of La Center / La Conner."""
+    toks = raw_city.strip(" ,.").title().split()
+    while toks and (
+            not re.search(r"[aeiou]", toks[0], re.IGNORECASE)
+            or (len(toks[0]) <= 2 and toks[0].lower() != "la")):
+        toks.pop(0)
+    if any(tk.rstrip(".,").lower() in CITY_VETO for tk in toks):
+        return ""
+    return " ".join(toks)
+
+
 def parse_address(text):
     """Split a joined address string into components; returns None if no
     street pattern is present. Keeps the raw string alongside components."""
-    t = re.sub(r"\s+", " ", text).strip(" ,.;")
+    # Dot leaders first: fill-in forms print ".....4815 115th St....." and the
+    # runs of dots glue onto the tokens. Two or more dots never occur inside a
+    # legitimate address, so they collapse to a space; single periods (St.,
+    # N.E., et. al.) are untouched.
+    t = re.sub(r"\s+", " ", re.sub(r"\.{2,}", " ", text)).strip(" ,.;")
     repaired = False
     sm = _skip_rail_house_number(t, _first_street_match(t))
     t2, n_fix = repair_house_numbers(t)
@@ -242,21 +294,18 @@ def parse_address(text):
     rest = t[sm.end():]
     city = state = zipc = ""
     end = min(len(t), sm.end() + 45)  # raw trim point when no city/zip found
-    cm = CITY_WA_RE.search(rest)
+    # First city match whose capture survives cleaning. Stopping at the first
+    # match regardless loses real cities: in "...all others residing at ...
+    # BELLINGHAM, WA" the first thing before a state token is the prose word
+    # "residing", and the genuine city sits one match further on.
+    cm = None
+    for c in CITY_WA_RE.finditer(rest):
+        cm = cm or c                        # fallback: first match's zip/trim
+        if _clean_city(c.group(1)):
+            cm = c
+            break
     if cm:
-        city = cm.group(1).strip(" ,.").title()
-        # margin/OCR junk glues onto the city's head ("Ny Oo Seattle",
-        # "W Federal Way" from an absorbed direction letter, "C Bellingham"
-        # from a "#C" that lost its #) — lead tokens without a true vowel
-        # are not city names (y alone doesn't clear "Yn"), and neither are
-        # 1-2 letter fragments ("Oo", "Ob") except the genuine "La" of
-        # La Center / La Conner
-        toks = city.split()
-        while toks and (
-                not re.search(r"[aeiou]", toks[0], re.IGNORECASE)
-                or (len(toks[0]) <= 2 and toks[0].lower() != "la")):
-            toks.pop(0)
-        city = " ".join(toks)
+        city = _clean_city(cm.group(1))
         state = "WA"
         zipc = cm.group(2) or ""
         end = sm.end() + cm.end()
@@ -277,6 +326,88 @@ def parse_address(text):
     }
 
 
+# Streets with no type word at all: "5037 So. Orchard", "1949 S. Sprague",
+# "112 West Meeker", "1419-A South Ainsworth". Tacoma in particular names many
+# streets this way, and STREET_RE requires a suffix, so these were the single
+# largest cause of no_defendant_address in a hand-inspected failure sample.
+# The pattern is deliberately tight: house number (optionally "-A"), an
+# optional direction, then at most TWO name tokens, then an optional unit —
+# and it is only consulted where a city/state line confirms the reading.
+NOSUFFIX_LINE_RE = re.compile(
+    rf"^\s*\d{{1,6}}(?:-[A-Za-z])?\s+(?:{DIRECTION}\.?\s+)?[A-Za-z][\w'.\-]*"
+    rf"(?:\s+[A-Za-z][\w'.\-]*)?(?:(?:\s+|\s*,\s*){UNIT})?\s*$",
+    re.IGNORECASE,
+)
+
+
+# The whole no-suffix address as ONE pattern, so the regex engine's
+# backtracking settles the street/city split. Matching street and city
+# separately fails on exactly the hard inputs: the lazy city capture in
+# "112 West Meeker Puyallup, WA" starts at "West" and eats the street, and in
+# "...Orchard, #C University Place, WA" it starts at the unit's letter. With
+# a single pattern the engine tries allocations until street, optional unit,
+# and city are all satisfied at once.
+# The separator before the city is MANDATORY ([\s,.;]+, not *): with an
+# optional separator the engine, having failed to place a city before "WA",
+# will shrink the last street token mid-word and split "Puyallup" into street
+# "Puyal" + city "lup". A required separator makes a mid-word split
+# unsatisfiable, so backtracking drops the whole optional token instead.
+NOSUFFIX_ADDR_RE = re.compile(
+    rf"\b(\d{{1,6}})(-[A-Za-z])?\s+((?:{DIRECTION}\.?\s+)?[A-Za-z][\w'.\-]*"
+    rf"(?:\s+[A-Za-z][\w'.\-]*)?)((?:\s+|\s*,\s*){UNIT})?[\s,.;]+"
+    rf"([A-Za-z][A-Za-z .'-]{{2,30}}?)[,.]?\s+(?:WA|WASH\.?|WASHINGTON)\b[,.]?"
+    rf"\s*(\d{{5}}(?:-\d{{4}})?)?",
+    re.IGNORECASE,
+)
+
+
+def parse_address_nosuffix(text):
+    """Parse an address whose street has no type word, on stricter terms.
+
+    Runs only after the strict pass found nothing, and only accepts a street
+    that sits immediately before a city/state line — the city is the
+    confirmation that replaces the missing suffix. Every use is surfaced as a
+    street_no_suffix flag, because this rule is newer than the validated
+    original and its output should be reviewable as a class.
+    """
+    t = re.sub(r"\s+", " ", re.sub(r"\.{2,}", " ", text)).strip(" ,.;")
+    if _first_street_match(t):
+        return None                          # the strict pass owns this text
+    dir_only = re.compile(rf"^{DIRECTION}\.?$", re.IGNORECASE)
+    for m in NOSUFFIX_ADDR_RE.finditer(t):
+        name_toks = m.group(3).split()
+        if name_toks[0].rstrip(".,").lower() in STREET_STOPWORDS:
+            continue
+        if any(tok.rstrip(".,").lower() in CITY_VETO for tok in name_toks):
+            continue                         # caption fragment, not a street
+        # a name that is nothing but suffix words is a form that dropped the
+        # actual street name ("3116 Street #11" printed by the clerk) —
+        # rejecting it lets the anchor ladder fall through to the caption,
+        # which usually carries the full address
+        suffix_only = re.compile(rf"^{STREET_SUFFIX}\.?$", re.IGNORECASE)
+        if all(suffix_only.match(tok) or dir_only.match(tok) for tok in name_toks):
+            continue
+        if all(dir_only.match(tok) for tok in name_toks):
+            continue                         # "1502 SOUTH" alone is not a street
+        city = _clean_city(m.group(5))
+        if not city:
+            continue                         # confirmation gone, reading unsafe
+        street = re.sub(r"\s+", " ", m.group(1) + (m.group(2) or "") + " "
+                        + m.group(3) + (m.group(4) or "")).strip(" ,.")
+        unit = re.sub(r"\s+", " ", m.group(4)).strip(" ,") if m.group(4) else ""
+        return {
+            "address_raw": t[m.start():m.end()].strip(" ,.;"),
+            "street": street,
+            "unit": unit,
+            "city": city,
+            "state": "WA",
+            "zip": m.group(6) or "",
+            "house_repaired": False,
+            "street_no_suffix": True,
+        }
+    return None
+
+
 def looks_like_name_line(text):
     t = text.strip()
     if not t or STREET_RE.search(t) or CITY_WA_RE.search(t):
@@ -293,6 +424,7 @@ def extract_defendant_block(lines, pg=1):
     """Anchor A: the mid-page service block ('TO:' / 'TO DEFENDANT(S):',
     the labeled 'ADDRESS:' variant). Returns (result, anchor_tag)."""
     p1 = [l for l in lines if l.page == pg]
+    deferred = None
     for i, ln in enumerate(p1):
         t = ln.text.strip()
         is_to = bool(TO_ANCHOR_RE.match(t)) and len(t) < 90 and 0.15 < ln.y0 < 0.85
@@ -336,12 +468,26 @@ def extract_defendant_block(lines, pg=1):
                      block_text, re.IGNORECASE):
             continue
         parsed = parse_address(" ".join(addr_parts)) if addr_parts else None
-        if parsed:
-            parsed["defendant_names"] = "; ".join(n for n in names if n)[:200]
-            used = p1[i:j]
-            parsed["block_conf"] = round(sum(l.conf for l in used) / len(used), 1)
-            return parsed, ("to_block" if is_to else "address_label")
-    return None, None
+        nosuffix = None
+        if not parsed and addr_parts:
+            # the confirmed-by-city fallback for streets with no type word
+            nosuffix = parse_address_nosuffix(" ".join(addr_parts))
+        for cand in (parsed, nosuffix):
+            if cand:
+                cand["defendant_names"] = "; ".join(n for n in names if n)[:200]
+                used = p1[i:j]
+                cand["block_conf"] = round(sum(l.conf for l in used) / len(used), 1)
+                tag = "to_block" if is_to else "address_label"
+                if cand is parsed:
+                    return cand, tag
+                # A no-suffix reading never outranks a strict one anywhere in
+                # this anchor: it is remembered and only returned if the whole
+                # scan finds no strict block. Letting it win immediately was
+                # measured to change block selection — a scrambled caption
+                # fragment preempted the true service block lower on the page.
+                if deferred is None:
+                    deferred = (cand, tag)
+    return deferred if deferred else (None, None)
 
 
 def extract_defendant_premises(lines, pg=1):
@@ -375,9 +521,11 @@ def extract_defendant_stack(lines, pg=1):
     body band (some older summonses print the service block with no 'TO:'
     label). Left-of-center, above the attorney zone; topmost stack wins."""
     p1 = [l for l in lines if l.page == pg and 0.22 < l.y0 < 0.72 and l.x0 < 0.60]
+    deferred = None
     for i, ln in enumerate(p1):
         t = ln.text.strip()
-        if len(t) > 70 or not STREET_RE.search(t) or PROSE_STOP_RE.search(t):
+        streetish = STREET_RE.search(t) or NOSUFFIX_LINE_RE.match(t)
+        if len(t) > 70 or not streetish or PROSE_STOP_RE.search(t):
             continue
         # a signature/service block attributed to the plaintiff's side is
         # the landlord's return address, not the defendant's — skip it.
@@ -391,8 +539,11 @@ def extract_defendant_stack(lines, pg=1):
             if nxt.y0 - ln.y1 > 0.05:
                 break
             if CITY_WA_RE.search(nxt.text) and len(nxt.text.strip()) < 50:
-                parsed = parse_address(f"{t} {nxt.text.strip()}")
-                if not parsed:
+                joined = f"{t} {nxt.text.strip()}"
+                parsed = parse_address(joined)
+                nosuffix = None if parsed else parse_address_nosuffix(joined)
+                cand = parsed or nosuffix
+                if not cand:
                     continue
                 # names: up to two immediately preceding short name-ish lines
                 names = []
@@ -400,10 +551,15 @@ def extract_defendant_stack(lines, pg=1):
                     if ln.y0 - prev.y1 > 0.05 or not looks_like_name_line(prev.text):
                         break
                     names.insert(0, OCCUPANT_NOISE_RE.sub("", prev.text).strip(" ,;"))
-                parsed["defendant_names"] = "; ".join(n for n in names if n)[:200]
-                parsed["block_conf"] = round((ln.conf + nxt.conf) / 2, 1)
-                return parsed, "address_stack"
-    return None, None
+                cand["defendant_names"] = "; ".join(n for n in names if n)[:200]
+                cand["block_conf"] = round((ln.conf + nxt.conf) / 2, 1)
+                if parsed:
+                    return cand, "address_stack"
+                # a no-suffix stack never preempts a strict stack further down
+                # the page; it is only returned when the whole scan finds none
+                if deferred is None:
+                    deferred = (cand, "address_stack")
+    return deferred if deferred else (None, None)
 
 
 def extract_defendant_caption(lines, pg=1):
@@ -641,11 +797,32 @@ def extract_summons_fields(doc, expected_case_number=None):
         (a, p, pg) for a, p, pg in candidates
         if not PLAINTIFF_SIDE_RE.search(p.get("defendant_names", "")[:60])
     ]
+    # A strict-pattern candidate outranks a no-suffix one from ANY anchor,
+    # not just its own. Ladder position alone let a no-suffix reading of an
+    # OCR-scrambled "TO:" block preempt the clean strict address a lower
+    # anchor had found on the same page. Stable sort keeps ladder order
+    # within each class, so this only reorders across the strict/no-suffix
+    # boundary.
+    candidates.sort(key=lambda c: bool(c[1].get("street_no_suffix")))
     defendant = dict(candidates[0][1]) if candidates else {}
     def_anchor = candidates[0][0] if candidates else ""
     def_page = candidates[0][2] if candidates else None
 
     attorney_raw = extract_attorney(lines, words) or {}
+
+    # The classic wrong-address failure is the chosen "defendant" address
+    # being the plaintiff attorney's. When that collision fires and another
+    # candidate on the audit trail does NOT collide, the non-colliding one is
+    # the better answer even if it came from the weaker (no-suffix) pattern:
+    # a service block reading "201 Broadway" beats a strict match on the
+    # attorney's office tower. The flag still fires when no alternative
+    # exists, so nothing is ever silently guessed.
+    att_street = (attorney_raw.get("attorney_street") or "").lower()
+    if defendant and att_street and defendant.get("street", "").lower() == att_street:
+        for a, p, pg in candidates[1:]:
+            if p.get("street", "").lower() != att_street:
+                defendant, def_anchor, def_page = dict(p), a, pg
+                break
     doc_case, case_match = extract_case_number(lines, expected_case_number)
 
     # ---- flags, ported logic ----
@@ -659,6 +836,11 @@ def extract_summons_fields(doc, expected_case_number=None):
         flags.append("defendant_address_incomplete")
     if defendant.get("house_repaired"):
         flags.append("house_number_repaired")  # informational: audit trail
+    if defendant.get("street_no_suffix"):
+        # informational: the street carried no type word and was accepted on
+        # the strength of the city line. Newer rule than the validated
+        # original, so its output stays reviewable as a class.
+        flags.append("street_no_suffix")
     if defendant.get("block_conf") is not None and defendant.get("block_conf", 100) < 70 \
             and doc.source != "pdf_text_layer":
         flags.append("defendant_block_low_conf")  # handwriting / poor scan

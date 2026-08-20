@@ -48,8 +48,24 @@ STREET_SUFFIX = (
     r"WAY|CT|COURT|CIR(?:CLE)?|PL(?:ACE)?|PKWY|PARKWAY|HWY|HIGHWAY|TER(?:RACE)?|"
     r"LOOP|TRL|TRAIL|XING|CROSSING)"
 )
-DIRECTION = r"(?:N|S|E|W|NE|NW|SE|SW|NORTH|SOUTH|EAST|WEST)"
-UNIT = r"(?:#\s?[\w-]+|APT\.?\s?[\w-]+|UNIT\s?[\w-]+|STE\.?\s?[\w-]+|SUITE\s?[\w-]+|SPACE\s?#?\s?[\w-]+|TRLR\s?[\w-]+|LOT\s?[\w-]+)"
+# Longest alternatives first: the regex engine takes the first branch that
+# matches, so with N before NE the direction "NE" ends at "N" and the stray
+# "E" corrupts whatever follows. Measured on 268 real extracted addresses,
+# the forms the shorter vocabulary lost: dotted pairs "N.E."/"S.W." (6.0%),
+# the "SO." abbreviation (3.7%), spelled compounds "SOUTHWEST" (0.7%) — about
+# one address in ten carrying a truncated or dropped direction. "SO" is
+# accepted only with its period, so the word "SO" in prose stays untouched.
+DIRECTION = (
+    r"(?:NORTHEAST|NORTHWEST|SOUTHEAST|SOUTHWEST|NORTH|SOUTH|EAST|WEST"
+    r"|[NS]\.?[EW]|SO\.|[NSEW])"
+)
+# Unit keywords tolerate an optional "#" before the identifier: forms print
+# "Apt. # 201" as readily as "Apt. 201", and the first human rating round
+# found dropped units to be the single largest correction category (11 of 24).
+UNIT = (
+    r"(?:#\s?[\w-]+|APT\.?\s?#?\s?[\w-]+|UNIT\s?#?\s?[\w-]+|STE\.?\s?#?\s?[\w-]+|"
+    r"SUITE\s?#?\s?[\w-]+|SPACE\s?#?\s?[\w-]+|TRLR\s?#?\s?[\w-]+|LOT\s?#?\s?[\w-]+)"
+)
 
 # street line: house number + words + suffix, optionally followed by direction/unit
 # street-name tokens allow %/° — common OCR misreads of ordinal "th".
@@ -58,9 +74,12 @@ UNIT = r"(?:#\s?[\w-]+|APT\.?\s?[\w-]+|UNIT\s?[\w-]+|STE\.?\s?[\w-]+|SUITE\s?[\w
 # phantom direction "S" and "AVE SEATTLE" no longer becomes "AVE S" + city
 # "Eattle". Strictly narrower; behavior is otherwise identical to the
 # validated original.
+# The unit group accepts a comma separator ("Commercial St., Suite 460") —
+# found by human rating, where a comma-led suite was unreachable because the
+# group required whitespace immediately after the street.
 STREET_RE = re.compile(
     rf"\b(\d{{1,6}})\s+((?:{DIRECTION}\.?\s+)?[\w'.\-%°]+(?:\s+[\w'.\-%°]+){{0,4}}?"
-    rf"\s+{STREET_SUFFIX}\.?(?:\s+{DIRECTION}\.?(?!\w))?)(\s+{UNIT})?",
+    rf"\s+{STREET_SUFFIX}\.?(?:\s+{DIRECTION}\.?(?!\w))?)((?:\s+|\s*,\s*){UNIT})?",
     re.IGNORECASE,
 )
 # city, state zip — the state token is configurable per jurisdiction; the

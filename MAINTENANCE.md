@@ -130,28 +130,35 @@ addresses in that sample:
 |---|---|---|
 | `NE` `NW` `SE` `SW` | 19.4% | handled (this is what the port fixed) |
 | `NORTH` `SOUTH` `EAST` `WEST` | 28.4% | handled |
-| `N.E.` `S.W.` with periods | 6.0% | **truncated to a single letter** |
-| `SO.` / `NO.` abbreviation | 3.7% | **direction dropped** |
-| `SOUTHWEST` `SOUTHEAST` and kin | 0.7% | **direction dropped** |
+| `N.E.` `S.W.` with periods | 6.0% | **fixed 2026-08-19** |
+| `SO.` / `NO.` abbreviation | 3.7% | **fixed 2026-08-19** |
+| `SOUTHWEST` `SOUTHEAST` and kin | 0.7% | **fixed 2026-08-19** |
 
-Cause: `DIRECTION` lists single letters before pairs, so `N` wins before `NE`
-is tried. The `(?!\w)` guard rescues the bare two-letter forms by forcing
+Cause: `DIRECTION` listed single letters before pairs, so `N` won before `NE`
+was tried. The `(?!\w)` guard rescued the bare two-letter forms by forcing
 backtracking, but a period satisfies the guard, and the spelled-out compounds
-and `SO.` are absent from the vocabulary entirely.
+and `SO.` were absent from the vocabulary entirely.
 
-A candidate fix passes all 16 known cases, including every regression guard
-the `(?!\w)` rule was written for. It has **not** been applied, because it
-changes extraction behavior and belongs in a re-score:
+**Applied 2026-08-19** (issue #2), together with two unit fixes the first
+human rating round showed to matter more: `UNIT` now tolerates a `#` between
+the keyword and the identifier ("Apt. # 201"), and `STREET_RE` accepts a
+comma before the unit ("Commercial St., Suite 460"), which the old
+whitespace-only separator could never reach.
 
-```python
-DIRECTION = (r"(?:NORTHEAST|NORTHWEST|SOUTHEAST|SOUTHWEST|NORTH|SOUTH|EAST|WEST"
-             r"|[NS]\.?[EW]|SO\.|[NSEW])")
-```
+How the decision was made, since the change touches a validated engine and
+the truth-set re-score (issue #1) is still blocked:
 
-A second, smaller gap: `UNIT` does not allow a `#` between the keyword and the
-identifier, so "Apt. # 201" loses its unit while "Apt. 201" and "#201" both
-work. Allowing an optional `#?\s?` after each keyword fixes it and passes the
-same guards.
+1. 18 constructed cases, every historical regression guard included: 18 pass.
+2. Re-extracted 250 real cards and classified every diff: 50 changed, of
+   which 46 gained a unit, 3 were the already-shipped rail fix, 1 gained a
+   direction. Zero addresses lost, zero house numbers changed.
+3. Scored old vs new against the 24 human-typed corrections from the first
+   rating round: **13 better (11 now exact), 10 unchanged, 1 nominally worse**
+   — and that one is a wrong-block failure (the "Swanson Pllc" phantom city)
+   where old and new are the same wrong address; only its length changed.
+
+Human confirmation of the changed cards is queued for rating round 2. The
+next release carrying this change should bump the minor version.
 
 ### The line-number rail, measured and partly fixed
 
@@ -368,11 +375,13 @@ spot runs, not measured rates; quantifying them is part of that milestone.
   `documents.py` because they are part of what was validated.
 - **AI decoding settings** (temperature 0, seed 42, thinking off) are
   pinned defaults in `vision.py` for reproducibility bookkeeping.
-- **The port note**: `STREET_RE` in `summons.py` carries a word-boundary
-  guard on the trailing street direction that the validated Washington
-  scanner lacked. It strictly narrows matching (fixes "ST STE 200" and
-  "AVE SEATTLE" misreads). The 400-document run above confirms the direction
-  of the change on real filings: identical output on the primary address
-  field, and correct where the two engines disagree. A formal re-score
-  against the labeled sets is still open, so treat the July 2026 numbers as
-  the ported original's and this engine's as expected-equal-or-better.
+- **The port note**: `STREET_RE` in `summons.py` deviates from the validated
+  Washington scanner in four documented ways: the `(?!\w)` guard on the
+  trailing direction (fixes "ST STE 200" and "AVE SEATTLE" misreads), the
+  longest-first direction vocabulary with dotted pairs and `SO.`, the unit
+  pattern tolerating `#` and a comma separator (all three above, applied
+  2026-08-19), and `_skip_rail_house_number` rejecting a pleading line number
+  glued to the house number. Each was measured on real documents before
+  shipping; the evidence is in this file. A formal re-score against the
+  labeled sets is still open (issue #1), so treat the July 2026 numbers as
+  the ported original's and this engine's as expected-better.

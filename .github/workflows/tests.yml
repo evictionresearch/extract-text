@@ -73,6 +73,14 @@ jobs:
           # bootstrap tracks whatever R the runner has instead of r-lib's
           # build matrix. The alternative, pinning r-version, would trade this
           # breakage for no longer testing against current R.
+          #
+          # That outage was transient: the static build for 4.6.1 appeared
+          # upstream about an hour later and the job went green on its own,
+          # before this line was added. So this is insurance against the next
+          # R release, not a repair. It costs a slower bootstrap, roughly ten
+          # seconds, because install.packages() has to build or fetch pak
+          # rather than drop in a prebuilt binary. Drop this line if that
+          # trade stops being worth it.
           pak-version: repo
       - name: R CMD check
         # Engine-dependent tests skip themselves when the Python engine is

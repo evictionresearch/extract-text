@@ -64,6 +64,16 @@ jobs:
         with:
           working-directory: r
           extra-packages: any::rcmdcheck
+          # This action normally bootstraps pak from r-lib's static builds,
+          # which only cover the last handful of R releases. When the runner
+          # image moved to R 4.6.1 that window no longer included it, and the
+          # job died before touching any of our code, at `pak::repo_status()`
+          # with "there is no package called 'pak'". `repo` installs pak with
+          # install.packages() from the repositories configured above, so the
+          # bootstrap tracks whatever R the runner has instead of r-lib's
+          # build matrix. The alternative, pinning r-version, would trade this
+          # breakage for no longer testing against current R.
+          pak-version: repo
       - name: R CMD check
         # Engine-dependent tests skip themselves when the Python engine is
         # not installed; the check still validates structure, docs, and code.

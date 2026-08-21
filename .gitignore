@@ -45,3 +45,6 @@ r/src/*.so
 
 # OS
 .DS_Store
+
+# Claude Code personal settings (the model-watch hook); not team config
+.claude/settings.local.json

@@ -91,6 +91,35 @@ SYNTHETIC_WHITELIST = [
     "13 39th EXAMPLE AVE",
     "29 ST. SAMPLE AVENUE",
     "5 500 PINE ST",
+    # The multi-document corpus vocabulary (scripts/make_corpus.py). Street
+    # names come from a reserved word list (SAMPLE, SPECIMEN, PLACEHOLDER,
+    # EXEMPLAR, NOTIONAL); none is a Washington street. The case numbers
+    # continue the synthetic 25-2-0000N-0 series the fixtures already use.
+    # The corpus draws only from these fixed lists, never randomizing new
+    # strings, so this block is the complete set it can produce.
+    "5678 SAMPLE AVENUE",
+    "9012 SPECIMEN DRIVE",
+    "3456 PLACEHOLDER LANE",
+    "7890 EXEMPLAR COURT",
+    "2468 NOTIONAL TERRACE",
+    "250 SPECIMEN BOULEVARD",
+    "25-2-00002-0",
+    "25-2-00003-0",
+    "25-2-00004-0",
+    "25-2-00005-0",
+    "25-2-00006-0",
+    "1357 SPECIMEN ROAD",
+    "8642 EXAMPLE PARKWAY",
+    "4680 SAMPLE CIRCLE",
+    "9753 EXEMPLAR LOOP",
+    "1470 NOTIONAL CROSSING",
+    "3690 PLACEHOLDER HIGHWAY",
+    "25-2-00007-0",
+    "25-2-00008-0",
+    "25-2-00009-0",
+    "25-2-00010-0",
+    "25-2-00011-0",
+    "25-2-00012-0",
 ]
 
 # Skipped paths: this script, the two rule files whose job is to hold the

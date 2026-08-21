@@ -48,3 +48,9 @@ r/src/*.so
 
 # Claude Code personal settings (the model-watch hook); not team config
 .claude/settings.local.json
+
+# The multi-document bench corpus (python/scripts/make_corpus.py). 11 MB of
+# PNGs, fully deterministic, so it is regenerated on demand rather than
+# carried in the repository. The small degraded/ set stays tracked as the
+# quick smoke test.
+python/tests/fixtures/corpus/

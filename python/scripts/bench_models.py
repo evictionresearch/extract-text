@@ -9,11 +9,21 @@ times the runs.
     # one page, with timing repeats
     python3 python/scripts/bench_models.py --repeat 3 qwen3.5:9b glm-ocr
 
-    # the full degradation matrix (build it first with make_degraded_fixtures.py)
+    # the degradation set: one document, seven image qualities
     python3 python/scripts/bench_models.py --degraded qwen3.5:9b glm-ocr gemma4:12b
+
+    # the multi-document corpus: varied content, layout, and quality
+    python3 python/scripts/bench_models.py --corpus qwen3.5:9b glm-ocr gemma4:12b
 
     # arbitrary pages
     python3 python/scripts/bench_models.py --image a.png --image b.png MODEL ...
+
+Build the fixture sets first with `make_degraded_fixtures.py` and
+`make_corpus.py`. The degradation set holds content fixed and varies image
+quality, which isolates one axis but is still n=1 on content. The corpus
+varies content, layout, and quality together, and ships a per-document
+truth.json, so a model's score there is an average over many independent
+readings rather than one lucky or unlucky page.
 
 Use `--repeat 1` (the default) for matrix runs; the call count is
 models x images x repeat and grows fast. Raise `--repeat` only when timing
@@ -70,6 +80,7 @@ from extract_text.similarity import norm, ratio  # noqa: E402
 FIXTURES = REPO_PYTHON / "tests" / "fixtures"
 DEFAULT_IMAGE = FIXTURES / "synthetic_summons_page1.png"
 DEGRADED_DIR = FIXTURES / "degraded"
+CORPUS_DIR = FIXTURES / "corpus"
 
 # Hardest last, so a run that is cut short still covers the easy cases.
 DEGRADED_ORDER = (
@@ -121,13 +132,33 @@ def resident(model: str) -> tuple[str, str]:
     return ("?", "?")
 
 
-def score(fields: dict[str, str]) -> dict:
-    """Per-field similarity against the fixture truth, plus two summaries."""
+def load_truth(images: list[Path]) -> dict[str, dict]:
+    """Map each image to its own six known values.
+
+    The single-page and degraded fixtures all carry the same content, so they
+    share TRUTH. The corpus varies content per document, so it ships a
+    truth.json written by make_corpus.py at the same time it renders the
+    pages; the two cannot drift because one run produces both.
+    """
+    manifest: dict = {}
+    corpus_truth = CORPUS_DIR / "truth.json"
+    if corpus_truth.exists():
+        manifest = json.loads(corpus_truth.read_text(encoding="utf-8"))
+
+    truths = {}
+    for image in images:
+        record = manifest.get(image.name)
+        truths[image.name] = record if record else TRUTH
+    return truths
+
+
+def score(fields: dict[str, str], truth: dict) -> dict:
+    """Per-field similarity against this page's truth, plus two summaries."""
     per_field = {}
     exact = 0
     for key in VISION_FIELDS:
         got = fields.get(key) or ""
-        want = TRUTH[key]
+        want = truth[key]
         per_field[key] = round(ratio(got, want), 3)
         if got and norm(got) == norm(want):
             exact += 1
@@ -147,7 +178,7 @@ def run_once(backend: LocalVisionBackend, image: Path) -> tuple[float, dict, lis
     return elapsed, fields, list(result.flags)
 
 
-def bench(model: str, images: list[Path], repeat: int) -> dict:
+def bench(model: str, images: list[Path], repeat: int, truths: dict) -> dict:
     """One model against every page. Cold load is paid once, at the start."""
     backend = LocalVisionBackend(model=model)
     row: dict = {"model": model, "pages": {}}
@@ -166,7 +197,13 @@ def bench(model: str, images: list[Path], repeat: int) -> dict:
                 else:
                     warm.append(seconds)
                 if attempt == 0:
-                    row["pages"][image.name] = {**score(fields), "fields": fields}
+                    truth = truths[image.name]
+                    row["pages"][image.name] = {
+                        **score(fields, truth),
+                        "fields": fields,
+                        "treatment": truth.get("treatment", "-"),
+                        "layout": truth.get("layout", "-"),
+                    }
                 flags.update(page_flags)
         except (RuntimeError, OSError) as exc:
             row.setdefault("errors", {})[image.name] = str(exc)[:160]
@@ -208,6 +245,25 @@ def print_matrix(rows: list[dict], images: list[Path]) -> None:
         print(line)
 
 
+def print_overall(rows: list[dict]) -> None:
+    """The headline: one line per model, pooled over every page."""
+    print("\nOverall, pooled over all pages\n")
+    header = f"{'model':<20}{'mean':>9}{'exact':>12}{'pages':>8}{'worst page':>13}"
+    print(header)
+    print("-" * len(header))
+    for row in rows:
+        if "error" in row:
+            print(f"{row['model']:<20} ERROR {row['error']}")
+            continue
+        worst = min(row["pages"].items(), key=lambda kv: kv[1]["mean"])
+        print(
+            f"{row['model']:<20}{row['avg_mean']:>9.3f}"
+            f"{row['total_exact']:>7}/{row['max_exact']:<4}"
+            f"{len(row['pages']):>8}"
+            f"{worst[1]['mean']:>13.3f}"
+        )
+
+
 def print_timing(rows: list[dict]) -> None:
     header = (
         f"\n{'model':<20} {'cold s':>7} {'warm s':>7} {'resident':>9} "
@@ -226,6 +282,55 @@ def print_timing(rows: list[dict]) -> None:
         )
 
 
+def print_breakdown(rows: list[dict], key: str) -> None:
+    """Mean similarity grouped by a page attribute (treatment or layout).
+
+    With 24 documents a page-by-page matrix is unreadable, and the useful
+    question is not which document a model missed but which *kind* it missed.
+    Grouping answers that: a model strong on print and weak on handwriting
+    shows up as a column, not as scattered noise.
+    """
+    scored = [r for r in rows if "error" not in r]
+    if not scored:
+        return
+    groups = sorted(
+        {str(p.get(key, "-")) for r in scored for p in r["pages"].values()}
+    )
+    if groups == ["-"]:
+        return
+
+    print(f"\nMean similarity by {key}\n")
+    header = f"{'model':<20}" + "".join(f"{g[:11]:>13}" for g in groups) + f"{'ALL':>9}"
+    print(header)
+    print("-" * len(header))
+    for row in scored:
+        line = f"{row['model']:<20}"
+        for group in groups:
+            vals = [
+                p["mean"] for p in row["pages"].values() if str(p.get(key, "-")) == group
+            ]
+            line += f"{statistics.mean(vals):>13.3f}" if vals else f"{'-':>13}"
+        line += f"{row['avg_mean']:>9.3f}"
+        print(line)
+
+
+def print_field_means(rows: list[dict]) -> None:
+    """Which of the six fields each model actually struggles with, pooled."""
+    scored = [r for r in rows if "error" not in r]
+    if not scored:
+        return
+    print("\nMean similarity by field, pooled over all pages\n")
+    header = f"{'field':<18}" + "".join(f"{r['model'][:13]:>15}" for r in scored)
+    print(header)
+    print("-" * len(header))
+    for key in VISION_FIELDS:
+        line = f"{key:<18}"
+        for row in scored:
+            vals = [p["per_field"][key] for p in row["pages"].values()]
+            line += f"{statistics.mean(vals):>15.3f}"
+        print(line)
+
+
 def print_fields(rows: list[dict], image_name: str) -> None:
     scored = [r for r in rows if "error" not in r and image_name in r["pages"]]
     if not scored:
@@ -242,6 +347,13 @@ def print_fields(rows: list[dict], image_name: str) -> None:
 
 
 def resolve_images(args) -> list[Path]:
+    if args.corpus:
+        if not (CORPUS_DIR / "truth.json").exists():
+            raise SystemExit(
+                f"No corpus at {CORPUS_DIR}. Build it with:\n"
+                "  python3 python/scripts/make_corpus.py"
+            )
+        return sorted(CORPUS_DIR.glob("doc_*.png"))
     if args.degraded:
         if not DEGRADED_DIR.is_dir():
             raise SystemExit(
@@ -268,6 +380,9 @@ def main(argv: list[str] | None = None) -> int:
         "--degraded", action="store_true", help="score the whole degraded set"
     )
     parser.add_argument(
+        "--corpus", action="store_true", help="score the multi-document corpus"
+    )
+    parser.add_argument(
         "--repeat", type=int, default=1, help="runs per page; raise only for timing"
     )
     parser.add_argument("--json", type=Path, help="also write the full rows here")
@@ -292,12 +407,22 @@ def main(argv: list[str] | None = None) -> int:
     print(f"Pages:  {len(images)} ({', '.join(i.name for i in images)})")
     print(f"Models: {len(args.models)}   Repeat: {args.repeat}   Calls: {calls}\n")
 
+    truths = load_truth(images)
+
     rows = []
     for model in args.models:
         print(f"  running {model} ...", file=sys.stderr, flush=True)
-        rows.append(bench(model, images, args.repeat))
+        rows.append(bench(model, images, args.repeat, truths))
 
-    print_matrix(rows, images)
+    # A page-by-page matrix stops being readable past about a dozen columns,
+    # so past that the groupings carry the result instead.
+    if len(images) <= 12:
+        print_matrix(rows, images)
+    else:
+        print_overall(rows)
+    print_breakdown(rows, "treatment")
+    print_breakdown(rows, "layout")
+    print_field_means(rows)
     print_timing(rows)
     if len(images) == 1:
         print_fields(rows, images[0].name)

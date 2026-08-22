@@ -20,6 +20,7 @@ from extract_text.ai.vision import (
     fields_to_record,
     parse_llm_json_best_effort,
     pulled_models,
+    strip_group_terms,
 )
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -71,6 +72,47 @@ def test_fields_map_into_the_shared_schema():
     assert record.defendant_address.zip == "98100"
     assert record.attorney.firm == "EXAMPLE LAW GROUP PLLC"
     assert record.attorney.address.zip == "98101"
+
+
+@pytest.mark.parametrize("raw, want", [
+    # The defect the 2026-08-20 corpus bench found: four of six models return
+    # the caption's group term even though the prompt names it as excluded.
+    ("ALEX P. OCCUPANT, and ALL OTHER OCCUPANTS", "ALEX P. OCCUPANT"),
+    ("SMITH PROPERTIES LLC, et al.", "SMITH PROPERTIES LLC"),
+    ("MARIA LOPEZ and all others", "MARIA LOPEZ"),
+    ("MARIA LOPEZ, Does 1-10", "MARIA LOPEZ"),
+    ("JOHN SMITH and JANE SMITH, husband and wife", "JOHN SMITH and JANE SMITH"),
+    # Captions stack them, so one pass is not enough.
+    ("JOHN SMITH and JANE SMITH, husband and wife, et al.", "JOHN SMITH and JANE SMITH"),
+])
+def test_trailing_group_terms_are_stripped(raw, want):
+    assert strip_group_terms(raw) == want
+
+
+@pytest.mark.parametrize("raw", [
+    # Two named defendants joined by "and" is the shape the group terms
+    # imitate, and it must survive untouched.
+    "JANE Q. TENANT and JON Q. TENANT",
+    "ALEX P. OCCUPANT",
+    # A surname is not a group term even when it reads like one.
+    "OCCUPANT PROPERTIES LLC",
+    # A field that is nothing but a group term is wrong either way; keeping it
+    # leaves the problem visible in the evidence instead of hiding it.
+    "ALL OTHER OCCUPANTS",
+])
+def test_real_names_are_never_stripped(raw):
+    assert strip_group_terms(raw) == raw
+
+
+def test_group_term_does_not_become_a_second_defendant():
+    """The reason this filter exists: the name split runs on "and"."""
+    record = fields_to_record({
+        "plaintiff": "EXAMPLE PROPERTY LLC",
+        "defendant": "ALEX P. OCCUPANT, and ALL OTHER OCCUPANTS",
+        "address": None, "law_firm": None,
+        "law_firm_address": None, "case_number": "25-2-00001-0",
+    })
+    assert [d.name for d in record.defendants] == ["ALEX P. OCCUPANT"]
 
 
 def test_na_and_blank_mean_missing_not_a_value():

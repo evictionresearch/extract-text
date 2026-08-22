@@ -141,6 +141,68 @@ def _clean(value) -> str | None:
 
 _NAME_SPLIT_RE = re.compile(r"\s+(?:and|&)\s+", re.IGNORECASE)
 
+# Trailing group terms a caption adds after the named defendants. The vision
+# prompt already lists these and asks the model to drop them; four of the six
+# models benched on 2026-08-20 returned them anyway. Because _NAME_SPLIT_RE
+# splits on "and", a clause left in place became a second, phantom defendant
+# named "ALL OTHER OCCUPANTS". Stripping it here is deterministic, so the
+# output no longer depends on a model following an instruction.
+_GROUP_TERM_RE = re.compile(
+    r"""
+    [\s,;&]*                                  # separator before the clause
+    (?:\band\b\s*)?                           # an optional joining "and"
+    (?:
+        any\s+and\s+all\s+other[\w\s]*        # "any and all other residing..."
+      | all\s+(?:other\s+)?occupants?          # "all occupants"
+      | all\s+others?                           # "all others"
+      | husband\s+and\s+wife
+      | (?:john|jane)\s*/\s*(?:john|jane)\s+does?   # "John/Jane Doe"
+      | (?:john|jane)\s+does?                   # "Jane Doe"
+      | does?\s*\d+\s*(?:-|through|to)\s*\d+     # "Does 1-10"
+      | et\.?\s*al\.?
+      | et\.?\s*ux\.?
+    )
+    \s*\.?\s*$
+    """,
+    re.IGNORECASE | re.VERBOSE,
+)
+
+
+def strip_group_terms(value) -> str | None:
+    """Drop trailing generic party terms from a defendant line.
+
+    Only trailing terms go, and only ones the prompt already names, so a real
+    surname is never at risk. Repeats until stable because captions stack them
+    ("JOHN SMITH and JANE SMITH, husband and wife, et al."). If stripping would
+    empty the field the original is kept instead: a value that is entirely a
+    group term is wrong either way, and discarding it would hide that from
+    the evidence record rather than surface it.
+    """
+    cleaned = _clean(value)
+    if cleaned is None:
+        return None
+    return _strip_group_terms(cleaned)[0]
+
+
+def _strip_group_terms(text: str) -> tuple[str, bool]:
+    """The stripping itself, plus whether a group term was what came off.
+
+    Trailing punctuation is trimmed on the same pass, and is far more common
+    than a group term, so the two are reported separately. Only a real term
+    should raise a flag that claims one was found.
+    """
+    current = text
+    found = False
+    while True:
+        shorter = _GROUP_TERM_RE.sub("", current)
+        if shorter != current:
+            found = True
+        shorter = shorter.strip(" ,;&")
+        if shorter == current:
+            break
+        current = shorter
+    return (current or text), found
+
 
 def fields_to_record(fields: dict) -> CourtRecord:
     """Map the flat vision fields into the shared schema."""
@@ -163,7 +225,7 @@ def fields_to_record(fields: dict) -> CourtRecord:
         return Address(raw=value)
 
     plaintiff = _clean(fields.get("plaintiff"))
-    defendant = _clean(fields.get("defendant"))
+    defendant = strip_group_terms(fields.get("defendant"))
     address = _clean(fields.get("address"))
     law_firm = _clean(fields.get("law_firm"))
     law_firm_address = _clean(fields.get("law_firm_address"))
@@ -321,6 +383,15 @@ class LocalVisionBackend:
             flags.append("vision_json_fallback")
         if not any(_clean(v) for v in fields.values()):
             flags.append("vision_no_fields")
+
+        # Strip before the record and the evidence are built, so both the
+        # parsed parties and the quoted field reflect the same value.
+        before = _clean(fields.get("defendant"))
+        if before is not None:
+            after, found_term = _strip_group_terms(before)
+            if found_term:
+                flags.append("vision_defendant_group_term")
+            fields["defendant"] = after
 
         record = fields_to_record(fields)
 

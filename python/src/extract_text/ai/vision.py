@@ -52,7 +52,11 @@ DEFAULT_VISION_MODEL = "qwen3.5:9b"
 VISION_FIELDS = ("plaintiff", "defendant", "address", "law_firm",
                  "law_firm_address", "case_number")
 
-# Cheng Ren's prompt, as benchmarked, with the case_number field appended.
+# Cheng Ren's prompt, as benchmarked, with the case_number field appended and
+# one clarification to the law_firm item. On the 2026-08-21 corpus bench, 23 of
+# the 28 law_firm misses across six models were the signing attorney and bar
+# number returned in place of the firm entity; the item never said which one it
+# wanted. Recorded as a deliberate deviation in MAINTENANCE.md.
 VISION_PROMPT = """\
 You are a researcher extracting structured information from court summons documents related to housing cases.
 
@@ -60,7 +64,7 @@ Your task is to read the provided document image and extract the following infor
 	1.	Plaintiff — Usually listed at around 20% position of the document with keyword plaintiff around. Plaintiff could be a company or an individual. Usually, plaintiff's information is before the defendant's information.
 	2.	Defendant — Usually listed at around 30% position of the document. Extract only the complete defendant name line and return up to the first two explicitly named defendants exactly as written, including both names when joined by "and" or "&", but excluding any trailing generic/group terms (e.g., "et al.", "all occupants", "husband and wife", "John/Jane Doe", "ALL OTHER OCCUPANTS", "all others", "and any and all other residing..."); do not truncate after the first name. Defendant could be a company or an individual.
 	3.	Tenant full address — Usually appears in the middle section of the document, which usually ending with zipcode. Sometimes, it also has county name in the address.
-	4.	Law firm representing the plaintiff — Typically appears near the bottom right of the document (e.g., "XYZ Attorney at Law," "Law Offices of ...", "INVESTMENT GROUP"). If there is Attorney at Law after the name, including Attorney at Law as well.
+	4.	Law firm representing the plaintiff — Typically appears near the bottom right of the document (e.g., "XYZ Attorney at Law," "Law Offices of ...", "INVESTMENT GROUP"). If there is Attorney at Law after the name, including Attorney at Law as well. Return the firm itself, not the individual attorney who signed for it: the same signature block usually carries a person's name with a bar number (e.g., "WSBA #12345") and a role line such as "Attorneys for Plaintiff", and neither of those is the firm name.
 	5.	Address of the law firm representing the plaintiff — Usually the last full address appearing in the document. (Be cautious, the phone number is located near this text that I don't need.)
 	6.	Case number — Usually printed in or near the caption, in the upper portion of the document, labeled "Case No." or similar.
 

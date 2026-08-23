@@ -471,6 +471,69 @@ Round 1 stays frozen for raters mid-deck; the corrections lesson (a
 correction validates the shown crop, not the document) applies when
 comparing rounds.
 
+## Two prompt-level defects, found and fixed on the corpus (2026-08-22)
+
+The 24-document corpus (`scripts/make_corpus.py`, 4 layouts x 7 image
+treatments, gitignored and regenerated on demand) was built because the
+degradation set had a ceiling: four of five models scored a flat 1.000 on it,
+so it could not rank anything. The corpus does discriminate, and the first two
+things it found were both defects in how the task was specified rather than in
+how well models read.
+
+**1. The defendant group term became a phantom party.** Every defendant miss
+for four of six models was one clause, the caption's trailing "and ALL OTHER
+OCCUPANTS": 24 of 24 for glm-ocr, 16 of 16 for minicpm, 12 of 12 for
+qwen3.5:9b, 2 of 2 for qwen3.8:27b-mlx. The prompt already lists that term and
+asks for it to be dropped. Worse than the score, `_NAME_SPLIT_RE` splits on
+"and", so the clause became a second defendant party literally named ALL OTHER
+OCCUPANTS, on 12 of 24 pages with the pinned model. Fixed deterministically in
+`strip_group_terms()` rather than by asking the model again. Re-benched: all
+six models reproduced the predicted scores exactly, no non-defendant field
+moved, and defendant similarity reached 1.000 for five of six.
+
+**2. `law_firm` never said whether it wanted the firm or the person.** With the
+defendant noise gone, law_firm was the leading defect, and 23 of its 28 misses
+across six models were the signing attorney and bar number returned in place of
+the firm entity ("Alex B. Counsel, WSBA #99999" for "SAMPLE & SPECIMEN
+ATTORNEYS AT LAW"). No post-filter can fix that, since a firm name cannot be
+derived from a person's name, so item 4 of the prompt now says to return the
+firm itself and names the two things in the same signature block that are not
+the firm. This is a deliberate deviation from Cheng Ren's benchmarked prompt,
+the second after the appended case_number field.
+
+Measured on the corpus, exact fields out of 144, before and after the prompt
+change:
+
+| model | before | after | law_firm misses |
+|---|---|---|---|
+| qwen3.5:9b (the pin) | 136 | **144** | 5 to 0 |
+| minicpm-v4.5:8b | 139 | 141 | 3 to 1 |
+| qwen3.8:27b-mlx | 138 | 140 | 1 to 0 |
+| gemma4:26b | 132 | 138 | 10 to 4 |
+| glm-ocr:latest | 130 | 132 | 2 to 4 |
+| gemma4:12b | 104 | 106 | 7 to 5 |
+
+Every model improved on total exact fields and five of six improved on
+law_firm.
+
+**The caveat, which is not small.** `glm-ocr` (0.9B) is the exception. Its
+law_firm misses went up, its mean fell from 0.980 to 0.960, and its worst page
+fell from 0.887 to 0.520. On that page, a noisy layout-3 render, every field
+shifted by one and `law_firm` came back as "XYZ Attorney at Law", which is the
+example string from the prompt itself. A model small enough to regurgitate the
+prompt's examples is a model that a longer field description can destabilise.
+Its apparent gains elsewhere are also not what they look like: the prompt
+change stopped it tripping `vision_json_fallback`, so its address fields
+stopped arriving with escaped newlines. Its before and after are therefore not
+a clean law_firm comparison.
+
+**What this does and does not license.** These are synthetic, machine-rendered
+pages with a closed vocabulary. A perfect 144/144 for the pinned model means
+the task specification is no longer the bottleneck on pages like these. It is
+not evidence about real scans, real handwriting, or real firm names, and it
+does not move `DEFAULT_VISION_MODEL`. Step 3 of the model review procedure, on
+governed storage, remains the only thing that can.
+
 ## Other reasons extraction fails
 
 Reading the failures rather than counting them changed what looks worth
@@ -538,6 +601,11 @@ spot runs, not measured rates; quantifying them is part of that milestone.
   `documents.py` because they are part of what was validated.
 - **AI decoding settings** (temperature 0, seed 42, thinking off) are
   pinned defaults in `vision.py` for reproducibility bookkeeping.
+- **The vision prompt** deviates from Cheng Ren's benchmarked original in
+  two documented ways: the appended `case_number` field, and the `law_firm`
+  item saying it wants the firm and not the signing attorney (2026-08-22,
+  measured above). Trailing defendant group terms are stripped in code
+  rather than asked for, for the same reason.
 - **The port note**: `STREET_RE` in `summons.py` deviates from the validated
   Washington scanner in four documented ways: the `(?!\w)` guard on the
   trailing direction (fixes "ST STE 200" and "AVE SEATTLE" misreads), the

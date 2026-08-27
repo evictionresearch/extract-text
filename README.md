@@ -106,12 +106,15 @@ addresses, the deterministic engine found an address on 83.5 to 100 percent
 of documents depending on corpus and era, with mean similarity to the hand
 labels of 0.87 to 0.92 and roughly 1.5 percent of extractions genuinely
 wrong, the worst of them pre-flagged. The published 2024 pipeline scored
-0.82 on the same truth data. The AI lane returned structured fields for all
-300 pages of its bench corpus at about 17 seconds a page on a 16 GB laptop.
-Details, provenance, and honest caveats are in the manual
-([section 13](docs/manual.md#13-accuracy-measured-honestly)); the numbers
-describe Washington documents, and a new jurisdiction deserves its own
-scoring.
+0.82 on the same truth data. An August 2026 improvement pass, measured on
+the full 5,168-case truth set, raised address yield to 92.4 and 95.6 percent
+on the two large King County sets with mean similarity 0.91 to 0.93;
+`MAINTENANCE.md` holds the change-by-change evidence. The AI lane returned
+structured fields for all 300 pages of its bench corpus at about 17 seconds
+a page on a 16 GB laptop. Details, provenance, and honest caveats are in the
+manual ([section 13](docs/manual.md#13-accuracy-measured-honestly)); the
+numbers describe Washington documents, and a new jurisdiction deserves its
+own scoring.
 
 ## Layout
 

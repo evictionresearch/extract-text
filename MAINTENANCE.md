@@ -426,6 +426,29 @@ HJP (King 2017, n=877): yield 90.0 -> **95.6%**, mean 0.886 -> **0.926**,
 >=0.7-on-extracted 90.0 -> **99.5%**, >=0.7-on-all 81.0 -> **95.1%**.
 Per-case scores live in `_rescore_2026-08-20/full/` on governed storage.
 
+**The two small sets on the full run, including the one regression.** The
+mining pass was scored at three points (`val_scores_before_fixes.csv`,
+`val_scores_mid.csv`, `val_scores.csv` in the same directory), which makes
+the precision trade legible. The final refuse-rather-than-emit round moved
+the four groups as follows, mid to final:
+
+| Group | n | Yield | Mean ratio | >=0.7 (all) |
+|---|---|---|---|---|
+| King thesis | 4,254 | 94.0 -> 92.4% | 0.873 -> **0.907** | 89.1 -> **90.8%** |
+| King HJP | 877 | 96.6 -> 95.6% | 0.892 -> **0.926** | 90.4 -> **95.1%** |
+| swipes (Pierce 11, Snohomish 8, King 7, Whatcom 1) | 27 | 100 -> **88.9%** | 0.884 -> 0.913 | 92.6 -> **81.5%** |
+| manual (Pierce 6, King 3, Whatcom 1) | 10 | 70.0% flat | 0.941 -> 0.967 | 70.0% flat |
+
+Mean ratio rose on all four, so the surviving answers are better. The
+swipes set is the one place the trade did not pay: three correct
+extractions became `no_defendant_address` refusals and a fourth fell 0.90
+to 0.57 with `defendant_address_incomplete`, against one newly correct.
+All four carry flags, so nothing went silently wrong, but a four-document
+swing on 27 cases is worth re-checking on the next full run before
+treating it as noise. Note this is the full-run swipes group of 27 across
+four counties, not the 27 in the manifest re-run table above, which is
+King manual 10 plus Pierce 17.
+
 **Round 3 of the game** was rebuilt from this run by `build_truth_round.py`:
 356 cards — the 317 remaining engine-vs-truth disagreements (median ratio
 0.89: mostly unit/direction shading, no wholesale errors left in the deck),
@@ -613,6 +636,10 @@ spot runs, not measured rates; quantifying them is part of that milestone.
   pattern tolerating `#` and a comma separator (all three above, applied
   2026-08-19), and `_skip_rail_house_number` rejecting a pleading line number
   glued to the house number. Each was measured on real documents before
-  shipping; the evidence is in this file. A formal re-score against the
-  labeled sets is still open (issue #1), so treat the July 2026 numbers as
-  the ported original's and this engine's as expected-better.
+  shipping; the evidence is in this file. The formal re-score landed
+  2026-08-20 (sections above), so the full-truth-set numbers are this
+  engine's own rather than the ported original's. On the pinned July
+  documents it was equal or better on every column of every set; on the
+  full sets the later mining pass improved every column of both large King
+  sets and regressed the 27-case hand-swiped set, which is recorded with
+  the rest of the full-set numbers above.

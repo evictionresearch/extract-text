@@ -439,6 +439,7 @@ row looking complete. The flags and what to do about them.
 | `low_ocr_conf` | The whole page read poorly | Consider a better scan if one exists |
 | `no_text` | Nothing readable at all | Corrupt file or blank page |
 | `house_number_repaired` | OCR confused characters in the house number (a common example is reading 1234 as L234) and a documented repair was applied | Informational; spot-check a sample |
+| `street_no_suffix` | The street had no type word (Ave, St, and kin) and was accepted because a city line directly confirmed it | Informational; this rule is newer than the validated original, so spot-check these as a class |
 | `pro_se_plaintiff` | The plaintiff appears self-represented | Informational; no attorney block is expected |
 | `no_attorney_block` | No attorney block was found and the plaintiff is not marked self-represented | Review |
 | `defendant_equals_attorney` | The two addresses came out identical, the classic wrong-address failure | Always review; the row is untrustworthy |
@@ -447,6 +448,7 @@ row looking complete. The flags and what to do about them.
 | `engines_disagree_address` (both mode) | The two engines found different addresses | Review; one of them is wrong |
 | `only_ai_found_address` / `only_rules_found_address` (both mode) | One engine found an address, the other did not | Review the finder's answer against the page |
 | `vision_json_fallback` / `vision_no_fields` (AI lane) | The model's reply needed repair, or contained nothing | Treat that row's AI columns skeptically |
+| `vision_defendant_group_term` (AI lane) | The model returned a trailing group term ("ALL OTHER OCCUPANTS", "et al.") with the defendants and it was stripped in code | Informational; the named defendants are kept |
 
 The review page turns this into a workflow. `extract-text review --out DIR`
 (or `review = TRUE` in R, `--review` on the scan command) builds
@@ -456,11 +458,13 @@ compares, and fixes the table where needed. No software is installed to view
 it; it is a plain HTML file.
 
 How much review to expect depends entirely on your documents. As one
-reference point, in the Washington validation work
-([section 13](#13-accuracy-measured-honestly)) roughly 84 to 100 percent of
-documents yielded an address depending on the era and format of the corpus,
-and the genuinely wrong addresses among extractions were about 1.5 percent,
-concentrated in rows that were already flagged. Plan for a person to look at
+reference point, in the July 2026 Washington validation work ([section
+13](#13-accuracy-measured-honestly)) roughly 84 to 100 percent of documents
+yielded an address depending on the era and format of the corpus, and the
+genuinely wrong addresses among extractions were about 1.5 percent,
+concentrated in rows that were already flagged. The August 2026 improvement
+pass raised the yields on the two large King County truth sets to 92.4 and
+95.6 percent (section 13 has the full table). Plan for a person to look at
 the flagged minority, plus a small random sample of unflagged rows as a
 standing habit.
 
@@ -474,23 +478,31 @@ explainable to the people affected by them.
 **Reading the file.** An e-filed PDF carries its text digitally, with the
 position of every word on the page, so the tool reads that directly and
 perfectly; OCR never runs. A scanned PDF or TIFF is only a picture, so the
-tool renders each needed page at 300 dots per inch and hands it to tesseract,
-the OCR program, which returns its best guess at every word, that word's
-position, and a confidence score. Either way, the result is the same thing, a
-list of words with page coordinates. The engine only reads the pages it needs
-(the first two and the last, where summons fields live), and reads deeper
-only when a document turns out to be a combined bundle.
+tool renders each needed page at 300 dots per inch and hands it to
+tesseract, the OCR program, which returns its best guess at every word, that
+word's position, and a confidence score. Either way, the result is the same
+thing, a list of words with page coordinates. The engine only reads the
+pages it needs (the first two and the last, where summons fields live), and
+reads deeper when a document turns out to be a combined bundle or when the
+first pass produced a suspect answer, one that collides with the attorney's
+street or lacks both city and ZIP, since either is the signature of the true
+service block living on an interior page.
 
-**Why positions matter.** Court pleading paper prints a rail of line numbers,
-1 through 26, down the left margin of every page. To OCR, those digits are
-just more text, and naive extraction interleaves them into whatever sits
-beside them, so an address like 123 4th Street S, Seattle comes out as
-123 4th Street S 17 18 Seattle. This exact failure is documented in the
-project's 2024 paper. Because every word here carries its position, the rail
-is identified geometrically, digits in the margin band, and deleted before
-any text is assembled. The same positional information is what tells a
-bottom-right attorney block apart from a mid-page service block, which no
-amount of text-only pattern matching can do reliably.
+**Why positions matter.** Court pleading paper prints a rail of line
+numbers, 1 through 26, down the left margin of every page. To OCR, those
+digits are just more text, and naive extraction interleaves them into
+whatever sits beside them, so an address like 123 4th Street S, Seattle
+comes out as 123 4th Street S 17 18 Seattle. This exact failure is
+documented in the project's 2024 paper. Because every word here carries its
+position, the rail is identified geometrically, digits in the margin band,
+and deleted before any text is assembled. The same cleaning drops
+implausibly tall OCR boxes, which are the pleading paper's vertical rule
+misread as letters. A single such smear used to seed a merged "line" that
+swallowed entire service blocks, and mining the full truth set found it to
+be the engine's single largest cause of missed addresses before the August
+2026 fix. The same positional information is what tells a bottom-right
+attorney block apart from a mid-page service block, which no amount of
+text-only pattern matching can do reliably.
 
 **The anchor ladder.** The defendant's address is searched for by four named
 rules in a fixed order, and the first to succeed wins. `to_block` finds the
@@ -502,6 +514,20 @@ Every extracted address records which anchor produced it, in the
 `defendant_anchor` column, so systematic problems can be traced to a specific
 rule and fixed.
 
+Selection among candidates follows rules that were each added in response to
+a measured failure. A street with no type word at all ("1949 S. Sprague", a
+form common in Tacoma) can be accepted when a city line directly confirms
+it, and every such acceptance is flagged `street_no_suffix`. A strict match
+outranks a confirmed no-suffix match from any anchor, and a candidate with a
+city or ZIP outranks a fragment with neither, even one found on an earlier
+page. When the winning street turns out to be the plaintiff attorney's, the
+first non-colliding candidate on the audit trail takes over, and the
+collision flag still fires when no alternative exists. Some blocks are
+refused outright because their address belongs to someone else: a process
+server's declaration, the "deliver your answer to:" instruction (that
+address is plaintiff counsel's), and prose captures such as a "city" of
+Residing or a firm name standing where a city should be.
+
 **The attorney block.** Found geometrically in the bottom-right region,
 scored on whether it contains a firm-like name, a street, a city line, and a
 phone number, with form-publisher footers explicitly vetoed. It is extracted
@@ -511,14 +537,22 @@ two ever come out identical the row is flagged `defendant_equals_attorney`
 rather than passed through.
 
 **The AI engine.** A language model is a program trained on enormous amounts
-of text to predict what comes next, which in practice makes it able to answer
-questions about content it is shown. A vision model is one that can also look
-at images. The AI engine renders page one of the document as an image, sends
-it to the qwen3.5 model running inside ollama on your machine, and asks one
-fixed, carefully worded question requesting six fields back in a rigid
-format, with instructions to say NA rather than guess. The reply is parsed
-strictly, with two documented fallback parsers for near-miss replies, and
-mapped into the same fields the deterministic engine produces.
+of text to predict what comes next, which in practice makes it able to
+answer questions about content it is shown. A vision model is one that can
+also look at images. The AI engine renders page one of the document as an
+image, sends it to the qwen3.5 model running inside ollama on your machine,
+and asks one fixed, carefully worded question requesting six fields back in
+a rigid format, with instructions to say NA rather than guess. The question
+is the one benchmarked by Cheng Ren, with two recorded deviations: a
+case-number field was appended, and the law-firm item now says it wants the
+firm itself rather than the attorney who signed for it, a fix measured
+across six local models in August 2026. The reply is parsed strictly, with
+two documented fallback parsers for near-miss replies, and mapped into the
+same fields the deterministic engine produces. One repair happens in code
+rather than by instruction: trailing group terms such as "ALL OTHER
+OCCUPANTS" or "et al." are stripped from the defendant line and flagged
+`vision_defendant_group_term`, because a term left in place used to split
+into a phantom second defendant named for the group.
 
 **Grounding, the defense against confident nonsense.** Language models
 sometimes produce fluent answers that the document does not support. Where
@@ -537,14 +571,18 @@ one more reason the two engines stay separate and labeled.
 
 ## 13. Accuracy, measured honestly
 
-The numbers below come from the Eviction Research Network's validation runs
-of July 2026, scoring the Washington scanner that this package's
-deterministic engine is a direct port of, against more than 5,100
-hand-labeled addresses from real Washington cases. (The labeled data lives in
-the network's governed research archive, not in this repository.) Similarity
-is a normalized edit-distance measure between the extracted address and the
-hand label, where 1.0 is identical; 0.7 or above corresponds to the same
-street and is the threshold the 2024 paper used.
+Two generations of numbers are given here. The July 2026 validation runs
+scored the Washington scanner that this package's deterministic engine began
+as a port of, against more than 5,100 hand-labeled addresses from real
+Washington cases. On 2026-08-20 the packaged engine itself, carrying every
+measured improvement shipped since the port, was re-scored against the same
+labeled sets with the validation kit's own scoring code. (The labeled data
+lives in the network's governed research archive, not in this repository.)
+Similarity is a normalized edit-distance measure between the extracted
+address and the hand label, where 1.0 is identical; 0.7 or above corresponds
+to the same street and is the threshold the 2024 paper used.
+
+**July 2026: the ported original, on the July samples.**
 
 | Truth set | n | Address found | Mean similarity | Same street (at least 0.7) | ZIP agreement |
 |---|---|---|---|---|---|
@@ -553,29 +591,67 @@ street and is the threshold the 2024 paper used.
 | Pierce County, hand-swiped labels | 11 | 100% | 0.922 | 100% | 90.9% |
 | Pierce County, manual labels (includes handwritten forms) | 6 | 66.7% | 0.897 | 100% | 100% |
 
+**August 2026: this engine, on the full truth sets.** The re-score began by
+rerunning the July samples on the same documents, where the engine came back
+equal or better on every column of every set, and then ran the 5,168 labeled
+cases (of 5,171) whose documents are on the archive volume in one pass. The
+same-street rate is counted two ways, among documents where an address was
+found, and among all documents, where a missing address counts as a miss.
+
+| Truth set | n | Address found | Mean similarity | At least 0.7, of extractions | At least 0.7, of all | ZIP agreement |
+|---|---|---|---|---|---|---|
+| King County 2013 scans, full set | 4,254 | 92.4% | 0.907 | 98.3% | 90.8% | 96.3% |
+| King County 2017 e-filed, full set | 877 | 95.6% | 0.926 | 99.5% | 95.1% | 95.1% |
+| Hand-swiped labels, four counties | 27 | 88.9% | 0.913 | 91.7% | 81.5% | 95.7% |
+| Manual labels, three counties | 10 | 70.0% | 0.967 | 100% | 70.0% | 100% |
+
+**What the improvement pass cost, and where.** The last round of fixes
+refuses a doubtful answer rather than emitting it, and that trade is visible
+in the table rather than hidden by it. On the two large King sets it pays
+for itself. Same-street-of-all rose from 89.1 to 90.8 percent and from 90.4
+to 95.1 percent, against a yield drop of one to two points. On the 27-case
+hand-swiped set it does not pay. Yield fell from 100 to 88.9 percent and
+same-street-of-all from 92.6 to 81.5 percent, because three addresses the
+earlier stage of the same pass had extracted correctly became outright
+refusals and a fourth fell from 0.90 to 0.57. Every one of the four carries
+a flag. Mean similarity rose on all four sets, so what survives is more
+accurate and there is less of it. On 27 cases a four-document swing is
+small-n volatility as much as a finding, but it is a real regression on that
+set and worth watching on the next run rather than rounding away.
+
 For context, the pipeline published in the 2024 paper scored a 0.82 mean
-similarity on the same truth data; the current engine runs 0.87 to 0.92.
-E-filed documents are the easiest and most reliable format. The misses in the
-Pierce manual set are handwritten forms, which is precisely the case the AI
-lane exists for; in bench testing the AI engine returned structured fields
-for all 300 pages of a Pierce County test set and recovered a handwritten
-service address that OCR returned as noise.
+similarity on the same truth data; the July 2026 original ran 0.87 to 0.92,
+and this engine now runs 0.91 to 0.93 on the two large sets. What moved the
+numbers is documented change by change in `MAINTENANCE.md`: the
+failure-mining pass of 2026-08-20 classified every miss on the full set,
+read the dominant classes as page images, and fixed eight mechanisms, the
+largest being an OCR smear of the pleading rule that merged lines and
+swallowed service blocks. E-filed documents are the easiest and most
+reliable format. The misses in the Pierce manual set are handwritten forms,
+which is precisely the case the AI lane exists for; in bench testing the AI
+engine returned structured fields for all 300 pages of a Pierce County test
+set and recovered a handwritten service address that OCR returned as noise.
 
 Read the table with these cautions.
 
 - The numbers describe Washington documents from specific counties and eras.
   They are evidence of how the method behaves, not a promise about your
   corpus. Different jurisdictions will differ.
-- The AI lane is spot-validated, not yet formally scored against the same
-  labeled sets. A head-to-head is the project's next validation milestone,
-  and `MAINTENANCE.md` tracks it.
+- The AI lane is spot-validated and has been benched on a synthetic
+  24-document corpus (which tightened its prompt), but it is not yet
+  formally scored against the same labeled sets. That head-to-head is the
+  project's next validation milestone, and `MAINTENANCE.md` tracks it.
 - Part of the sub-0.7 residue in the table is the metric, not the extraction;
   for example, extractions that included unit numbers the hand labels
   omitted score low despite being more complete than the label.
-- This package's port makes one deliberate narrowing of a validated pattern
-  (a street-direction boundary fix, documented in the source), which should
-  only remove a class of wrong answers; re-scoring on the labeled sets is on
-  the maintenance schedule.
+- This engine now deviates from the validated original in several
+  documented ways: direction and unit vocabulary, a rail-number guard, the
+  no-suffix parser, phantom-city vetoes, and the selection rules in
+  section 12. Each was measured on real documents before shipping. The
+  2026-08-20 re-score reproduced or beat the July samples on every column,
+  and improved every column of the two large full sets, at the cost noted
+  above on the smallest one; the evidence trail for each change is in
+  `MAINTENANCE.md`.
 
 If you need numbers for your own jurisdiction, the path is the one this
 project used. Have people hand-label a few hundred documents, run the tool,
@@ -664,13 +740,13 @@ Washington-specific), and the whole flag-and-review design.
 
 **What is Washington-tuned.** Three things in
 `python/src/extract_text/deterministic/summons.py`, each marked at its
-definition. The city-state-ZIP pattern expects WA or Washington as the state
-token. The strict case-number format (##-2-#####-#) is the Washington
-superior court convention; elsewhere, the generic case-number patterns still
-apply. Bar numbers are recognized by the WSBA label. Adapting these for
-another state is a contained, reviewable change, and the project welcomes
-such contributions as pull requests (see `CONTRIBUTING.md`; note the rule
-that examples must be synthetic).
+definition. The city-state-ZIP patterns, strict and no-suffix both, expect
+WA or Washington as the state token. The strict case-number format
+(##-2-#####-#) is the Washington superior court convention; elsewhere, the
+generic case-number patterns still apply. Bar numbers are recognized by the
+WSBA label. Adapting these for another state is a contained, reviewable
+change, and the project welcomes such contributions as pull requests (see
+`CONTRIBUTING.md`; note the rule that examples must be synthetic).
 
 **How to validate in a new place.** Do not trust transferred rules blind, and
 do not trust the AI lane blind either. Sample a few hundred documents, have

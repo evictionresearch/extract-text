@@ -424,7 +424,8 @@ Not scan quality: rules gaps. The mechanisms, each traced on a real page:
 
 HJP (King 2017, n=877): yield 90.0 -> **95.6%**, mean 0.886 -> **0.926**,
 >=0.7-on-extracted 90.0 -> **99.5%**, >=0.7-on-all 81.0 -> **95.1%**.
-Per-case scores live in `_rescore_2026-08-20/full/` on governed storage.
+Per-case scores live in `extract_text_training/_rescore_2026-08-20/full/` on
+governed storage.
 
 **The two small sets on the full run, including the one regression.** The
 mining pass was scored at three points (`val_scores_before_fixes.csv`,

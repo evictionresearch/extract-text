@@ -13,9 +13,9 @@ with an expert-labeled gold standard:
 
 Usage:
     python3 game/score_ratings.py \
-        --deck-dir ~/data/evictionresearch/washington/_training_2026-08-18 \
+        --deck-dir ~/data/evictionresearch/washington/development/extract_text_training/_training_2026-08-18 \
         --ratings ratings/*.json \
-        --out ~/data/evictionresearch/washington/_training_2026-08-18/labels.csv
+        --out ~/data/evictionresearch/washington/development/extract_text_training/_training_2026-08-18/labels.csv
 """
 
 import argparse

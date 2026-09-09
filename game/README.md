@@ -34,16 +34,16 @@ ways this extractor actually gets things wrong.
 
 ```bash
 python3 python/scripts/build_card_deck.py \
-    --archive ~/data/evictionresearch/washington \
-    --out    ~/data/evictionresearch/washington/_training_2026-08-18 \
+    --archive ~/data/evictionresearch/washington/court_images \
+    --out    ~/data/evictionresearch/washington/development/extract_text_training/_training_2026-08-18 \
     --n 700
 ```
 
 Then serve it:
 
 ```bash
-cp game/index.html ~/data/evictionresearch/washington/_training_2026-08-18/
-cd ~/data/evictionresearch/washington/_training_2026-08-18
+cp game/index.html ~/data/evictionresearch/washington/development/extract_text_training/_training_2026-08-18/
+cd ~/data/evictionresearch/washington/development/extract_text_training/_training_2026-08-18
 python3 -m http.server 8000
 ```
 
@@ -103,9 +103,9 @@ Raters press **Export my ratings** and send back a small JSON file. Then:
 
 ```bash
 python3 game/score_ratings.py \
-    --deck-dir ~/data/evictionresearch/washington/_training_2026-08-18 \
+    --deck-dir ~/data/evictionresearch/washington/development/extract_text_training/_training_2026-08-18 \
     --ratings ratings/*.json \
-    --out ~/data/evictionresearch/washington/_training_2026-08-18/labels.csv
+    --out ~/data/evictionresearch/washington/development/extract_text_training/_training_2026-08-18/labels.csv
 ```
 
 This scores every rater against the probes, drops anyone at or below chance,

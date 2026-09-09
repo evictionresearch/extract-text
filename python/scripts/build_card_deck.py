@@ -13,8 +13,8 @@ Everything it writes is real record material and belongs outside the repo.
 Point `--out` at governed storage.
 
     python3 python/scripts/build_card_deck.py \
-        --archive ~/data/evictionresearch/washington \
-        --out ~/data/evictionresearch/washington/_training_2026-08-18 \
+        --archive ~/data/evictionresearch/washington/court_images \
+        --out ~/data/evictionresearch/washington/development/extract_text_training/_training_2026-08-18 \
         --n 700
 
 Archive layout expected: ARCHIVE/County/Year/CaseNumber/<documents>. County

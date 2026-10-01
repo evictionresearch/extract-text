@@ -1,0 +1,223 @@
+"""Score the engines against the review page's corrections.
+
+`extract-text score --out DIR` reads `DIR/corrections.jsonl` and scores the
+scan as it is now in `DIR`, so a re-scan after a rule change is measured
+against the same answers. It prints, for each engine, how often each field
+was right, what kind of wrong the rest were, and which flags the wrong rows
+carried. With `--shapes` it also prints each wrong value in masked form,
+letters as A, digits as 9, punctuation kept, so the pattern of a failure can
+be seen without the record.
+
+Nothing printed is a name, an address, a case number, or a file name. The
+report is meant to leave the governed data tree: it is what a maintainer
+needs to fix a rule, and nothing a record holder would object to.
+"""
+
+from __future__ import annotations
+
+import re
+from collections import Counter, defaultdict
+from pathlib import Path
+
+from .corrections import TRUTH_FIELDS, _sha256, load_corrections
+from .parties import _party_key, _strip_group_terms
+from .pipeline import _unit_key, ai_reading, machine_reading, read_scan
+from .similarity import norm
+
+FIELDS = ("plaintiff", "defendants", *TRUTH_FIELDS[1:])
+SHAPE_WIDTH = 48
+
+
+def mask(value) -> str:
+    """The shape of a value without its content: letters become A or a,
+    digits 9, everything else stays. Long values are cut."""
+    if isinstance(value, list):
+        value = "; ".join(value)
+    shaped = re.sub(r"[A-Z]", "A", re.sub(r"[a-z]", "a", str(value or "")))
+    shaped = re.sub(r"[0-9]", "9", shaped)
+    return shaped if len(shaped) <= SHAPE_WIDTH else shaped[:SHAPE_WIDTH - 1] + "…"
+
+
+def _squash(s) -> str:
+    return re.sub(r"\s+", " ", str(s or "")).strip().casefold()
+
+
+def _name_keys(names) -> list[str]:
+    keys = []
+    for n in names or []:
+        key = _party_key(_strip_group_terms(str(n))[0])
+        if key:
+            keys.append(key)
+    return sorted(keys)
+
+
+def compare(truth: dict, reading: dict) -> dict:
+    """Each field the reading gets wrong, with the kind of wrong.
+
+    `blank` is a miss, `extra` a value where the page has none, `near` the
+    right content with different formatting (case, punctuation, Ave for
+    Avenue, a group term, LLC), and `different` anything else. Defendants
+    are compared as a set of names, so order never counts; a superset is
+    `extra names` and a subset `missing names`."""
+    wrong = {}
+    t, m = truth.get("plaintiff", ""), reading.get("plaintiff", "")
+    if _squash(t) != _squash(m):
+        if not _squash(m):
+            wrong["plaintiff"] = "blank"
+        elif not _squash(t):
+            wrong["plaintiff"] = "extra"
+        elif _party_key(t) == _party_key(m):
+            wrong["plaintiff"] = "near"
+        else:
+            wrong["plaintiff"] = "different"
+
+    td, md = truth.get("defendants") or [], reading.get("defendants") or []
+    if [_squash(n) for n in td] != [_squash(n) for n in md]:
+        tk, mk = _name_keys(td), _name_keys(md)
+        if not mk:
+            wrong["defendants"] = "blank"
+        elif not tk:
+            wrong["defendants"] = "extra"
+        elif tk == mk:
+            wrong["defendants"] = "near"
+        elif set(tk) < set(mk):
+            wrong["defendants"] = "extra names"
+        elif set(mk) < set(tk):
+            wrong["defendants"] = "missing names"
+        else:
+            wrong["defendants"] = "different"
+
+    same = {
+        "street": lambda a, b: norm(a) == norm(b),
+        "unit": lambda a, b: _unit_key(a) == _unit_key(b),
+        "city": lambda a, b: _squash(a) == _squash(b),
+        "state": lambda a, b: _squash(a) == _squash(b),
+        "zip": lambda a, b: str(a or "")[:5] == str(b or "")[:5],
+    }
+    for field, alike in same.items():
+        t, m = str(truth.get(field) or ""), str(reading.get(field) or "")
+        if _squash(t) == _squash(m):
+            continue
+        if not m.strip():
+            wrong[field] = "blank"
+        elif not t.strip():
+            wrong[field] = "extra"
+        elif alike(t, m):
+            wrong[field] = "near"
+        else:
+            wrong[field] = "different"
+    return wrong
+
+
+def score(out_dir) -> dict:
+    """Per-engine, per-field tallies: the latest correction per row, scored
+    against the scan in `out_dir` as it is now."""
+    out = Path(out_dir)
+    latest = load_corrections(out)
+    rows, details = read_scan(out)
+    tallies = {
+        "n": len(latest),
+        "unreadable": sum(1 for c in latest.values() if c["verdict"] == "unreadable"),
+        "by_sample": Counter(c["sampled_as"] for c in latest.values()),
+        "used_ai_fill": sum(1 for c in latest.values() if c.get("used_ai_fill")),
+        "by_reviewer": Counter(c.get("reviewer", "") for c in latest.values()),
+        "skipped": 0,
+        "engines": {},
+        "flags_on_wrong": Counter(),
+        "shapes": defaultdict(list),
+    }
+    scored = []  # (correction, {"deterministic": wrong, "ai": wrong|None}, row)
+    for row_no, c in sorted(latest.items()):
+        if c["verdict"] == "unreadable":
+            continue
+        if not 1 <= row_no <= len(rows):
+            tallies["skipped"] += 1
+            continue
+        row, detail = rows[row_no - 1], details[row_no - 1]
+        src = Path(detail.get("file", ""))
+        if c.get("sha256") and _sha256(src) != c["sha256"]:
+            tallies["skipped"] += 1
+            continue
+        machine = machine_reading(row)
+        ai = ai_reading(detail) or c.get("ai")
+        readings = {"deterministic": (machine, compare(c["truth"], machine))}
+        if ai:
+            readings["ai"] = (ai, compare(c["truth"], ai))
+        scored.append((c, readings, row))
+
+    for engine in ("deterministic", "ai"):
+        seen = [(c, r[engine], row) for c, r, row in scored if engine in r]
+        if not seen:
+            continue
+        per_field = {}
+        for field in FIELDS:
+            f = {"n": len(seen), "right": 0, "near": 0, "right_random": 0,
+                 "n_random": 0, "kinds": Counter()}
+            for c, (reading, wrong), row in seen:
+                random_row = c["sampled_as"] == "random"
+                f["n_random"] += random_row
+                kind = wrong.get(field)
+                if kind is None:
+                    f["right"] += 1
+                    f["right_random"] += random_row
+                    continue
+                f["kinds"][kind] += 1
+                f["near"] += kind == "near"
+                raw = ""
+                if engine == "deterministic" and field in ("street", "unit", "city", "zip"):
+                    raw = mask(row.get("defendant_address_raw", ""))
+                tallies["shapes"][(engine, field)].append(
+                    (c["row"], kind, mask(reading.get(field)), mask(c["truth"].get(field)), raw))
+            per_field[field] = f
+        tallies["engines"][engine] = per_field
+        if engine == "deterministic":
+            for c, (reading, wrong), row in seen:
+                if {k for k, v in wrong.items() if v != "near"}:
+                    for flag in filter(None, (row.get("flags") or "").split(";")):
+                        tallies["flags_on_wrong"][flag] += 1
+    return tallies
+
+
+def _pct(right, n) -> str:
+    return f"{100 * right / n:5.1f}%" if n else "    –"
+
+
+def report(out_dir, shapes=False) -> str:
+    """The printed report."""
+    t = score(out_dir)
+    lines = [f"Corrections in {Path(out_dir).name}: {t['n']} documents reviewed, "
+             f"{t['unreadable']} unreadable, "
+             + ", ".join(f"{n} {how}" for how, n in sorted(t["by_sample"].items()))
+             + (f", {t['used_ai_fill']} filled from the AI engine" if t["used_ai_fill"] else ""),
+             "Scored against the scan as it is now in that folder.",
+             "Graded by " + ", ".join(f"{who or 'unknown'} ({n})"
+                                      for who, n in t["by_reviewer"].most_common()) + "."]
+    if t["skipped"]:
+        lines.append(f"{t['skipped']} corrections skipped: the document at that row has "
+                     "changed since the correction was saved (a different scan?).")
+    if not t["engines"]:
+        lines.append("No readable corrections yet.")
+        return "\n".join(lines)
+    for engine, per_field in t["engines"].items():
+        lines += ["", f"{engine} engine, share of fields right, then right or near "
+                      "(random rows alone in brackets)"]
+        for field, f in per_field.items():
+            kinds = ", ".join(f"{n} {k}" for k, n in f["kinds"].most_common())
+            lines.append(f"  {field:<11}{_pct(f['right'], f['n'])} "
+                         f"{_pct(f['right'] + f['near'], f['n'])} of {f['n']:>4}"
+                         f"  [{_pct(f['right_random'], f['n_random']).strip()} of {f['n_random']}]"
+                         + (f"   wrong: {kinds}" if kinds else ""))
+    if t["flags_on_wrong"]:
+        lines += ["", "flags carried by rows the deterministic engine got wrong"]
+        lines += [f"  {n:>4}  {flag}" for flag, n in t["flags_on_wrong"].most_common()]
+    if shapes and t["shapes"]:
+        lines += ["", "shapes of wrong values (letters A/a, digits 9): engine value, then the "
+                      "right answer, then the block the address was read from"]
+        for (engine, field), items in t["shapes"].items():
+            lines.append(f"  {engine} · {field}")
+            for row, kind, got, want, raw in items:
+                lines.append(f"    #{row:<4} {kind:<14} {got or '(blank)'}")
+                lines.append(f"    {'':<20}{want or '(blank)'}")
+                if raw:
+                    lines.append(f"    {'':<20}from: {raw}")
+    return "\n".join(lines)

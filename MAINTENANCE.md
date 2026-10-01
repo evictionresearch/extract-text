@@ -558,6 +558,79 @@ not evidence about real scans, real handwriting, or real firm names, and it
 does not move `DEFAULT_VISION_MODEL`. Step 3 of the model review procedure, on
 governed storage, remains the only thing that can.
 
+## The 2026-09-30 improvement pass: the first new-user test
+
+Tim ran the package as a new user on 30 real King County summonses in two
+layouts (the pre-printed 2000s form and the e-filed 2010s form), corrected
+every document on the review page, and sent back the scorer's report
+(counts and masked shapes only; see docs/manual.md section 11). Scored
+against the engine as it was that morning, the deterministic engine had
+the plaintiff right on 0 of 30, the defendants on 5 of 30, the street on 16
+of 30, and the unit on 14 of 30; city, state, and ZIP were 87 to 100
+percent. Every one of these numbers is on a flagged-first review set, so
+they describe the hard cases, not a corpus rate.
+
+Reading the shapes rather than the counts, most of that was a few defects.
+
+- **A comma in the unit.** The street pattern's unit group carries its
+  separator, so a comma-led unit (", #12") reached the unit column comma and
+  all, and the same comma sat inside the street. Eight of fourteen street
+  errors and eight of sixteen unit errors were this one character.
+- **Building lines as defendants.** The e-filed form prints the complex's
+  name between the tenant and the street in the service block; the block
+  reader took any digit-free line before the address as a party. Nine
+  documents gained a phantom defendant this way. A line after the first
+  name line that carries a building word (APARTMENTS, MANOR, VILLAGE, and
+  kin, but not COURT, PLACE, PARK, or HOUSE, which are surnames) is now
+  kept out of the parties.
+- **The plaintiff reader.** Three separate faults. The flat-text caption
+  pattern was allowed to override the positional reader, and on a scanned
+  two-column caption it returns whatever sits before "v.", which was rail
+  debris ("1]") or the defendant's name with OCR noise in front. The
+  positional reader did not recognise the pre-printed form's
+  "Plaintiff(s)," label. And a tall case-number stamp beside the caption
+  made line clustering glue the plaintiff's two rows into one interleaved
+  string. The reader now rebuilds the caption's left cell from its own
+  words, cuts each row at the column divider (the first wide gap) instead
+  of a fixed x, drops stamp-sized words, recognises the parenthesised
+  label, joins a DBA line to the name above it, and falls back to the
+  notice sentence ("...started against you ... by X, Plaintiff"). The
+  positional result now wins the merge.
+- **The case number.** King County stamps the courthouse code onto the
+  check digit ("-3SEA"), and the pattern ended in a word boundary that
+  cannot fall there. The positional pattern then found nothing, and the
+  generic "Case No." pattern fell through to the notice sentence "if no
+  case number has been assigned", returning a word fragment. 25 of the 26
+  flagged documents were flagged for this. The check digit is now followed
+  by a not-a-digit lookahead, and the generic pattern requires a digit.
+- **Group terms and debris in names.** The deterministic engine kept
+  "et al." (the AI engine already stripped it), and names carried a trailing
+  "&", a leading rail fragment, or a parenthetical role. Cleaning now lives
+  in `parties.py` and runs for both engines. Names listed with commas
+  ("A B, C D, and E F") split when every piece has two or more words.
+- **Superscript ordinals.** OCR reads 150TH as 150" or 150°; the pattern
+  already accepted those characters, and the street column now says 150TH.
+- **Building-plus-apartment units** ("BLDG C Apt # 5") and APARTMENT as a
+  unit word were missing from the unit vocabulary.
+
+Two synthetic fixtures now reproduce the two King County layouts
+(`synthetic_kc_efiled.pdf`, `synthetic_kc_printed.pdf`, each also as an
+image-only PDF for the OCR path), with the stamp, the rail rule, the
+"Plaintiff(s)," label, the DBA line, the OCR debris, the building line, and
+the notice sentence in them. Every change above has a test on those
+fixtures or on invented strings.
+
+What this pass did not touch, because the shapes did not settle it: a
+trailing direction dropped from two streets, a city reading with a leading
+extra word on a no-suffix street, and the attorney firm on the pre-printed
+form (which is a lone attorney, not a firm). The scorer now prints the
+masked address block beside each address error, so the next round of
+corrections will show what those blocks held.
+
+The measured effect on the 30 documents is in the project's issue tracker
+(#20) once Tim re-scans and re-scores; nothing here was verified on real
+records inside a session, by design.
+
 ## Other reasons extraction fails
 
 Reading the failures rather than counting them changed what looks worth

@@ -54,3 +54,9 @@ r/src/*.so
 # carried in the repository. The small degraded/ set stays tracked as the
 # quick smoke test.
 python/tests/fixtures/corpus/
+
+# Scan outputs and grading bundles. A scan run with --out inside the repo
+# would otherwise leave these one `git add` away from a commit.
+*.jsonl
+*.zip
+review/

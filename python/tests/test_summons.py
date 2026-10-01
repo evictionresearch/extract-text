@@ -84,6 +84,20 @@ def test_parse_address_keeps_suite_as_unit():
     assert p["unit"] == "STE 200"
 
 
+@pytest.mark.parametrize("raw, unit, city", [
+    ("1234-SAMPLE AVE. NE BLDG ZZ Apt # 5 SAMPLETON, WA 98100", "BLDG ZZ Apt # 5", "Sampleton"),
+    ("1234 SAMPLE AVE NE BLDG C SAMPLETON, WA 98100", "BLDG C", "Sampleton"),
+    ("1234 SAMPLE AVE NE Building 4, Unit 12 SAMPLETON, WA 98100", "Building 4 Unit 12", "Sampleton"),
+    # the apartment slot never reads a city that starts like a unit keyword
+    ("1234 SAMPLE AVE NE BLDG C STEPHENSTOWN, WA 98100", "BLDG C", "Stephenstown"),
+])
+def test_parse_address_keeps_building_units(raw, unit, city):
+    got = parse_address(raw)
+    assert got["unit"] == unit
+    assert got["city"] == city
+    assert got["street"].endswith(unit)
+
+
 def test_parse_address_returns_none_without_a_street():
     assert parse_address("JANE Q. TENANT and ALL OTHER OCCUPANTS") is None
 
@@ -331,3 +345,57 @@ def test_normal_and_letterhead_words_survive_the_height_filter():
     ws = [Word(1, 0.2, 0.10, 0.3, 0.112, "normal"),
           Word(1, 0.2, 0.05, 0.5, 0.078, "LETTERHEAD")]   # h=0.028, tall but real
     assert len(strip_line_number_rail(ws)) == 2
+
+
+# ---------------------------------------------------------------------------
+# the King County layouts (fixtures added 2026-09-30 after the first
+# new-user test on real cases; every value invented)
+# ---------------------------------------------------------------------------
+
+
+@needs_poppler
+@pytest.mark.parametrize("fixture", ["synthetic_kc_efiled.pdf",
+                                     pytest.param("synthetic_kc_efiled_scanned.pdf", marks=needs_tesseract)])
+def test_kc_efiled_layout(fixture):
+    x = extract(str(FIXTURES / fixture))
+    r = x.record
+    assert r.case_number == "25-2-00007-1"          # the stamp's SEA suffix is a separate word
+    assert [p.name for p in r.plaintiffs] == ["EXAMPLE HOUSING INSTITUTE"]  # not "..., NO."
+    # the complex's name under the tenant's is where they live, not a party
+    assert [p.name for p in r.defendants] == ["PAT Q. OCCUPANT"]
+    assert r.defendant_address.street == "5678 SAMPLE AVENUE"
+    assert r.defendant_address.city == "Seattle" and r.defendant_address.zip == "98100"
+    assert r.attorney.firm == "SAMPLE & SPECIMEN PLLC"
+    assert x.flags == []
+
+
+@needs_poppler
+@pytest.mark.parametrize("fixture", ["synthetic_kc_printed.pdf",
+                                     pytest.param("synthetic_kc_printed_scanned.pdf", marks=needs_tesseract)])
+def test_kc_printed_layout(fixture):
+    x = extract(str(FIXTURES / fixture))
+    r = x.record
+    assert r.case_number == "25-2-00008-3"          # courthouse code glued to the check digit
+    # two-row plaintiff with a DBA line, OCR debris before it, a tall stamp beside it
+    assert [p.name for p in r.plaintiffs] == ["EXAMPLE GREENS LLC DBA EXAMPLE GREENS"]
+    assert x.evidence["plaintiffs.0.name"].anchor == "caption_plaintiff"
+    assert [p.name for p in r.defendants] == ["PAT Q. OCCUPANT", "LEE R. OCCUPANT"]
+    assert r.defendant_address.unit == "BLDG ZZ Apt # 102"
+    assert r.defendant_address.city == "Sampleton"
+    assert "defendant_matches_plaintiff" not in x.flags
+
+
+def test_ordinal_misreads_are_repaired_in_the_street():
+    got = parse_address('1234 150" ST SW SAMPLETON, WA 98100')
+    assert got["street"] == "1234 150TH ST SW"
+    assert parse_address("1234 101\u00b0 AVE SAMPLETON, WA 98100")["street"] == "1234 101ST AVE"
+    assert parse_address("1234 112\u2122 AVE SAMPLETON, WA 98100")["street"] == "1234 112TH AVE"
+
+
+def test_comma_led_unit_is_clean_in_both_columns():
+    got = parse_address("9876 SAMPLE AVE, #12 SAMPLETON, WA 98100")
+    assert got["unit"] == "#12" and got["street"] == "9876 SAMPLE AVE #12"
+    got = parse_address("9876 SAMPLE AVE APARTMENT #B SAMPLETON, WA 98100")
+    assert got["unit"] == "APARTMENT #B"
+    got = parse_address("9876 SAMPLE AVE # A/B SAMPLETON, WA 98100")
+    assert got["unit"] == "# A/B"

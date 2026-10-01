@@ -73,6 +73,116 @@ ITEMS = (
     ]
 )
 
+# Two more King County layouts, added 2026-09-30 after the first new-user
+# test on real cases showed the rules failing on both. Values invented as
+# above; the shapes are what matter.
+#
+# The e-filed layout (2010s): a boxed caption with the rail's line numbers
+# and the box's rule beside the party names, a CASE NUMBER stamp with the
+# courthouse code as a separate word, a "TO THE DEFENDANT(S):" service block
+# whose second line is the complex's name, and the notice sentence that
+# mentions "no case number has been assigned".
+_RULE = [(72, 116 + i * 12, 9, "|") for i in range(0, 12)]  # the caption box's left rule
+KC_EFILED_ITEMS = (
+    [(40, 100 + (i - 1) * 24, 9, str(i)) for i in range(1, 27)]
+    + _RULE
+    + [
+        (400, 40, 8, "FILED"),
+        (400, 52, 7, "SAMPLE COUNTY"),
+        (400, 62, 7, "SUPERIOR COURT CLERK"),
+        (400, 72, 7, "E-FILED"),
+        (400, 82, 7, "CASE NUMBER: 25-2-00007-1 SEA"),
+        (170, 104, 8, "IN THE SUPERIOR COURT OF THE STATE OF WASHINGTON"),
+        (190, 114, 8, "IN AND FOR THE COUNTY OF SAMPLE"),
+        (80, 136, 8, "EXAMPLE HOUSING INSTITUTE,"),
+        (300, 136, 8, "NO."),
+        (200, 148, 8, "Plaintiff,"),
+        (80, 160, 8, "vs."),
+        (300, 160, 8, "EVICTION SUMMONS"),
+        (300, 170, 8, "(Residential)"),
+        (80, 184, 8, "PAT Q. OCCUPANT,"),
+        (200, 196, 8, "Defendant(s)."),
+        (80, 210, 8, "#  00000.0000"),
+        (180, 250, 8, "THIS IS NOTICE OF A LAWSUIT TO EVICT YOU."),
+        (200, 260, 8, "PLEASE READ IT CAREFULLY."),
+        (170, 270, 8, "THE DEADLINE FOR YOUR WRITTEN RESPONSE IS:"),
+        (200, 284, 8, "4:30 P.M., on September 13, 2025"),
+        (80, 306, 8, "TO THE DEFENDANT(S):"),
+        (200, 306, 8, "PAT Q. OCCUPANT"),
+        (200, 316, 8, "EXAMPLE COURT APARTMENTS"),
+        (200, 326, 8, "5678 SAMPLE AVENUE"),
+        (200, 336, 8, "Seattle, Washington 98100"),
+        (80, 360, 8, "This is notice of a lawsuit to evict you from the property which you are renting. Your landlord is"),
+        (80, 370, 8, "asking the court to terminate your tenancy, direct the sheriff to remove you and your belongings from the"),
+        (80, 380, 8, "property, enter a money judgment against you for unpaid rent and/or damages for your use of the property,"),
+        (80, 390, 8, "and for court costs and attorney's fees."),
+        (80, 404, 8, "If you want to defend yourself in this lawsuit, you must respond to the eviction complaint in writing on"),
+        (80, 414, 8, "or before the deadline stated above. You must respond in writing even if no case number has been assigned"),
+        (80, 424, 8, "by the court yet."),
+        (80, 640, 8, "SUMMONS- 1"),
+        (380, 640, 8, "SAMPLE & SPECIMEN PLLC"),
+        (380, 650, 7, "100 MAIN ST STE 200"),
+        (380, 660, 7, "SEATTLE, WASHINGTON 98101"),
+        (380, 670, 7, "TELEPHONE: (206) 555-0100"),
+    ]
+)
+
+# The pre-printed layout (2000s): "Plaintiff(s)," and "Defendant(s)" labels
+# with the parenthetical, a two-line plaintiff (name, then a DBA line), the
+# case number stamped with the courthouse code glued to the check digit, OCR
+# debris ("=)", "ao") where the rail meets the text, the co-defendant boilerplate
+# on the TO: line itself, and a building-plus-apartment unit.
+KC_PRINTED_ITEMS = (
+    [(40, 100 + (i - 1) * 20, 9, str(i)) for i in range(1, 33)]
+    + [
+        (300, 40, 9, "FILED"),
+        (300, 52, 7, "SAMPLE COUNTY"),
+        (300, 62, 7, "SUPERIOR COURT CLERK"),
+        (110, 100, 8, "SUPERIOR COURT OF WASHINGTON FOR COUNTY OF SAMPLE"),
+        (62, 120, 8, "=)"),
+        (75, 120, 8, "ao"),
+        (90, 120, 8, "EXAMPLE GREENS LLC"),
+        (330, 120, 12, "25-2-00008-3SEA"),
+        (90, 130, 8, "DBA EXAMPLE GREENS"),
+        (200, 142, 8, "Plaintiff(s),"),
+        (300, 142, 8, ")"),
+        (200, 154, 8, "vs."),
+        (300, 154, 8, ")  EVICTION SUMMONS"),
+        (90, 166, 8, "PAT Q. OCCUPANT"),
+        (300, 166, 8, ")  (RESIDENTIAL)"),
+        (90, 176, 8, "LEE R. OCCUPANT"),
+        (90, 186, 8, "ALL OTHER OCCUPANTS"),
+        (300, 196, 8, "ORIGINAL"),
+        (180, 208, 8, "Defendant(s)"),
+        (170, 236, 8, "THIS IS NOTICE OF A LAWSUIT TO EVICT YOU"),
+        (190, 246, 8, "PLEASE READ IT CAREFULLY"),
+        (170, 256, 8, "THE DEADLINE FOR YOUR WRITTEN RESPONSE IS:"),
+        (200, 266, 8, "5:00 p.m. on 1/25/2026"),
+        (90, 290, 8, "TO:  PAT Q. OCCUPANT"),
+        (230, 290, 8, "ALL OTHER OCCUPANTS"),
+        (115, 300, 8, "LEE R. OCCUPANT"),
+        (115, 310, 8, "1234-EXAMPLE AVE. NE BLDG ZZ Apt # 102"),
+        (115, 320, 8, "SAMPLETON, WA 98100 County of SAMPLE"),
+        (90, 344, 8, "This is notice of a lawsuit to evict you from the property"),
+        (90, 354, 8, "which you are renting.  Your landlord is asking the court to"),
+        (90, 364, 8, "terminate your tenancy, direct the sheriff to remove you and your"),
+        (90, 374, 8, "belongings from the property, enter a money judgment against you"),
+        (90, 384, 8, "for unpaid rent and/or damages for your use of the property, and"),
+        (90, 394, 8, "for court costs and attorney's fees."),
+        (90, 412, 8, "If you want to defend yourself in this lawsuit, you must"),
+        (90, 422, 8, "respond to the eviction complaint in writing on or before the"),
+        (90, 432, 8, "deadline stated above. You must respond in writing even if no case"),
+        (90, 442, 8, "number has been assigned by the court yet."),
+        (330, 700, 7, "ALEX B. COUNSEL"),
+        (330, 709, 7, "ATTORNEY AT LAW"),
+        (330, 718, 7, "100 MAIN ST STE 200"),
+        (330, 727, 7, "SEATTLE, WA 98101"),
+        (330, 736, 7, "(206) 555-0100"),
+        (90, 736, 8, "SUMMONS ON COMPLAINT  -"),
+        (90, 746, 8, "PAGE 1 (RCW 59.18.365)"),
+    ]
+)
+
 FLAT_TEXT = """\
 SUPERIOR COURT OF WASHINGTON
 COUNTY OF SAMPLE
@@ -194,6 +304,11 @@ def main():
                            compression="group4", dpi=(300, 300))
     small = draw_page_image(ITEMS, dpi=150)
     small.save(FIXTURES / "synthetic_summons_page1.png", dpi=(150, 150))
+
+    for name, items in (("kc_efiled", KC_EFILED_ITEMS), ("kc_printed", KC_PRINTED_ITEMS)):
+        (FIXTURES / f"synthetic_{name}.pdf").write_bytes(build_text_pdf(items))
+        draw_page_image(items, dpi=300).save(
+            FIXTURES / f"synthetic_{name}_scanned.pdf", "PDF", resolution=300.0)
 
     for f in sorted(FIXTURES.glob("synthetic_*")):
         print(f"{f.relative_to(FIXTURES.parents[1])}  {f.stat().st_size:,} bytes")

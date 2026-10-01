@@ -34,6 +34,14 @@ import re
 from collections import defaultdict
 
 from ..layout import cluster_lines
+from ..parties import (
+    _GROUP_TERM_RE,
+    _strip_group_terms,
+    clean_party_name,
+    drop_plaintiff_matches,
+    finish_party_names,
+    split_listed_names,
+)
 from ..schema import Address, Attorney, Evidence, Party
 
 # ---------------------------------------------------------------------------
@@ -41,7 +49,11 @@ from ..schema import Address, Attorney, Evidence, Party
 # ---------------------------------------------------------------------------
 
 # WA superior court case number, e.g. 25-2-00001-0 (the "2" = civil)
-WA_CASE_NO_RE = re.compile(r"\b(\d{2})[- ]?2[- ]?(\d{5})[- ]?(\d)\b")
+# The check digit is followed by (?!\d) rather than \b: King County stamps
+# the courthouse code straight onto it ("...-3SEA"), and a word boundary
+# there fails, which lost the case number on every stamped older summons in
+# the 2026-09-30 new-user test.
+WA_CASE_NO_RE = re.compile(r"\b(\d{2})[- ]?2[- ]?(\d{5})[- ]?(\d)(?!\d)")
 
 # CRT is a court abbreviation King County forms actually print ("80TH CRT
 # NE"); PI is OCR's l->I misread of "Pl." — both found by truth-set mining,
@@ -66,11 +78,18 @@ DIRECTION = (
 # "Apt. # 201" as readily as "Apt. 201", and the first human rating round
 # found dropped units to be the single largest correction category (11 of 24).
 # The identifier may be quoted — fill-in forms print 'unit "O"'.
-_UNIT_ID = r"[\"']?[\w-]+[\"']?"
+_UNIT_ID = r"[\"']?[\w/-]+[\"']?"
 UNIT = (
-    rf"(?:#\s?{_UNIT_ID}|APT\.?\s?#?\s?{_UNIT_ID}|UNIT\s?#?\s?{_UNIT_ID}|"
+    rf"(?:#\s?{_UNIT_ID}|APARTMENT\s?#?\s?{_UNIT_ID}|APT\.?\s?#?\s?{_UNIT_ID}|UNIT\s?#?\s?{_UNIT_ID}|"
     rf"STE\.?\s?#?\s?{_UNIT_ID}|SUITE\s?#?\s?{_UNIT_ID}|SPACE\s?#?\s?{_UNIT_ID}|"
-    rf"TRLR\s?#?\s?{_UNIT_ID}|LOT\s?#?\s?{_UNIT_ID})"
+    rf"TRLR\s?#?\s?{_UNIT_ID}|LOT\s?#?\s?{_UNIT_ID}|"
+    # a building, alone ("BLDG C") or ahead of the apartment ("BLDG C Apt # 5").
+    # Before this the building stopped the unit match and the whole unit was
+    # dropped from both the street and unit columns (new-user test,
+    # 2026-09-30). The apartment slot needs a word boundary after its keyword
+    # so a city such as "Steilacoom" is never read as "STE ilacoom".
+    rf"(?:BLDG|BUILDING)\.?\s?#?\s?{_UNIT_ID}"
+    rf"(?:\s*,?\s*(?:#\s?{_UNIT_ID}|(?:APT|UNIT|STE|SUITE)\b\.?\s?#?\s?{_UNIT_ID}))?)"
 )
 
 # street line: house number + words + suffix, optionally followed by direction/unit
@@ -176,6 +195,16 @@ OCCUPANT_NOISE_RE = re.compile(
 )
 
 SUMMONS_NAME_RE = re.compile(r"summons", re.IGNORECASE)
+
+# words that name a building or complex rather than a person. Deliberately
+# without COURT, PLACE, PARK, and HOUSE, which are surnames too.
+BUILDING_LINE_RE = re.compile(
+    r"\b(APARTMENTS?|APTS\.?|MANOR|VILLAGE|TERRACE|PLAZA|TOWERS?|ARMS|ESTATES|"
+    r"GARDENS?|COMMONS|LODGE|VILLAS?|HEIGHTS|CONDOMINIUMS?|CONDOS?|RESIDENCES?|"
+    r"SENIOR\s+(?:HOUSING|LIVING)|HOUSING\s+AUTHORITY|MOBILE\s+HOME|MHP|"
+    r"TRAILER\s+(?:PARK|COURT)|RV\s+PARK|C/O)\b",
+    re.IGNORECASE,
+)
 
 STREET_STOPWORDS = {
     "the", "a", "an", "of", "on", "in", "to", "and", "or", "for", "this",
@@ -290,6 +319,22 @@ def _clean_city(raw_city):
     return " ".join(toks)
 
 
+# OCR reads a superscript ordinal as a quote or a degree sign: 150TH ST
+# arrives as 150" ST or 150° ST. The street pattern accepts those characters
+# so the address is found; the street column should still say 150TH.
+_ORDINAL_MISREAD_RE = re.compile(r"(\d+)[\"'\u2019\u201d%\u00b0\u2122]+(?=\s|$)")
+
+
+def _ordinal(n: int) -> str:
+    if n % 100 in (11, 12, 13):
+        return "TH"
+    return {1: "ST", 2: "ND", 3: "RD"}.get(n % 10, "TH")
+
+
+def _fix_ordinals(street: str) -> str:
+    return _ORDINAL_MISREAD_RE.sub(lambda m: m.group(1) + _ordinal(int(m.group(1))), street)
+
+
 def parse_address(text):
     """Split a joined address string into components; returns None if no
     street pattern is present. Keeps the raw string alongside components."""
@@ -314,8 +359,12 @@ def parse_address(text):
             t, sm, repaired = t2, sm2, True
     if not sm:
         return None
-    street = re.sub(r"\s+", " ", sm.group(0)).strip(" ,.")
-    unit = re.sub(r"\s+", " ", sm.group(3)).strip() if sm.group(3) else ""
+    # the unit group carries its separator, so a comma-led unit
+    # (", #12") used to reach the unit column comma and all, and the same
+    # comma sat inside the street; half the street and unit errors in the
+    # 2026-09-30 corrections were this one comma
+    street = _fix_ordinals(re.sub(r"\s*,\s*", " ", re.sub(r"\s+", " ", sm.group(0))).strip(" ,."))
+    unit = re.sub(r"\s*,\s*", " ", re.sub(r"\s+", " ", sm.group(3))).strip(" ,") if sm.group(3) else ""
     rest = t[sm.end():]
     city = state = zipc = ""
     end = min(len(t), sm.end() + 45)  # raw trim point when no city/zip found
@@ -493,6 +542,13 @@ def extract_defendant_block(lines, pg=1):
             if part.strip():
                 addr_started = True
                 addr_parts.append(part.strip())
+        # the complex's name printed between the tenant and the street
+        # ("EXAMPLE COURT APARTMENTS") is part of where they live, not a
+        # party; it was the most common phantom defendant in the 2026-09-30
+        # corrections. Only a line after the first name line counts, so a
+        # block that names nobody but a building still yields that line.
+        if len(names) > 1:
+            names = names[:1] + [n for n in names[1:] if not BUILDING_LINE_RE.search(n)]
         # an "ADDRESS:"/"TO:" label inside an attorney signature block is the
         # firm's address (Suite + TELEPHONE NO. + WSBA) — not the defendant's
         block_text = " ".join(block)
@@ -640,8 +696,13 @@ _HEADER_NOISE_RE = re.compile(
     r"\b(COURT|COUNTY|STATE\s+OF|WASHINGTON|SUPERIOR|DISTRICT|JUSTICE|IN\s+THE)\b",
     re.IGNORECASE,
 )
-_PLAINTIFF_LABEL_RE = re.compile(r"^Plaintiffs?[,.]?$", re.IGNORECASE)
-_VS_LINE_RE = re.compile(r"^vs?\.?,?$", re.IGNORECASE)
+# "Plaintiff(s)," is how the pre-printed King County form labels the cell
+_PLAINTIFF_LABEL_RE = re.compile(r"^Plaintiff(?:s|\(s\))?[,.]?(?:\s|$)", re.IGNORECASE)
+_VS_LINE_RE = re.compile(r"^-?vs?\.?,?-?(?:\s|$)", re.IGNORECASE)
+# the notice sentence that names the plaintiff in prose: "...started against
+# you in the above entitled Court by EXAMPLE PROPERTY LLC, Plaintiff."
+_PLAINTIFF_PROSE_RE = re.compile(
+    r"\bby\s+(.{3,90}?),?\s+(?:the\s+)?Plaintiff\b", re.IGNORECASE)
 
 
 def _left_cell_text(line, cutoff=0.55):
@@ -649,6 +710,40 @@ def _left_cell_text(line, cutoff=0.55):
     Rebuild the line from words left of the divider so 'EXAMPLE LLC,' and
     'Case No. 25-2-00001-0' stop being one string."""
     return " ".join(w.text for w in line.words if w.x0 < cutoff).strip()
+
+
+def _caption_cell_lines(lines, pg=1, cutoff=0.48):
+    """The caption's left cell, one string per printed row.
+
+    Rebuilt from words rather than taken from the page's lines, for two
+    reasons found on King County forms (2026-09-30). A case-number stamp in
+    large type on the right spans two printed rows, and line clustering
+    glued the plaintiff's two rows into one interleaved string; clustering
+    only the left cell's words keeps the rows apart. And the right column
+    starts further left than the fixed cutoff assumed, so "NO." and the
+    box's ")" rule were riding along on name lines; each row is now cut at
+    the first wide gap between words, which is where the column divider
+    sits whatever its position."""
+    region = [w for l in lines if l.page == pg and l.y0 < 0.55
+              for w in l.words if w.x0 < cutoff]
+    if not region:
+        return []
+    heights = sorted(w.y1 - w.y0 for w in region)
+    median = heights[len(heights) // 2]
+    # stamps are set in larger type than the caption; they are not its text.
+    # 1.8 rather than a tighter ratio, because OCR boxes a word with
+    # parentheses and descenders ("Plaintiff(s),") 1.7 times taller than
+    # its capitals-only neighbours
+    region = [w for w in region if (w.y1 - w.y0) <= 1.8 * median]
+    rows = []
+    for ln in cluster_lines(region):
+        kept = []
+        for w in ln.words:
+            if kept and w.x0 - kept[-1].x1 > 0.06 and w.x0 > 0.30:
+                break
+            kept.append(w)
+        rows.append(" ".join(w.text for w in kept).strip())
+    return rows
 
 
 def extract_plaintiff_caption(lines, pg=1):
@@ -659,25 +754,40 @@ def extract_plaintiff_caption(lines, pg=1):
     validated field. Looks for the 'Plaintiff,' designator line (or the
     'vs.' line) and takes the name lines directly above it.
     """
-    p1 = [l for l in lines if l.page == pg and l.y0 < 0.55 and l.x0 < 0.60]
+    rows = _caption_cell_lines(lines, pg)
     label_idx = None
-    for i, ln in enumerate(p1):
-        cell = _left_cell_text(ln)
+    for i, cell in enumerate(rows):
         if _PLAINTIFF_LABEL_RE.match(cell) or _VS_LINE_RE.match(cell):
             label_idx = i
             break
     if label_idx is None:
         return []
     names = []
-    for prev in reversed(p1[max(0, label_idx - 3): label_idx]):
-        cell = _left_cell_text(prev)
+    for cell in reversed(rows[max(0, label_idx - 3): label_idx]):
+        cell = clean_party_name(cell)
         if not cell or _HEADER_NOISE_RE.search(cell) or not looks_like_name_line(cell):
             break
         for name in re.split(r"\s+(?:and|&)\s+", cell.strip(" ,;"), flags=re.IGNORECASE):
             name = name.strip(" ,;")
             if len(name) >= 2:
                 names.insert(0, name)
-    return names
+    return finish_party_names(names)
+
+
+def extract_plaintiff(lines, pg=1):
+    """Plaintiff names and the anchor that found them: the caption cell
+    first, then the notice sentence that names the plaintiff in prose."""
+    names = extract_plaintiff_caption(lines, pg)
+    if names:
+        return names, "caption_plaintiff"
+    text = " ".join(l.text for l in lines if l.page == pg)
+    m = _PLAINTIFF_PROSE_RE.search(text)
+    if m:
+        names = finish_party_names(
+            re.split(r"\s+(?:and|&)\s+", clean_party_name(m.group(1)), flags=re.IGNORECASE))
+        if names:
+            return names, "prose_plaintiff"
+    return [], ""
 
 
 def try_defendant(lines, pages):
@@ -820,14 +930,16 @@ def _split_defendant_names(joined: str) -> list[str]:
     still hold 'A and B'. Split conservatively and keep names as printed."""
     names = []
     for part in joined.split(";"):
-        part = part.strip(" ,;")
+        part = _strip_group_terms(part.strip(" ,;"))[0]
         if not part:
             continue
         for name in re.split(r"\s+(?:and|&)\s+", part, flags=re.IGNORECASE):
-            name = name.strip(" ,;")
-            if len(name) >= 2:
-                names.append(name)
-    return names
+            # "PAT EXAMPLE et al" is one named defendant, not a name plus a
+            # group; the group term goes, as it does in the AI engine
+            name = clean_party_name(_strip_group_terms(name.strip(" ,;"))[0])
+            if len(name) >= 2 and not _GROUP_TERM_RE.fullmatch(" " + name):
+                names += split_listed_names(name)
+    return finish_party_names(names)
 
 
 def extract_summons_fields(doc, expected_case_number=None):
@@ -924,6 +1036,17 @@ def extract_summons_fields(doc, expected_case_number=None):
         flags.append("case_number_mismatch")
 
     # ---- assemble schema objects + evidence ----
+    plaintiffs: list[Party] = []
+    plaintiff_names, plaintiff_anchor = extract_plaintiff(lines)
+    for k, name in enumerate(plaintiff_names):
+        plaintiffs.append(Party(
+            name=name, role="plaintiff",
+            is_business=bool(BUSINESS_MARKERS.search(name)),
+        ))
+        evidence[f"plaintiffs.{k}.name"] = Evidence(
+            quote=name, grounded=True, anchor=plaintiff_anchor, page=1,
+        )
+
     defendant_address = None
     defendants: list[Party] = []
     if defendant:
@@ -932,7 +1055,15 @@ def extract_summons_fields(doc, expected_case_number=None):
             quote=defendant.get("address_raw", ""), grounded=True,
             anchor=def_anchor, page=def_page,
         )
-        for k, name in enumerate(_split_defendant_names(defendant.get("defendant_names", ""))):
+        names = _split_defendant_names(defendant.get("defendant_names", ""))
+        # A defendant carrying the plaintiff's name is flagged, never removed,
+        # here: the caption plaintiff reader is unvalidated and was seen
+        # reading a defendant's name as the plaintiff on older pre-printed
+        # summonses (2026-09-30), so either side of the match can be the
+        # wrong one. Removing on that evidence would delete real tenants.
+        if drop_plaintiff_matches(names, [p.name for p in plaintiffs])[1]:
+            flags.append("defendant_matches_plaintiff")
+        for k, name in enumerate(names):
             defendants.append(Party(
                 name=name, role="defendant",
                 is_business=bool(BUSINESS_MARKERS.search(name)),
@@ -969,16 +1100,6 @@ def extract_summons_fields(doc, expected_case_number=None):
     if doc_case:
         evidence["case_number"] = Evidence(
             quote=doc_case, grounded=True, anchor="wa_case_number", page=1,
-        )
-
-    plaintiffs: list[Party] = []
-    for k, name in enumerate(extract_plaintiff_caption(lines)):
-        plaintiffs.append(Party(
-            name=name, role="plaintiff",
-            is_business=bool(BUSINESS_MARKERS.search(name)),
-        ))
-        evidence[f"plaintiffs.{k}.name"] = Evidence(
-            quote=name, grounded=True, anchor="caption_plaintiff", page=1,
         )
 
     fields = {

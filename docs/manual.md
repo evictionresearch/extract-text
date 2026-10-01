@@ -448,14 +448,93 @@ row looking complete. The flags and what to do about them.
 | `engines_disagree_address` (both mode) | The two engines found different addresses | Review; one of them is wrong |
 | `only_ai_found_address` / `only_rules_found_address` (both mode) | One engine found an address, the other did not | Review the finder's answer against the page |
 | `vision_json_fallback` / `vision_no_fields` (AI lane) | The model's reply needed repair, or contained nothing | Treat that row's AI columns skeptically |
+| `defendant_matches_plaintiff` | A name read as a defendant is also the name read as the plaintiff. The AI engine removes it from the defendants; the deterministic engine keeps it and flags the row | Review both names against the page |
+| `deterministic_defendant_is_ai_plaintiff` (both mode) | A deterministic-engine defendant matches the plaintiff the AI engine read | Review; the deterministic engine's defendant list likely holds the landlord |
 | `vision_defendant_group_term` (AI lane) | The model returned a trailing group term ("ALL OTHER OCCUPANTS", "et al.") with the defendants and it was stripped in code | Informational; the named defendants are kept |
 
 The review page turns this into a workflow. `extract-text review --out DIR`
 (or `review = TRUE` in R, `--review` on the scan command) builds
 `review/index.html`, a single page showing each document's first-page image
-beside everything extracted from it, flagged documents first. A person scrolls,
-compares, and fixes the table where needed. No software is installed to view
-it; it is a plain HTML file.
+beside everything extracted from it, flagged documents first. A person scrolls
+and compares. No software is installed to view it; it is a plain HTML file.
+
+To correct what the machine got wrong, open the page with saving turned on.
+
+```bash
+extract-text review --out ~/data/extractions/2026-07/ --serve
+```
+
+This opens the page in your browser from a small server running on your own
+computer (it answers only at 127.0.0.1, so nothing is reachable from the
+network), and prints where corrections go. Each document has a form that
+starts with the machine's reading: plaintiff, defendants (one per line), and
+the defendant's address in parts, street without the unit. Fix what is wrong,
+clear what the page does not show, and press Save. Saving a form you did not
+change records that the machine was right, which is as useful as a
+correction. "Can't tell from the page" records that the page does not settle
+it. Saving again replaces your earlier answer, and reopening the page later
+shows what you already saved. Press Ctrl-C in the terminal when finished.
+
+In a both-engine scan each document says whether the two engines agree. A
+shaded line above the table names the fields where they differ (for the
+address, which parts: street, unit, city, ZIP), and those rows of the table
+are shaded and marked ≠. The comparison ignores case, punctuation,
+abbreviations such as Ave and Avenue, and legal-form words such as LLC, so
+only a real difference in content shows. It is stricter than the
+`engines_disagree_address` flag, which follows the validation's forgiving
+same-street measure and lets a dropped unit pass.
+
+In a both-engine scan each form also has a "Use AI engine's reading" button.
+It fills the form with the AI engine's answer, which is quicker when that
+answer is right or nearly so. Check it against the page, fix what is wrong,
+and save. Every save is scored against both engines, so a field you fix
+after filling from the AI is recorded as the AI engine's error, and teaches
+as much about the AI engine as about the deterministic one. The message
+after saving says which fields each engine got wrong. The record also notes
+that you started from the AI's reading, because a field accepted unchanged
+is easier to agree with than to find, and that tilts a score of the AI
+engine in its own favor.
+
+Click a page image to enlarge it, and click again to shrink it. Enlarged,
+the page takes most of the window and the comparison and form stay to its
+right, moving down the screen with you as you scroll the page, so the
+answer and the page stay side by side. When the page is served, each document also has an "Open
+the full document" link, which opens the original file, every page, in the
+browser's own viewer, where it can be zoomed.
+
+Answers land beside the scan, in `corrections.jsonl` (every save, in order)
+and `corrections.csv` (the latest answer per document). Each one records the
+right answer, what the machine said, what the AI engine said in a
+both-engine run, which fields changed, and whether the document was shown
+because it was flagged or drawn at random. That makes the file a labeled
+set: it scores either engine, and it tells a rule fix exactly which
+documents it must get right. The random draws estimate accuracy for the whole
+scan; the flagged ones are the hard cases. These files hold names and
+addresses, so the scan folder must be governed storage.
+
+For a round with several graders, build the page with `--graders`:
+`extract-text review --out DIR --graders --serve`. Every document goes on the
+page, the ones most in need of a person first (a distrusted address, then a
+field the engines disagree on, then any other flag), and each grader types
+their name and email at the top, chooses a batch of 10, 30, or 100, and sees
+only that many ungraded documents. Name and email are saved with every
+answer. The step-by-step for graders is `GRADING.md` at the repository root,
+and `extract-text scan ... --sample N` draws the N documents for such a round
+at random from a whole collection.
+
+Two more commands go with corrections. `extract-text review --out DIR --random
+100` builds the page from 100 documents drawn at random from the whole scan,
+flagged or not. Only a random draw can say how accurate the engines are on
+the whole; the flagged-first page is for finding failures, and it
+over-represents them. Corrections already saved are kept whichever page is
+built. And `extract-text score --out DIR` reads the corrections and prints,
+for each engine, the share of each field it got right (with the random rows
+alone in brackets), what kind of wrong the rest were (blank, extra, or
+different), and the flags carried by the rows it got wrong. Add `--shapes`
+to see each wrong value in masked form, letters as A, digits as 9, so the
+pattern of a failure is visible without the record. The report holds no
+names, addresses, case numbers, or file names, so it can be sent to whoever
+maintains the rules.
 
 How much review to expect depends entirely on your documents. As one
 reference point, in the July 2026 Washington validation work ([section

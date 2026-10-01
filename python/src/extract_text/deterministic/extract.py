@@ -13,6 +13,7 @@ import re
 from datetime import date, datetime
 from typing import Any
 
+from ..parties import plausible_party_name
 from ..schema import CourtRecord, Evidence, Extraction, Judgment, Party
 from .patterns import BUSINESS_MARKERS, CAPTIONS, PARTY_SPLIT, PATTERNS
 
@@ -72,7 +73,9 @@ def _parties(text: str) -> tuple[list[Party], list[Party], dict[str, Evidence]]:
             # Strip whitespace and commas only. A trailing period is part of
             # "INC." and dropping it would be normalization.
             name = name.strip(" ,\t\n")
-            if len(name) < 2:
+            # a scan's caption line can be a rail digit and a border ("1]")
+            # or the versus token beside debris; neither is a party
+            if len(name) < 2 or not plausible_party_name(name):
                 continue
             out[group].append(
                 Party(

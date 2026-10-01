@@ -1,11 +1,13 @@
 """The `extract-text` command.
 
-Four subcommands cover the whole workflow:
+Five subcommands cover the whole workflow:
 
     extract-text doctor                     check the setup, get install hints
     extract-text extract FILE               one document, JSON to the screen
     extract-text scan DIR --out RESULTS     a folder of documents to a table
     extract-text review --out RESULTS       build the human review page
+    extract-text review --out RESULTS --serve   review and save corrections
+    extract-text score --out RESULTS        score the engines against the corrections
 
 Run any of them with -h for the options. The library behind this is
 importable from Python (`import extract_text`) and from R (the `extracttext`
@@ -54,6 +56,8 @@ def cmd_scan(args):
         out_dir=args.out,
         model=args.model,
         limit=args.limit,
+        sample=args.sample,
+        seed=args.seed,
         recursive=not args.no_recursive,
         parquet=(True if args.parquet else None),
     )
@@ -64,6 +68,7 @@ def cmd_scan(args):
     print(f"Results in {args.out}/extracted.csv (and extracted.jsonl).",
           file=sys.stderr)
     if args.review:
+        print("Building the review page...", file=sys.stderr)
         page = write_review(args.out, n=args.review_n)
         print(f"Review page: {page}", file=sys.stderr)
     else:
@@ -75,8 +80,32 @@ def cmd_scan(args):
 def cmd_review(args):
     from .pipeline import write_review
 
-    page = write_review(args.out, n=args.n, seed=args.seed)
-    print(f"Review page: {page}", file=sys.stderr)
+    if args.graders:
+        page = write_review(args.out, seed=args.seed, graders=True)
+    elif args.random:
+        page = write_review(args.out, n=args.random, seed=args.seed, flagged_first=False)
+    else:
+        page = write_review(args.out, n=args.n, seed=args.seed)
+    if args.serve:
+        from .corrections import serve_review
+
+        serve_review(args.out, port=args.port, open_browser=not args.no_open)
+    else:
+        print(f"Review page: {page}", file=sys.stderr)
+    return 0
+
+
+def cmd_score(args):
+    from .score import report
+
+    text = report(args.out, shapes=args.shapes)
+    print(text)
+    if args.save:
+        from pathlib import Path
+
+        Path(args.save).parent.mkdir(parents=True, exist_ok=True)
+        Path(args.save).write_text(text + "\n")
+        print(f"Report saved to {args.save}", file=sys.stderr)
     return 0
 
 
@@ -106,6 +135,9 @@ def main(argv=None):
                    default="deterministic")
     a.add_argument("--model", default=None, help="AI model tag (default qwen3.5:9b)")
     a.add_argument("--limit", type=int, default=0, help="scan only the first N")
+    a.add_argument("--sample", type=int, default=0, metavar="N",
+                   help="scan N documents drawn at random from everything found")
+    a.add_argument("--seed", type=int, default=42, help="seed for --sample")
     a.add_argument("--no-recursive", action="store_true",
                    help="do not descend into subdirectories")
     a.add_argument("--parquet", action="store_true",
@@ -119,7 +151,26 @@ def main(argv=None):
     a.add_argument("--out", required=True, help="the scan's output directory")
     a.add_argument("--n", type=int, default=30)
     a.add_argument("--seed", type=int, default=42)
+    a.add_argument("--random", type=int, default=0, metavar="N",
+                   help="show N documents drawn at random from the whole scan, "
+                        "flagged or not, instead of flagged first")
+    a.add_argument("--graders", action="store_true",
+                   help="the graders' page: every document, worst first, name and "
+                        "email recorded, each grader picks a batch size")
+    a.add_argument("--serve", action="store_true",
+                   help="open the page with correction saving on (this computer only)")
+    a.add_argument("--port", type=int, default=8765)
+    a.add_argument("--no-open", action="store_true",
+                   help="with --serve, do not open a browser window")
     a.set_defaults(fn=cmd_review)
+
+    a = sub.add_parser("score", help="score both engines against the saved corrections")
+    a.add_argument("--out", required=True, help="the scan's output directory")
+    a.add_argument("--shapes", action="store_true",
+                   help="also print each wrong value in masked form")
+    a.add_argument("--save", default=None, metavar="FILE",
+                   help="also write the report to FILE (it holds no record values)")
+    a.set_defaults(fn=cmd_score)
 
     args = ap.parse_args(argv)
     if args.version:

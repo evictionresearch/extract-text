@@ -103,6 +103,20 @@ SYNTHETIC_WHITELIST = [
     "7890 EXEMPLAR COURT",
     "2468 NOTIONAL TERRACE",
     "250 SPECIMEN BOULEVARD",
+    # King County layout fixtures (make_synthetic_fixtures.py, 2026-09-30):
+    # the same invented vocabulary in two more page arrangements
+    "25-2-00007-1",
+    "25-2-00008-3",
+    "1234-EXAMPLE AVE. NE",
+    "Seattle, Washington 98100",
+    "SEATTLE, WASHINGTON 98101",
+    "SAMPLETON, WA 98100",
+    "STEPHENSTOWN, WA 98100",   # invented city that starts like a unit keyword (STE)
+    "1234 101ST AVE",           # superscript-ordinal repair probes (101° and 112™)
+    "1234 112TH AVE",
+    "9876 SAMPLE AVE NE",
+    "1234 SAMPLE AVE",
+    "1234 SAMPLE AVENUE",
     "25-2-00002-0",
     "25-2-00003-0",
     "25-2-00004-0",

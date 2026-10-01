@@ -30,6 +30,11 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
+from ..parties import (  # noqa: F401
+    _GROUP_TERM_RE,
+    _strip_group_terms,
+    drop_plaintiff_matches,
+)
 from ..schema import (
     Address,
     Attorney,
@@ -145,33 +150,6 @@ def _clean(value) -> str | None:
 
 _NAME_SPLIT_RE = re.compile(r"\s+(?:and|&)\s+", re.IGNORECASE)
 
-# Trailing group terms a caption adds after the named defendants. The vision
-# prompt already lists these and asks the model to drop them; four of the six
-# models benched on 2026-08-20 returned them anyway. Because _NAME_SPLIT_RE
-# splits on "and", a clause left in place became a second, phantom defendant
-# named "ALL OTHER OCCUPANTS". Stripping it here is deterministic, so the
-# output no longer depends on a model following an instruction.
-_GROUP_TERM_RE = re.compile(
-    r"""
-    [\s,;&]*                                  # separator before the clause
-    (?:\band\b\s*)?                           # an optional joining "and"
-    (?:
-        any\s+and\s+all\s+other[\w\s]*        # "any and all other residing..."
-      | all\s+(?:other\s+)?occupants?          # "all occupants"
-      | all\s+others?                           # "all others"
-      | husband\s+and\s+wife
-      | (?:john|jane)\s*/\s*(?:john|jane)\s+does?   # "John/Jane Doe"
-      | (?:john|jane)\s+does?                   # "Jane Doe"
-      | does?\s*\d+\s*(?:-|through|to)\s*\d+     # "Does 1-10"
-      | et\.?\s*al\.?
-      | et\.?\s*ux\.?
-    )
-    \s*\.?\s*$
-    """,
-    re.IGNORECASE | re.VERBOSE,
-)
-
-
 def strip_group_terms(value) -> str | None:
     """Drop trailing generic party terms from a defendant line.
 
@@ -186,26 +164,6 @@ def strip_group_terms(value) -> str | None:
     if cleaned is None:
         return None
     return _strip_group_terms(cleaned)[0]
-
-
-def _strip_group_terms(text: str) -> tuple[str, bool]:
-    """The stripping itself, plus whether a group term was what came off.
-
-    Trailing punctuation is trimmed on the same pass, and is far more common
-    than a group term, so the two are reported separately. Only a real term
-    should raise a flag that claims one was found.
-    """
-    current = text
-    found = False
-    while True:
-        shorter = _GROUP_TERM_RE.sub("", current)
-        if shorter != current:
-            found = True
-        shorter = shorter.strip(" ,;&")
-        if shorter == current:
-            break
-        current = shorter
-    return (current or text), found
 
 
 def fields_to_record(fields: dict) -> CourtRecord:
@@ -398,6 +356,11 @@ class LocalVisionBackend:
             fields["defendant"] = after
 
         record = fields_to_record(fields)
+        kept, dropped = drop_plaintiff_matches(
+            [p.name for p in record.defendants], [p.name for p in record.plaintiffs])
+        if dropped:
+            flags.append("defendant_matches_plaintiff")
+            record.defendants = [p for p in record.defendants if p.name in kept]
 
         # Evidence: the model's raw field values. Grounding is only possible
         # when the caller supplies document text to check against; without it

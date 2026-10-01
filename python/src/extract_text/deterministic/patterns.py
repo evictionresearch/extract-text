@@ -34,8 +34,11 @@ _MONEY = r"\$\s?[\d,]+(?:\.\d{2})?"
 
 PATTERNS: dict[str, list[Pattern]] = {
     "case_number": [
-        _c(r"\bCase\s*(?:No\.?|Number|#)\s*[:\-]?\s*(?P<value>[A-Z0-9][A-Z0-9\-/]{3,24})"),
-        _c(r"\bDocket\s*(?:No\.?|Number|#)\s*[:\-]?\s*(?P<value>[A-Z0-9][A-Z0-9\-/]{3,24})"),
+        # a case number always carries a digit; without that requirement the
+        # notice sentence "if no case number has been assigned" yielded a
+        # word fragment as the number (2026-09-30 new-user test)
+        _c(r"\bCase\s*(?:No\.?|Number|#)\s*[:\-]?\s*(?P<value>(?=[A-Z0-9\-/]*\d)[A-Z0-9][A-Z0-9\-/]{3,24})"),
+        _c(r"\bDocket\s*(?:No\.?|Number|#)\s*[:\-]?\s*(?P<value>(?=[A-Z0-9\-/]*\d)[A-Z0-9][A-Z0-9\-/]{3,24})"),
     ],
     "court_name": [
         _c(r"^\s*(?P<value>(?:IN THE )?[A-Z][A-Za-z .']+ COURT(?: OF [A-Z][A-Za-z .']+)?)\s*$"),
@@ -88,9 +91,9 @@ PATTERNS: dict[str, list[Pattern]] = {
 # list of names across lines will capture only the last line.
 CAPTIONS: list[Pattern] = [
     _c(
-        r"(?P<plaintiffs>[^\n]{2,300}?),?[ \t]*\n\s*Plaintiffs?[,.]?[ \t]*\n\s*"
-        r"(?:v\.?|vs\.?|versus)[ \t]*\n?\s*"
-        r"(?P<defendants>[^\n]{2,300}?),?[ \t]*\n\s*Defendants?[,.]"
+        r"(?P<plaintiffs>[^\n]{2,300}?),?[ \t]*\n\s*Plaintiff(?:s|\(s\))?[,.]?[ \t]*\n\s*"
+        r"(?:-?v\.?|vs\.?|versus)-?[ \t]*\n?\s*"
+        r"(?P<defendants>[^\n]{2,300}?),?[ \t]*\n\s*Defendant(?:s|\(s\))?[,.]"
     ),
     _c(
         r"^(?P<plaintiffs>[^\n]{2,200}?)[ \t]*,?[ \t]+(?:v\.?|vs\.?|versus)[ \t]+"

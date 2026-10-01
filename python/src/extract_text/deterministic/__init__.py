@@ -155,7 +155,10 @@ def _merge(base: Extraction, fields: dict) -> CourtRecord:
     record = base.record.model_copy(deep=True)
     if fields["case_number"]:
         record.case_number = fields["case_number"]
-    if fields.get("plaintiffs") and not record.plaintiffs:
+    # the positional reader wins here too: the flat-text caption pattern
+    # reads whatever sits on the line before "v.", which on a scanned
+    # two-column caption is often debris or the wrong column
+    if fields.get("plaintiffs"):
         record.plaintiffs = fields["plaintiffs"]
     if fields["defendants"]:
         record.defendants = fields["defendants"]

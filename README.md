@@ -99,6 +99,15 @@ reference, the flag table and review workflow, how the engines work in plain
 language, measured accuracy with its caveats, and adaptation to other
 states.
 
+**Grading rounds.** People check the engines by grading a scan folder on a
+review page served from their own computer: `extract-text review --graders`
+for the page, `extract-text agree` for how often graders agree, and
+`extract-text score` for how often each engine is right. The manual's
+"Running a grading round" (section 11) is the organizer's guide and
+[`GRADING.md`](GRADING.md) the graders'. The answers hold names and
+addresses and stay in governed storage; only the masked reports in
+`reports/` belong in this repository.
+
 ## What to expect
 
 On the July 2026 validation runs against 5,100+ hand-labeled Washington
@@ -124,6 +133,8 @@ python/          The engine, the CLI, tests, and synthetic fixtures
 r/               The R package (full interface via reticulate)
 game/            Address Check, for building a human-verified training set
 docs/            The manual
+reports/         Grading-round reports (counts and masked shapes only)
+GRADING.md       Instructions for graders
 MAINTENANCE.md   The improvement schedule: model reviews, benchmarks, release checklist
 ```
 

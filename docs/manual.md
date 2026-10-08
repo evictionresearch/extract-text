@@ -575,41 +575,76 @@ documents it must get right. The random draws estimate accuracy for the whole
 scan; the flagged ones are the hard cases. These files hold names and
 addresses, so the scan folder must be governed storage.
 
-For a round with several graders, build the page with `--graders`:
-`extract-text review --out DIR --graders --serve`. Every document goes on the
-page, the ones most in need of a person first (a distrusted address, then a
-field the engines disagree on, then any other flag), and each grader types
-their name and email at the top, chooses a batch of 10, 30, or 100, and sees
-only that many ungraded documents. Name and email are saved with every
-answer. Add `--order random` to serve the documents in random order
-instead (each grader in a different one). Worst first finds broken rules
-fastest, but the graded share leans toward hard documents and understates
-accuracy. In random order whatever share gets graded is a fair sample of
-the folder, every answer is recorded as a random draw, and the score
-report's bracketed figures are then the accuracy estimate. Documents
-already graded are skipped either way, so for an accuracy round start from
-a folder whose earlier answers were all random draws, or remove the others
-first.
+### Running a grading round
 
-To learn how far the answers themselves can be trusted, add `--overlap N`:
-the same N documents, drawn at random, come first for every grader, in the
-same order, before each grader's own order takes over. When the graders'
-files come back, `extract-text agree --out DIR corrections_A.jsonl
-corrections_B.jsonl` reports, field by field, how often each pair of
-graders gave the same answer on those documents, and lists each
-disagreement by document number with the answers in masked form. Adding
-`--merge` copies every grader's answers into the scan's
-`corrections.jsonl`, keeping both answers where two graders did the same
-document (a plain copy would leave only the last). The report ends with a
-command, `extract-text review --out DIR --rows 12,57 --serve`, that opens
-just the documents to settle, with every grader's answer shown above each
-form; the answer saved there is the one that counts. The attorney box was added on 2026-10-07 and appears only with
-`--attorneys`. An answer to a document without it carries no attorney
-block, and the score report counts only the answers that do on its three
-attorney lines. The AI engine is not scored on attorney names, which it
-does not read by design. The step-by-step for graders is `GRADING.md` at the repository root,
-and `extract-text scan ... --sample N` draws the N documents for such a round
-at random from a whole collection.
+A grading round puts several people on one scan folder and turns their
+answers into scores. The steps, in order:
+
+1. **Draw the documents.** `extract-text scan COLLECTION --out DIR --engine
+   both --sample 300` scans 300 documents drawn at random (seeded, so the
+   draw repeats) from a whole collection. Both engines are worth running,
+   because the page then shows where they disagree.
+2. **Choose the order.** `extract-text review --out DIR --graders --serve`
+   builds the graders' page. Every document goes on it; each grader types a
+   name and email at the top, chooses a batch of 10, 30, or 100, and sees
+   only that many ungraded documents. Name and email are saved with every
+   answer. By default the documents most in need of a person come first (a
+   distrusted address, then a field the engines disagree on, then any other
+   flag). That finds broken rules fastest, but the graded share leans toward
+   hard documents and understates accuracy. `--order random` serves them in
+   random order instead, a different one for each grader, so whatever share
+   gets graded is a fair sample of the folder; every answer is then recorded
+   as a random draw, and the score report's bracketed figures are the
+   accuracy estimate.
+3. **Add a shared set.** `--overlap N` puts the same N documents, drawn at
+   random, first for every grader, in one order, before each grader's own
+   order takes over. Graders are not told which documents are shared and
+   each works from a separate copy of the folder, so the second answer is
+   blind. Thirty is enough to see which fields people read differently.
+4. **Ask for the attorney on some documents.** `--attorneys N` adds the
+   plaintiff attorney's box (names one per line, firm, the address on one
+   line) to N documents drawn at random, the same ones for every grader;
+   `all` asks on every document, and without the option no document has it.
+   A few dozen answers measure the attorney block, and asking on every
+   document slows the whole round.
+5. **Hand out the folder.** Zip the scan folder and share it through
+   restricted storage, by name. Anything already graded in it is hidden from
+   the graders and shown with its answer, so remove `corrections.jsonl` and
+   `corrections.csv` from the copy you share unless you mean graders to skip
+   those documents. For an accuracy round this matters: leftover answers on
+   hard documents would leave an easier remainder. `GRADING.md` at the
+   repository root is the graders' own step-by-step.
+6. **Bring the answers back.** Each grader returns a score report (counts
+   and masked shapes only) and their `corrections.jsonl`, renamed
+   `corrections_NAME.jsonl`, through the same restricted storage. Put the
+   files in the scan folder, then run
+   `extract-text agree --out DIR DIR/corrections_A.jsonl DIR/corrections_B.jsonl`.
+   It reports, field by field, how often each pair of graders gave the same
+   answer on the documents they shared, and lists each disagreement by
+   document number with the answers masked.
+7. **Merge, then settle.** The same command with `--merge` copies every
+   grader's answers into the scan's `corrections.jsonl` and keeps both
+   answers where two graders did the same document (a plain copy would keep
+   only the last, silently). The report ends with
+   `extract-text review --out DIR --rows 12,57 --serve`, which opens just
+   the documents to settle, with every grader's answer shown above each
+   form. The answer saved there is the one that counts. A later answer to a
+   document keeps the draw it came from, so settling never turns a random
+   draw into a flagged one.
+8. **Score.** `extract-text score --out DIR --shapes`, described next.
+
+Answers saved before 2026-10-07 carry no attorney block, and neither does an
+answer to a document without the attorney box; the score report counts only
+the answers that have one on its three attorney lines. The AI engine is not
+scored on attorney names, which it does not read by design.
+
+**Keep a test set apart from the fix set.** Answers are used two ways: their
+failure shapes show which rule to fix, and their scores say how accurate the
+engines are. Measured on the same documents a fix was written from, a score
+flatters the fix. To know how the engine does on documents it has not seen,
+score a random-order round before any rule change drawn from it, and take
+rule fixes only from worst-first answers or from an earlier round, or score
+the fixed engine on a fresh draw (`scan ... --sample 300 --seed 2`).
 
 Two more commands go with corrections. `extract-text review --out DIR --random
 100` builds the page from 100 documents drawn at random from the whole scan,

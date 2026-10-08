@@ -662,6 +662,64 @@ filing and return dates, a title reader for collections whose files are not
 named for their documents, the AI engine's reading of the same documents,
 hand labels for outcomes, and R parity.
 
+## Grading tools and the first graded report (2026-10-07)
+
+Tim graded on the graders' page before the first round with student
+graders, and the round's tools changed in response. The organizer's guide
+is the manual's "Running a grading round" (section 11).
+
+- **The batch did not hold.** Choosing 10 showed every document, because
+  the card style (`display:flex`) overrode the `hidden` attribute the batch
+  logic set. Hidden cards now have their own rule.
+- **The plaintiff's attorney** (names, firm, address on one line) is on the
+  form, the corrections record, and the scorer, but only on documents drawn
+  by `review --attorneys N`, since a few dozen answers measure it and asking
+  on every document slows grading. Older answers have no attorney block and
+  are not scored on it. The AI engine is not scored on attorney names: its
+  prompt asks for the firm and not the person who signed. No rescan was
+  needed, because scans already carry the attorney columns.
+- **`--order random`** serves the graders' documents in random order, so a
+  partly graded folder still gives a fair accuracy estimate; worst first
+  remains the default for finding failures.
+- **Blind double grading.** `--overlap N` puts one randomly drawn shared set
+  first for every grader. `extract-text agree` reports field-level agreement
+  on it and lists disagreements masked, `--merge` keeps every grader's
+  answer (the earlier advice to concatenate files kept only the last one per
+  document), and `review --rows` opens the disagreements for settling with
+  all answers shown.
+
+**What the first report measured.** 19 documents, all from the top of the
+worst-first order (each with a scan flag or an engine disagreement), graded
+by one person, 16 of them started
+from the AI engine's reading (which flatters that engine). These are the
+hardest cases in a 300-document King County sample, not a corpus rate. The
+deterministic engine had plaintiff right on 1 of 19, defendants 0, street 1,
+unit 10, city 2, state 5, ZIP 5. The AI engine had plaintiff right or nearly
+on 19, defendants and street 13 each, unit and city 16 each, state and ZIP
+17 each. On the 10 documents with an attorney answer, the deterministic
+engine had the names on 5, the firm right or nearly on 5, and the address
+on 1; the AI engine had the firm on 7 and the address right or nearly on
+10. The page's ordering put every one of these failures in front of a
+person first, though the report cannot say whether each carried a scan
+flag rather than only an engine disagreement.
+
+Eight of the 19 had no defendant address at all, which empties every
+address field at once and accounts for most of the blanks; the scan's
+shapes cannot show why, so the next tool is one that says whether the
+address is in the document's text at all. Four mechanisms behind the other
+failures were confirmed on invented strings: the label filter keeps
+"Plaintiff" followed by fill-in underscores as a name; a standalone "ET al"
+line is kept as a defendant; an address line led by rail debris passes as a
+person's name; and an OCR "$" for "S" inside a name is not repaired. The
+deterministic attorney firm takes the role line ("Attorneys for Plaintiff")
+or the phone line, which is #25 measured for the first time. Rule fixes are
+on hold by Tim's decision of 2026-10-07.
+
+One scorer limitation is known and open: the deterministic engine's
+attorney address is compared as its raw block, which can include the firm's
+name, so it can count as different from a correct typed address. Comparing
+the engine's parsed address parts would remove that.
+
 ## Other reasons extraction fails
 
 Reading the failures rather than counting them changed what looks worth

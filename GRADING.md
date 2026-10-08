@@ -28,12 +28,14 @@ is worth more than a hurried hundred.
 
 ## Grading
 
-    extract-text review --out /path/to/the/folder --graders --serve
+    extract-text review --out /path/to/the/folder --graders --attorneys 100 --serve
 
 Your browser opens the page from a server on your own computer; nothing
 leaves it. At the top, type your name (required) and email, and choose how
 many documents to grade. Ten is a good first batch. The page shows you the
-documents most in need of a person first and hides the rest.
+documents most in need of a person first and hides the rest. If Tim asks for
+`--order random` in the command, it serves them in random order instead;
+grade them the same way.
 
 For each document, compare the page image (click it to enlarge; the form
 stays beside it) with the form below the two engines' readings. Fix what is
@@ -49,6 +51,15 @@ Write the address as printed: street without the unit, unit on its own
 (`Apt 5`, `BLDG C Apt 5`, `#12`), city, state, ZIP. Defendants go one per
 line, named people only; leave out "all other occupants", "John Doe", and
 "et al". The plaintiff is the landlord or company at the top of the page.
+
+Some documents also have a **Plaintiff's attorney** box (`--attorneys 100`
+puts it on 100 documents drawn at random, the same ones for every grader;
+leave the option off and no document has it). It is the signature block, usually at the
+bottom right of the page. Attorneys go one per line, each name as printed,
+without "Attorney for Plaintiff" or the bar number. Firm is the firm or
+office name, left empty if the block has none. Address goes on one line,
+as printed (street, suite, city, state, ZIP). If the plaintiff has no
+attorney (signed by the landlord itself), clear all three.
 
 After a batch, press **Grade another batch** or close the tab. Everything
 saved stays saved; reopening the page shows your work. Press Ctrl-C in the

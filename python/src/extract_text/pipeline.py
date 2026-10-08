@@ -480,20 +480,46 @@ def review_tier(row: dict, detail: dict) -> int:
     return 1 if flags else 0
 
 
-def write_review(out_dir, n=30, seed=SAMPLE_SEED, flagged_first=True, graders=False):
+def write_review(out_dir, n=30, seed=SAMPLE_SEED, flagged_first=True, graders=False,
+                 attorneys=0, order="worst", overlap=0, rows=None):
     """Build review/index.html from a finished scan directory: page-1 image
     beside the extracted fields, flagged documents first, then a seeded
     sample of the rest. This is where a person checks the machine's work.
 
     Each document carries a correction form. Opened as a plain file the page
     is read-only; served by `extract-text review --serve` the form saves to
-    `corrections.jsonl` in the scan directory (see corrections.py)."""
+    `corrections.jsonl` in the scan directory (see corrections.py).
+
+    `attorneys` puts the plaintiff attorney's box on that many documents,
+    drawn at random from the whole scan with the same seed every time, so
+    every grader of a folder sees it on the same documents (`"all"` for
+    every one, 0 for none). A few dozen answers measure the attorney block;
+    asking on every document would slow the whole round.
+
+    `order` sets the graders' page order: "worst" puts the documents most in
+    need of a person first, which finds failures fastest but makes any
+    accuracy figure pessimistic; "random" serves every document in an order
+    unrelated to its content, so whatever share gets graded is a fair sample
+    of the folder, and each answer is recorded as a random draw.
+
+    `overlap` puts that many documents, drawn at random with a fixed seed,
+    first in the same order for every grader, so each of them is answered
+    more than once and `extract-text agree` can measure how often graders
+    agree. `rows` builds a page of just those document numbers, for
+    settling the documents graders disagreed on; it shows every answer saved
+    so far and leaves the page's sample record alone."""
     out = Path(out_dir)
     rev = out / "review"
     rev.mkdir(parents=True, exist_ok=True)
-    rows, details = read_scan(out)
-    numbered = list(enumerate(rows, 1))
-    tiers = {i: review_tier(r, details[i - 1]) for i, r in numbered} if graders else {}
+    rows_scan, details = read_scan(out)
+    numbered = list(enumerate(rows_scan, 1))
+    if order not in ("worst", "random"):
+        raise ValueError(f"order must be 'worst' or 'random', not {order!r}")
+    random_order = graders and order == "random"
+    # in random order every document sits in one tier, so the page's
+    # per-grader shuffle is the whole order
+    tiers = ({i: 0 if random_order else review_tier(r, details[i - 1]) for i, r in numbered}
+             if graders else {})
 
     flagged = [(i, r) for i, r in numbered if r.get("flags")]
     clean = [(i, r) for i, r in numbered if not r.get("flags")]
@@ -510,12 +536,35 @@ def write_review(out_dir, n=30, seed=SAMPLE_SEED, flagged_first=True, graders=Fa
     # the randomly drawn rows estimate accuracy for the whole scan
     drawn = {i: "flagged" for i, _ in flagged[:n]} if flagged_first else {}
     drawn.update({i: "random" for i, _ in subset if i not in drawn})
+    # the shared set: its own seeded draw, listed in the order every grader
+    # meets it
+    shared = (random.Random(f"overlap-{seed}").sample(
+        [i for i, _ in numbered], min(int(overlap or 0), len(numbered))) if graders else [])
+    shared_at = {i: k for k, i in enumerate(shared)}
     if graders:
         # every document goes on the page, worst first; the page shows each
         # grader a batch of the size they choose and hides the rest
         subset = sorted(numbered, key=lambda ir: (-tiers[ir[0]], ir[0]))
         drawn = {i: ("flagged" if tiers[i] else "random") for i, _ in subset}
-    (rev / "sample.json").write_text(json.dumps({str(i): how for i, how in sorted(drawn.items())}))
+        if random_order:
+            drawn = {i: "random" for i, _ in subset}
+        drawn.update({i: "random" for i in shared})
+    if rows:
+        wanted = sorted({int(i) for i in rows})
+        missing = [i for i in wanted if not 1 <= i <= len(numbered)]
+        if missing:
+            raise ValueError(f"no document numbered {missing[0]} in this scan")
+        subset = [numbered[i - 1] for i in wanted]
+    else:
+        (rev / "sample.json").write_text(
+            json.dumps({str(i): how for i, how in sorted(drawn.items())}))
+    # its own seeded draw, so turning it on never changes which documents
+    # the page shows
+    if attorneys == "all":
+        ask_attorney = {i for i, _ in numbered}
+    else:
+        ask_attorney = set(random.Random(f"attorneys-{seed}").sample(
+            [i for i, _ in numbered], min(int(attorneys or 0), len(numbered))))
 
     cells = []
     esc = lambda s: ((s or "").replace("&", "&amp;").replace("<", "&lt;")
@@ -529,7 +578,7 @@ def write_review(out_dir, n=30, seed=SAMPLE_SEED, flagged_first=True, graders=Fa
             # rendered sharp enough to read when enlarged; shown small until clicked
             render_page(src, page=1, dpi=150, out_path=rev / img_name)
         both = bool(r.get("ai_backend"))
-        both_parts = lambda a, b: ", ".join(x for x in (a, b) if x)
+        both_parts = lambda *parts: ", ".join(x for x in parts if x)
         ai_col = (lambda v: f"<td>{esc(v)}</td>") if both else (lambda v: "")
         sim = r.get("address_similarity", "")
         start = review_prefill(r, details[i - 1])
@@ -544,10 +593,15 @@ def write_review(out_dir, n=30, seed=SAMPLE_SEED, flagged_first=True, graders=Fa
                        + ".</p>")
         else:
             verdict = '<p class="agree">The engines agree on every field below.</p>'
+        att_box = f"""<fieldset class="att"><legend>Plaintiff's attorney</legend>
+        <label>Attorneys, one per line <textarea name="attorneys" rows="2">{esc(chr(10).join(start['attorneys']))}</textarea></label>
+        <label>Firm <input name="attorney_firm" value="{esc(start['attorney_firm'])}"></label>
+        <label>Address, on one line as printed <input name="attorney_address" value="{esc(start['attorney_address'])}"></label>
+      </fieldset>""" if i in ask_attorney else ""
         ai_button = ('<button type="button" class="quiet use-ai">Use AI engine\'s reading</button>'
                      if ai_answer else "")
         cells.append(f"""
-<div class="doc" id="doc{i}" data-tier="{tiers.get(i, 0)}">
+<div class="doc" id="doc{i}" data-tier="{tiers.get(i, 0)}"{f' data-shared="{shared_at[i]}"' if i in shared_at else ''}>
   <div class="page">
     <img src="{img_name}" loading="lazy" alt="page 1 of document {i}"
          title="Click to enlarge">
@@ -565,7 +619,7 @@ def write_review(out_dir, n=30, seed=SAMPLE_SEED, flagged_first=True, graders=Fa
       <tr{mark('defendants')}><th>Defendants</th><td>{esc(r.get('defendant_names',''))}</td>{ai_col(r.get('ai_defendant_names',''))}</tr>
       <tr{mark('address')}><th>Address</th><td>{esc(r.get('defendant_address_raw',''))}
           <i>{esc(r.get('defendant_anchor',''))}</i></td>{ai_col(r.get('ai_defendant_address','') + (f'  (similarity {sim})' if sim != '' else ''))}</tr>
-      <tr{mark('attorney firm')}><th>Attorney</th><td>{esc(both_parts(r.get('attorney_firm'), r.get('attorney_address_raw')))}</td>{ai_col(both_parts(r.get('ai_law_firm'), r.get('ai_law_firm_address')))}</tr>
+      <tr{mark('attorney firm')}><th>Attorney</th><td>{esc(both_parts(r.get('attorney_names'), r.get('attorney_firm'), r.get('attorney_address_raw')))}</td>{ai_col(both_parts('; '.join((ai_answer or {}).get('attorneys', [])), r.get('ai_law_firm'), r.get('ai_law_firm_address')))}</tr>
     </table>
     <form class="fix" data-row="{i}" data-ai="{esc(json.dumps(ai_answer)) if ai_answer else ''}">
       <p class="hint">The right answer, as printed on the page. Boxes start with the machine's reading; fix what is wrong, clear what is not there, then save.</p>
@@ -578,6 +632,7 @@ def write_review(out_dir, n=30, seed=SAMPLE_SEED, flagged_first=True, graders=Fa
         <label class="short">State <input name="state" value="{esc(start['state'])}"></label>
         <label class="short">ZIP <input name="zip" value="{esc(start['zip'])}"></label>
       </div>
+      {att_box}
       <label>Note <input name="note" placeholder="optional"></label>
       <div class="buttons">
         <button type="submit" value="checked">Save</button>
@@ -591,7 +646,7 @@ def write_review(out_dir, n=30, seed=SAMPLE_SEED, flagged_first=True, graders=Fa
     html = f"""<!doctype html><meta charset="utf-8"><title>extract-text review</title>
 <style>
  body{{font-family:system-ui;margin:1rem;background:#f5f5f2;color:#222}}
- header{{position:sticky;top:0;background:#f5f5f2;padding:.4rem 0;z-index:1}}
+ header{{padding:.4rem 0}}
  #grader{{display:flex;flex-wrap:wrap;gap:1rem;align-items:end;background:#e8eef6;
       border:1px solid #c5d2e3;padding:.6rem .8rem;margin:.4rem 0}}
  #grader label{{font-size:14px;color:#333}} #grader input,#grader select{{display:block;font:inherit;padding:.25rem .35rem}}
@@ -599,16 +654,19 @@ def write_review(out_dir, n=30, seed=SAMPLE_SEED, flagged_first=True, graders=Fa
  #banner{{background:#fff3cd;border:1px solid #e0c870;padding:.6rem;margin:.5rem 0}}
  .doc{{display:flex;gap:1rem;background:#fff;border:1px solid #ddd;
       margin-bottom:1rem;padding:1rem}}
+ /* display:flex above would otherwise override the hidden attribute, and the
+    graders' page would show every document instead of the chosen batch */
+ .doc[hidden]{{display:none}}
  .page{{flex:0 0 460px;align-self:flex-start}}
  .fields{{align-self:flex-start}}
  .page img{{width:100%;height:auto;border:1px solid #ccc;cursor:zoom-in;display:block}}
  .pagelinks{{font-size:13px;color:#555;margin:.3rem 0}}
- .doc{{scroll-margin-top:calc(var(--head, 6rem) + .5rem)}}
+ .doc{{scroll-margin-top:.5rem}}
  /* enlarged: the page takes the room, and the table and form stay beside
     it, riding down the screen while the page scrolls past */
  .doc.big .page{{flex:1 1 auto;min-width:0}}
- .doc.big .fields{{flex:0 0 36rem;position:sticky;top:calc(var(--head, 6rem) + .5rem);
-      max-height:calc(100vh - var(--head, 6rem) - 1rem);overflow-y:auto}}
+ .doc.big .fields{{flex:0 0 36rem;position:sticky;top:.5rem;
+      max-height:calc(100vh - 1rem);overflow-y:auto}}
  .doc.big .page img{{cursor:zoom-out}}
  .fields{{font-size:14px;flex:1;max-width:46rem}} h3{{margin:.2rem 0}}
  .meta{{color:#555;margin:.2rem 0 .6rem}}
@@ -629,15 +687,19 @@ def write_review(out_dir, n=30, seed=SAMPLE_SEED, flagged_first=True, graders=Fa
  .addr label{{flex:1 1 7rem}} .addr label.street{{flex:3 1 16rem}}
  .addr label.unit{{flex:2 1 10rem}}
  .addr label.short{{flex:0 1 5rem}}
+ fieldset.att{{border:1px solid #d8e0ea;margin:.6rem 0 .3rem;padding:.2rem .6rem .4rem}}
+ fieldset.att legend{{color:#444;padding:0 .3rem}}
  .hint{{margin:0 0 .4rem;color:#555}}
+ .others{{background:#fbf7ec;border:1px solid #e6dcc0;padding:.3rem .6rem;margin-bottom:.5rem;font-size:13px}}
+ .others p{{margin:.2rem 0}}
  .buttons{{display:flex;flex-wrap:wrap;gap:.6rem;align-items:center;margin-top:.5rem}}
  button{{font:inherit;padding:.3rem .9rem;cursor:pointer;white-space:nowrap}}
  button.quiet{{background:none;border:1px solid #bbb}}
  .status.ok{{color:#2e6b2e}} .status.err{{color:#a02020}}
 </style>
 <header>
-<h1>Review: {len(subset)} of {len(rows)} documents
-    ({len(flagged)} flagged in total; {'worst first' if graders else 'flagged shown first' if flagged_first else 'a random draw'})</h1>
+<h1>Review: {len(subset)} of {len(rows_scan)} documents
+    ({len(flagged)} flagged in total; {('in random order' if random_order else 'worst first') if graders else 'flagged shown first' if flagged_first else 'a random draw'})</h1>
 <p id="count"></p>
 {GRADER_PANEL if graders else ''}
 <div id="banner" hidden>This page was opened as a file, so corrections cannot be saved.
@@ -646,7 +708,10 @@ def write_review(out_dir, n=30, seed=SAMPLE_SEED, flagged_first=True, graders=Fa
 {''.join(cells)}
 <script>
 const GRADERS = {'true' if graders else 'false'};
-const FIELDS = ["plaintiff", "street", "unit", "city", "state", "zip", "note"];
+const SETTLE = {'true' if rows else 'false'};
+const FIELDS = ["plaintiff", "street", "unit", "city", "state", "zip",
+                "attorney_firm", "attorney_address", "note"];
+const LISTS = ["defendants", "attorneys"];
 const forms = [...document.querySelectorAll("form.fix")];
 const count = document.getElementById("count");
 
@@ -656,8 +721,12 @@ function setStatus(f, text, cls) {{
   s.className = "status " + (cls || "");
 }}
 function fill(f, c) {{
-  for (const k of FIELDS) f.elements[k].value = (k === "note" ? c.note : c.truth[k]) || "";
-  f.elements.defendants.value = (c.truth.defendants || []).join("\\n");
+  // answers saved before the attorney boxes existed leave those boxes as read
+  for (const k of FIELDS) {{
+    if (k === "note") f.elements.note.value = c.note || "";
+    else if (f.elements[k] && k in c.truth) f.elements[k].value = c.truth[k] || "";
+  }}
+  for (const k of LISTS) if (f.elements[k] && k in c.truth) f.elements[k].value = (c.truth[k] || []).join("\\n");
   f.dataset.usedAi = c.used_ai_fill ? "1" : "";
 }}
 function mark(f, c) {{
@@ -695,14 +764,35 @@ if (!location.protocol.startsWith("http")) {{
     tally();
     if (GRADERS) arrange();
   }});
+  // the settling page: every grader's answer under each form
+  if (SETTLE) fetch("api/answers").then(r => r.json()).then(all => {{
+    for (const f of forms) {{
+      const answers = all[f.dataset.row] || {{}};
+      const box = document.createElement("div");
+      box.className = "others";
+      const line = (who, a) => who + ": " + (a.verdict === "unreadable" ? "can't tell from the page" :
+        ["plaintiff", "defendants", "street", "unit", "city", "state", "zip",
+         "attorneys", "attorney_firm", "attorney_address"]
+          .filter(k => k in a.truth)
+          .map(k => k + " = " + (Array.isArray(a.truth[k]) ? a.truth[k].join("; ") : a.truth[k] || "(empty)"))
+          .join(" \u00b7 "));
+      for (const [who, a] of Object.entries(answers)) {{
+        const p = document.createElement("p");
+        p.textContent = line(who, a);
+        box.appendChild(p);
+      }}
+      if (box.childNodes.length) f.before(box);
+    }}
+  }});
 }}
 
 for (const b of document.querySelectorAll("button.use-ai")) {{
   b.addEventListener("click", () => {{
     const f = b.closest("form");
     const a = JSON.parse(f.dataset.ai);
-    for (const k of FIELDS) if (k !== "note") f.elements[k].value = a[k] || "";
-    f.elements.defendants.value = (a.defendants || []).join("\\n");
+    for (const k of FIELDS) if (k !== "note" && f.elements[k]) f.elements[k].value = a[k] || "";
+    // a field the AI engine does not read (attorneys) keeps what is there
+    for (const k of LISTS) if (f.elements[k] && k in a) f.elements[k].value = (a[k] || []).join("\\n");
     f.dataset.usedAi = "1";
     setStatus(f, a.address_unsplit
       ? "Filled from the AI engine. Its address is all in Street; split it into the boxes, check against the page, then Save"
@@ -717,8 +807,11 @@ for (const f of forms) {{
   f.addEventListener("submit", async e => {{
     e.preventDefault();
     const truth = {{}};
-    for (const k of FIELDS) if (k !== "note") truth[k] = f.elements[k].value.trim();
-    truth.defendants = f.elements.defendants.value.split("\\n").map(s => s.trim()).filter(Boolean);
+    // a document without the attorney box sends no attorney answer, and is
+    // not scored on the attorney block
+    for (const k of FIELDS) if (k !== "note" && f.elements[k]) truth[k] = f.elements[k].value.trim();
+    for (const k of LISTS) if (f.elements[k])
+      truth[k] = f.elements[k].value.split("\\n").map(s => s.trim()).filter(Boolean);
     const body = {{
       row: Number(f.dataset.row),
       verdict: e.submitter ? e.submitter.value : "checked",
@@ -748,7 +841,8 @@ for (const f of forms) {{
 // the graders' page: name and email on every save, a batch of the chosen
 // size drawn from the documents nobody has graded yet, worst first, with
 // the order within a tier shuffled by the grader's name so two people
-// grading the same folder at once mostly get different documents
+// grading the same folder at once mostly get different documents (in
+// random order there is one tier, and the shuffle is the whole order)
 const grader = GRADERS ? {{
   name: document.getElementById("gname"), email: document.getElementById("gemail"),
   count: document.getElementById("gcount"), note: document.getElementById("gnote"),
@@ -759,12 +853,16 @@ function hash(s) {{
   for (const ch of s) {{ h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619) >>> 0; }}
   return h;
 }}
+// the shared set comes first, in one order for everyone (Infinity - Infinity
+// is NaN, which falls through to the next key)
+const sharedAt = c => c.dataset.shared === undefined ? Infinity : Number(c.dataset.shared);
 function arrange() {{
   const want = grader.count.value === "all" ? Infinity : Number(grader.count.value);
   const salt = grader.name.value.trim().toLowerCase();
   const cards = [...document.querySelectorAll(".doc")];
   const todo = cards.filter(c => !c.querySelector("form.fix").classList.contains("saved"))
-    .sort((a, b) => (Number(b.dataset.tier) - Number(a.dataset.tier))
+    .sort((a, b) => (sharedAt(a) - sharedAt(b))
+                 || (Number(b.dataset.tier) - Number(a.dataset.tier))
                  || (hash(salt + a.id) - hash(salt + b.id)));
   batch = todo.slice(0, want);
   for (const c of cards) c.hidden = !batch.includes(c);
@@ -798,11 +896,6 @@ if (GRADERS) {{
   for (const f of forms) f.addEventListener("submit", () => setTimeout(progress, 300));
 }}
 
-// the sticky header's height, so an enlarged page's form sits just below it
-const setHead = () => document.documentElement.style.setProperty(
-  "--head", document.querySelector("header").offsetHeight + "px");
-window.addEventListener("resize", setHead);
-setHead();
 tally();
 </script>"""
     (rev / "index.html").write_text(html)
@@ -839,6 +932,10 @@ def _street_without_unit(street: str, unit: str) -> str:
     return street
 
 
+def _one_line(text: str) -> str:
+    return " ".join((text or "").split())
+
+
 def machine_reading(row: dict) -> dict:
     """What the main columns say, in the shape a correction takes. The
     engine's street column carries the unit on its end and the unit column
@@ -852,6 +949,9 @@ def machine_reading(row: dict) -> dict:
         "city": row.get("defendant_city", "") or "",
         "state": row.get("defendant_state", "") or "",
         "zip": row.get("defendant_zip", "") or "",
+        "attorneys": _split_names(row.get("attorney_names", "")),
+        "attorney_firm": row.get("attorney_firm", "") or "",
+        "attorney_address": _one_line(row.get("attorney_address_raw", "")),
     }
 
 
@@ -864,6 +964,7 @@ def ai_reading(detail: dict) -> dict | None:
     if not ai:
         return None
     addr = ai.get("defendant_address") or {}
+    att = ai.get("attorney") or {}
     unit = addr.get("unit") or ""
     reading = {
         "plaintiff": "; ".join(p.get("name", "") for p in ai.get("plaintiffs") or []),
@@ -873,6 +974,10 @@ def ai_reading(detail: dict) -> dict | None:
         "city": addr.get("city") or "",
         "state": addr.get("state") or "",
         "zip": addr.get("zip") or "",
+        # no attorneys: the AI engine's prompt asks for the firm and its
+        # address and, by design, not the person who signed (ai/vision.py)
+        "attorney_firm": att.get("firm") or "",
+        "attorney_address": _one_line((att.get("address") or {}).get("raw") or ""),
         "address_unsplit": False,
     }
     if not reading["street"] and addr.get("raw"):
@@ -896,6 +1001,9 @@ def review_prefill(row: dict, detail: dict) -> dict:
         start["defendants"] = ai["defendants"]
     if not start["street"] and ai["street"] and not ai["address_unsplit"]:
         for k in ("street", "unit", "city", "state", "zip"):
+            start[k] = ai[k]
+    for k in ("attorneys", "attorney_firm", "attorney_address"):
+        if not start[k] and ai.get(k):
             start[k] = ai[k]
     return start
 

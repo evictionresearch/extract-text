@@ -65,6 +65,7 @@ SYNTHETIC_WHITELIST = [
     "L234 EXAMPLE ST",              # OCR-repair documentation example
     "1234 Example",
     "Sampleton, WA 98100",         # invented city used in the card tests
+    "100 SAMPLE STREET",           # invented attorney office, attorney-grading test
     "99999 NOWHERE PKWY",          # card test: an address that is on no page
     "1234 MARLOW EVERLY WAY",      # card test: invented street named for a person
     "1243 EXAMPLE AVE",            # demo deck: one digit of the synthetic street

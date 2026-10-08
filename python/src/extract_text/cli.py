@@ -8,6 +8,8 @@ Five subcommands cover the whole workflow:
     extract-text review --out RESULTS       build the human review page
     extract-text review --out RESULTS --serve   review and save corrections
     extract-text score --out RESULTS        score the engines against the corrections
+    extract-text agree --out RESULTS FILE   how often graders agree, and merging their answers
+    extract-text cases DIR --out RESULTS    roll case folders up to their outcomes
 
 Run any of them with -h for the options. The library behind this is
 importable from Python (`import extract_text`) and from R (the `extracttext`
@@ -77,15 +79,35 @@ def cmd_scan(args):
     return 0
 
 
+def _count_or_all(value):
+    if value == "all":
+        return value
+    try:
+        return int(value)
+    except ValueError:
+        raise argparse.ArgumentTypeError("a number of documents, or 'all'")
+
+
+def _row_list(value):
+    try:
+        return [int(v) for v in value.split(",") if v.strip()]
+    except ValueError:
+        raise argparse.ArgumentTypeError("document numbers separated by commas, e.g. 12,57")
+
+
 def cmd_review(args):
     from .pipeline import write_review
 
-    if args.graders:
-        page = write_review(args.out, seed=args.seed, graders=True)
+    if args.rows:
+        page = write_review(args.out, seed=args.seed, attorneys="all", rows=args.rows)
+    elif args.graders:
+        page = write_review(args.out, seed=args.seed, graders=True, attorneys=args.attorneys,
+                            order=args.order, overlap=args.overlap)
     elif args.random:
-        page = write_review(args.out, n=args.random, seed=args.seed, flagged_first=False)
+        page = write_review(args.out, n=args.random, seed=args.seed, flagged_first=False,
+                            attorneys=args.attorneys)
     else:
-        page = write_review(args.out, n=args.n, seed=args.seed)
+        page = write_review(args.out, n=args.n, seed=args.seed, attorneys=args.attorneys)
     if args.serve:
         from .corrections import serve_review
 
@@ -106,6 +128,43 @@ def cmd_score(args):
         Path(args.save).parent.mkdir(parents=True, exist_ok=True)
         Path(args.save).write_text(text + "\n")
         print(f"Report saved to {args.save}", file=sys.stderr)
+    return 0
+
+
+def cmd_agree(args):
+    from .agree import merge, report
+
+    text = report(args.out, args.files)
+    print(text)
+    if args.save:
+        from pathlib import Path
+
+        Path(args.save).parent.mkdir(parents=True, exist_ok=True)
+        Path(args.save).write_text(text + "\n")
+        print(f"Report saved to {args.save}", file=sys.stderr)
+    if args.merge:
+        added = merge(args.out, args.files)
+        print(f"Merged {added} answers into {args.out}/corrections.jsonl "
+              "(every grader's answer kept).", file=sys.stderr)
+    return 0
+
+
+def cmd_cases(args):
+    from .casefile import report, scan_cases
+
+    cases = scan_cases(args.inputs, out_dir=args.out,
+                       read_returns=not args.names_only,
+                       recursive=not args.no_recursive)
+    text = report(cases)
+    print(text)
+    if args.save:
+        from pathlib import Path
+
+        Path(args.save).parent.mkdir(parents=True, exist_ok=True)
+        Path(args.save).write_text(text + "\n")
+        print(f"Report saved to {args.save}", file=sys.stderr)
+    print(f"Results in {args.out}/cases.csv (and case_documents.csv).",
+          file=sys.stderr)
     return 0
 
 
@@ -157,6 +216,19 @@ def main(argv=None):
     a.add_argument("--graders", action="store_true",
                    help="the graders' page: every document, worst first, name and "
                         "email recorded, each grader picks a batch size")
+    a.add_argument("--order", choices=("worst", "random"), default="worst",
+                   help="with --graders: 'worst' shows the documents most in need of a "
+                        "person first (finds failures); 'random' serves them in random "
+                        "order, so what gets graded measures accuracy")
+    a.add_argument("--overlap", type=int, default=0, metavar="N",
+                   help="with --graders: put the same N documents, drawn at random, first "
+                        "for every grader, so `extract-text agree` can compare their answers")
+    a.add_argument("--rows", type=_row_list, default=None, metavar="N,N,...",
+                   help="a page of just these document numbers, showing every grader's "
+                        "answer, for settling disagreements")
+    a.add_argument("--attorneys", type=_count_or_all, default=0, metavar="N",
+                   help="also ask for the plaintiff's attorney on N documents drawn at "
+                        "random (the same documents for every grader of a folder), or 'all'")
     a.add_argument("--serve", action="store_true",
                    help="open the page with correction saving on (this computer only)")
     a.add_argument("--port", type=int, default=8765)
@@ -171,6 +243,28 @@ def main(argv=None):
     a.add_argument("--save", default=None, metavar="FILE",
                    help="also write the report to FILE (it holds no record values)")
     a.set_defaults(fn=cmd_score)
+
+    a = sub.add_parser("agree", help="how often graders agree on the documents they shared")
+    a.add_argument("--out", required=True, help="the scan's output directory")
+    a.add_argument("files", nargs="*", metavar="FILE",
+                   help="graders' returned corrections_NAME.jsonl files")
+    a.add_argument("--merge", action="store_true",
+                   help="also add every grader's answers to the scan's corrections.jsonl")
+    a.add_argument("--save", default=None, metavar="FILE",
+                   help="also write the report to FILE (it holds no record values)")
+    a.set_defaults(fn=cmd_agree)
+
+    a = sub.add_parser("cases", help="roll case folders up to their outcomes")
+    a.add_argument("inputs", nargs="+", help="directories of case folders")
+    a.add_argument("--out", required=True, help="output directory for results")
+    a.add_argument("--names-only", action="store_true",
+                   help="type documents by file name and stop; do not open "
+                        "the sheriff's returns")
+    a.add_argument("--no-recursive", action="store_true",
+                   help="do not descend into subdirectories")
+    a.add_argument("--save", default=None, metavar="FILE",
+                   help="also write the report to FILE (it holds counts only)")
+    a.set_defaults(fn=cmd_cases)
 
     args = ap.parse_args(argv)
     if args.version:

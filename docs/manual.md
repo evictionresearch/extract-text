@@ -373,6 +373,66 @@ code repository, and never anywhere publicly served. The repository's
 `DATA-USE.md` states the terms that travel with data extracted by the
 project's own team, and it is a sensible template for anyone else's practice.
 
+### Case folders: what happened after the summons
+
+The engines read one document, and the summons is the document they are
+built for. A case is a folder of documents, and the folder holds the rest of
+the story. When your collection keeps one folder per case, with each file
+named for the document it holds, a second command rolls every case up to the
+stages it reached.
+
+```bash
+extract-text cases ~/data/court_images/ --out ~/data/extractions/cases/
+```
+
+It types each document from its file name (summons, complaint, answer or
+notice of appearance, motion for default, dismissal, judgment, writ,
+sheriff's return), opens the first page of each sheriff's return to read how
+the writ came back, and writes two tables.
+
+`cases.csv` has one row per case folder.
+
+| Column | Meaning |
+|---|---|
+| `case_dir` | The folder's name, which in most court collections is the case number |
+| `n_documents`, `n_untyped` | Documents in the folder, and how many the file-name rules could not type |
+| `has_summons`, `has_complaint`, `has_answer`, `has_default_motion`, `has_dismissal`, `has_judgment`, `has_writ`, `has_sheriff_return` | Whether a document of that type is on file |
+| `outcome` | `judgment`, `dismissed`, or `none_recorded` |
+| `n_sheriff_returns`, `sheriff_return_status` | How many returns are on file and what the deciding one reports: `ousted_ejected`, `peaceful_possession`, `return_per_attorney`, `return_per_plaintiff`, `expired`, or `unread` and `ambiguous` when the rules could not tell |
+| `sheriff_evicted` | True for `ousted_ejected` and `peaceful_possession`, False for the other three, empty when there is no return or it could not be read |
+| `flags` | `no_summons`, `dismissal_and_judgment`, `judgment_no_sheriff_return`, `sheriff_return_unread`, `sheriff_return_ambiguous` |
+
+`case_documents.csv` has one row per document (`case_dir`, `file`,
+`doc_type`) and joins to `extracted.csv` on `file`.
+
+The rules are the ones Cheng Ren used to code 56,070 Pierce County cases in
+his 2024 dissertation ([section 20](#20-references-and-how-to-cite)). A case
+with a dismissal on file was dismissed. A case with a judgment on file, a
+motion for default judgment included, went to judgment, and a case with both
+counts as a judgment, because a plaintiff can move to dismiss and then carry
+on. An answer or notice of appearance means the tenant responded. The
+sheriff's return decides whether the sheriff carried out the eviction. This
+package adds two choices of its own. A writ or a sheriff's return counts as a
+judgment even when no file is named for one, and when a case holds several
+returns, an eviction on any of them decides the case.
+
+The command prints a report of counts and percentages, and `--save FILE`
+writes the same report to a file. The report holds no folder name and no file
+name. For documents the rules could not type, it counts words from a fixed
+list of legal terms (declaration, order, notice, and so on) so that you can
+see what is going untyped without a name being printed. `--names-only` skips
+the sheriff's returns and finishes quickly, which is the sensible first run
+on a new collection.
+
+What this does not do yet. It does not read judgment amounts, filing and
+judgment dates, or the content of a tenant's answer. It types documents by
+file name only, so a collection whose files are named by number needs a title
+reader that has not been written. And none of it has been measured against
+hand labels. The dissertation's own figures for Pierce County, 2004 to 2022
+(30 percent of cases with a summons answered, 76.8 percent to judgment, 71.7
+percent on to the sheriff; pp. 46 to 47) are the first thing a Pierce County
+run should be compared with.
+
 ## 10. The output, column by column
 
 The main columns of `extracted.csv`, in the order they appear. The R
@@ -467,8 +527,11 @@ extract-text review --out ~/data/extractions/2026-07/ --serve
 This opens the page in your browser from a small server running on your own
 computer (it answers only at 127.0.0.1, so nothing is reachable from the
 network), and prints where corrections go. Each document has a form that
-starts with the machine's reading: plaintiff, defendants (one per line), and
-the defendant's address in parts, street without the unit. Fix what is wrong,
+starts with the machine's reading: plaintiff, defendants (one per line), the
+defendant's address in parts, street without the unit, and, when the page
+is built with `--attorneys N`, the plaintiff's attorney on N documents drawn
+at random (names one per line, firm, and the address on one line; `all` asks
+on every document). Fix what is wrong,
 clear what the page does not show, and press Save. Saving a form you did not
 change records that the machine was right, which is as useful as a
 correction. "Can't tell from the page" records that the page does not settle
@@ -518,7 +581,33 @@ page, the ones most in need of a person first (a distrusted address, then a
 field the engines disagree on, then any other flag), and each grader types
 their name and email at the top, chooses a batch of 10, 30, or 100, and sees
 only that many ungraded documents. Name and email are saved with every
-answer. The step-by-step for graders is `GRADING.md` at the repository root,
+answer. Add `--order random` to serve the documents in random order
+instead (each grader in a different one). Worst first finds broken rules
+fastest, but the graded share leans toward hard documents and understates
+accuracy. In random order whatever share gets graded is a fair sample of
+the folder, every answer is recorded as a random draw, and the score
+report's bracketed figures are then the accuracy estimate. Documents
+already graded are skipped either way, so for an accuracy round start from
+a folder whose earlier answers were all random draws, or remove the others
+first.
+
+To learn how far the answers themselves can be trusted, add `--overlap N`:
+the same N documents, drawn at random, come first for every grader, in the
+same order, before each grader's own order takes over. When the graders'
+files come back, `extract-text agree --out DIR corrections_A.jsonl
+corrections_B.jsonl` reports, field by field, how often each pair of
+graders gave the same answer on those documents, and lists each
+disagreement by document number with the answers in masked form. Adding
+`--merge` copies every grader's answers into the scan's
+`corrections.jsonl`, keeping both answers where two graders did the same
+document (a plain copy would leave only the last). The report ends with a
+command, `extract-text review --out DIR --rows 12,57 --serve`, that opens
+just the documents to settle, with every grader's answer shown above each
+form; the answer saved there is the one that counts. The attorney box was added on 2026-10-07 and appears only with
+`--attorneys`. An answer to a document without it carries no attorney
+block, and the score report counts only the answers that do on its three
+attorney lines. The AI engine is not scored on attorney names, which it
+does not read by design. The step-by-step for graders is `GRADING.md` at the repository root,
 and `extract-text scan ... --sample N` draws the N documents for such a round
 at random from a whole collection.
 
@@ -942,6 +1031,14 @@ The method this package implements is described in
 > Development.
 > https://www.huduser.gov/portal/periodicals/cityscape/vol26num1/article12.html
 > (also on JSTOR: https://www.jstor.org/stable/48766080)
+
+The case-folder rules in [section 9](#9-processing-a-folder-of-documents)
+follow
+
+> Ren, Cheng. 2024. "Not All Eviction Cases are Alike: How Do Contextual and
+> Individual Characteristics Matter? A Computational Analysis of a Decade of
+> Court Cases from Pierce County, Washington." PhD dissertation, University
+> of California, Berkeley. https://escholarship.org/uc/item/7f36p8n6
 
 To cite the software itself, use the metadata in `CITATION.cff` at the
 repository root, which citation managers and GitHub read directly.

@@ -8,7 +8,9 @@ with the latest answer per document.
 A correction is a labeled example, and the file is built to be used as one:
 
 - `truth` is what the reviewer says the page prints (plaintiff, defendants,
-  and the defendant's address in parts)
+  the defendant's address in parts, and the plaintiff attorney's names,
+  firm, and address). Answers saved before 2026-10-07 have no attorney
+  fields, and nothing scores the attorney block on them.
 - `machine` is what the main columns said, and `ai` what the AI engine said
   in a both-engine run, each with the fields where it differs from the truth
   (`changed_fields`, `ai.changed_fields`), so either engine can be scored
@@ -42,16 +44,21 @@ from pathlib import Path
 from .pipeline import ai_reading, machine_reading, read_scan
 
 TRUTH_FIELDS = ("plaintiff", "street", "unit", "city", "state", "zip")
+# the plaintiff attorney's block, added 2026-10-07; older answers lack it
+ATTORNEY_FIELDS = ("attorney_firm", "attorney_address")
 MAX_BODY = 64 * 1024
 DOCUMENT_TYPES = {".pdf": "application/pdf", ".tif": "image/tiff", ".tiff": "image/tiff"}
 MAX_FIELD = 300
 
 CSV_COLUMNS = [
     "row", "file", "sha256", "sampled_as", "verdict", "changed_fields",
-    "plaintiff", "defendants", "street", "unit", "city", "state", "zip", "note",
+    "plaintiff", "defendants", "street", "unit", "city", "state", "zip",
+    "attorneys", "attorney_firm", "attorney_address", "note",
     "machine_method", "machine_plaintiff", "machine_defendants", "machine_street",
     "machine_unit", "machine_city", "machine_state", "machine_zip",
-    "ai_plaintiff", "ai_defendant_names", "ai_defendant_address", "ai_changed_fields",
+    "machine_attorneys", "machine_attorney_firm", "machine_attorney_address",
+    "ai_plaintiff", "ai_defendant_names", "ai_defendant_address",
+    "ai_attorneys", "ai_attorney_firm", "ai_attorney_address", "ai_changed_fields",
     "used_ai_fill", "flags", "reviewer", "reviewer_email", "saved_at",
 ]
 
@@ -75,12 +82,21 @@ def _sha256(path: Path) -> str:
     return h.hexdigest()
 
 
+def _names_differ(given: list, read: list) -> bool:
+    return [n.casefold() for n in given] != [n.casefold() for n in read]
+
+
 def _changed(truth: dict, reading: dict) -> list:
     """The fields where a reading differs from the reviewer's answer."""
     changed = [k for k in TRUTH_FIELDS if not _same(truth[k], reading.get(k, ""))]
-    if ([n.casefold() for n in truth["defendants"]]
-            != [n.casefold() for n in reading.get("defendants", [])]):
+    if _names_differ(truth["defendants"], reading.get("defendants", [])):
         changed.insert(1, "defendants")
+    if "attorneys" in truth:
+        # the AI engine does not read attorney names, so it is not wrong on them
+        if ("attorneys" in reading
+                and _names_differ(truth["attorneys"], reading["attorneys"])):
+            changed.append("attorneys")
+        changed += [k for k in ATTORNEY_FIELDS if not _same(truth[k], reading.get(k, ""))]
     return changed
 
 
@@ -96,6 +112,13 @@ def _sampled_as(out: Path, row_no: int, row: dict) -> str:
         return "flagged" if row.get("flags") else "random"
 
 
+def _name_list(given: dict, key: str) -> list:
+    names = given.get(key) or []
+    if not isinstance(names, list):
+        raise ValueError(f"{key} must be a list")
+    return [_text(n) for n in names if _text(n)][:20]
+
+
 def build_correction(row_no: int, body: dict, rows: list, details: list,
                      out_dir=None) -> dict:
     """One saved correction, assembled from the reviewer's answer and the
@@ -104,10 +127,12 @@ def build_correction(row_no: int, body: dict, rows: list, details: list,
     row, detail = rows[row_no - 1], details[row_no - 1]
     given = body.get("truth") or {}
     truth = {k: _text(given.get(k)) for k in TRUTH_FIELDS}
-    names = given.get("defendants") or []
-    if not isinstance(names, list):
-        raise ValueError("defendants must be a list")
-    truth["defendants"] = [_text(n) for n in names if _text(n)][:20]
+    truth["defendants"] = _name_list(given, "defendants")
+    # a page built before the attorney boxes sends none of them, and its
+    # answer then says nothing about the attorney block
+    if "attorneys" in given or any(k in given for k in ATTORNEY_FIELDS):
+        truth["attorneys"] = _name_list(given, "attorneys")
+        truth.update({k: _text(given.get(k)) for k in ATTORNEY_FIELDS})
 
     machine = machine_reading(row)
     changed = _changed(truth, machine)
@@ -160,6 +185,20 @@ def load_corrections(out_dir) -> dict:
     return latest
 
 
+def load_answers(out_dir) -> dict:
+    """Every grader's latest answer for each row: {row: {reviewer: correction}}.
+    Unlike load_corrections, a second grader does not replace the first."""
+    path = Path(out_dir) / "corrections.jsonl"
+    answers = {}
+    if path.exists():
+        with open(path) as f:
+            for line in f:
+                if line.strip():
+                    c = json.loads(line)
+                    answers.setdefault(c["row"], {})[c.get("reviewer", "")] = c
+    return answers
+
+
 def write_corrections_csv(out_dir) -> Path:
     """Flatten the latest correction per row into corrections.csv."""
     out = Path(out_dir)
@@ -175,16 +214,22 @@ def write_corrections_csv(out_dir) -> Path:
                 "changed_fields": ";".join(c["changed_fields"]),
                 **{k: t[k] for k in TRUTH_FIELDS},
                 "defendants": "; ".join(t["defendants"]),
+                "attorneys": "; ".join(t.get("attorneys", [])),
+                **{k: t.get(k, "") for k in ATTORNEY_FIELDS},
                 "note": c["note"],
                 "machine_method": m.get("method", ""),
                 **{f"machine_{k}": m[k] for k in TRUTH_FIELDS},
                 "machine_defendants": "; ".join(m["defendants"]),
+                "machine_attorneys": "; ".join(m.get("attorneys", [])),
+                **{f"machine_{k}": m.get(k, "") for k in ATTORNEY_FIELDS},
                 "ai_plaintiff": ai.get("plaintiff", ""),
                 # records saved before 2026-09-30's AI fill carry names as one string
                 "ai_defendant_names": (
                     "; ".join(ai["defendants"]) if "defendants" in ai
                     else ai.get("defendant_names", "")),
                 "ai_defendant_address": ai.get("defendant_address", ""),
+                "ai_attorneys": "; ".join(ai.get("attorneys", [])),
+                **{f"ai_{k}": ai.get(k, "") for k in ATTORNEY_FIELDS},
                 "ai_changed_fields": ";".join(ai.get("changed_fields", [])),
                 "used_ai_fill": c.get("used_ai_fill", False),
                 "flags": c["flags"], "reviewer": c["reviewer"],
@@ -235,6 +280,12 @@ def make_review_server(out_dir, port=8765):
                 with lock:
                     saved = load_corrections(out)
                 return self._json(200, {str(k): v for k, v in saved.items()})
+            if path == "/api/answers":
+                with lock:
+                    every = load_answers(out)
+                return self._json(200, {str(k): {who: {"truth": c["truth"], "verdict": c["verdict"]}
+                                                 for who, c in v.items()}
+                                        for k, v in every.items()})
             if path.startswith("/doc/"):
                 return self._document(path[len("/doc/"):])
             return super().do_GET()
@@ -273,6 +324,12 @@ def make_review_server(out_dir, port=8765):
             except (ValueError, TypeError, AttributeError) as e:
                 return self._refuse(400, f"bad correction: {e}")
             with lock:
+                # a later answer to a document keeps the draw it came from: a
+                # settling page or a re-built page must not turn a random draw
+                # into a flagged one, or the reverse
+                earlier = load_corrections(out).get(row_no)
+                if earlier:
+                    correction["sampled_as"] = earlier["sampled_as"]
                 with open(out / "corrections.jsonl", "a") as f:
                     f.write(json.dumps(correction) + "\n")
                 write_corrections_csv(out)

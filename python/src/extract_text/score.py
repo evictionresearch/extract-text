@@ -19,12 +19,12 @@ import re
 from collections import Counter, defaultdict
 from pathlib import Path
 
-from .corrections import TRUTH_FIELDS, _sha256, load_corrections
+from .corrections import ATTORNEY_FIELDS, TRUTH_FIELDS, _sha256, load_corrections
 from .parties import _party_key, _strip_group_terms
 from .pipeline import _unit_key, ai_reading, machine_reading, read_scan
 from .similarity import norm
 
-FIELDS = ("plaintiff", "defendants", *TRUTH_FIELDS[1:])
+FIELDS = ("plaintiff", "defendants", *TRUTH_FIELDS[1:], "attorneys", *ATTORNEY_FIELDS)
 SHAPE_WIDTH = 48
 
 
@@ -51,41 +51,57 @@ def _name_keys(names) -> list[str]:
     return sorted(keys)
 
 
+def _party_wrong(t, m):
+    """How one party name is wrong, or None when it is right."""
+    if _squash(t) == _squash(m):
+        return None
+    if not _squash(m):
+        return "blank"
+    if not _squash(t):
+        return "extra"
+    return "near" if _party_key(t) == _party_key(m) else "different"
+
+
+def _names_wrong(td, md):
+    """How a list of names is wrong, or None when it is right. Compared as a
+    set, so order never counts."""
+    if [_squash(n) for n in td] == [_squash(n) for n in md]:
+        return None
+    tk, mk = _name_keys(td), _name_keys(md)
+    if not mk:
+        return "blank"
+    if not tk:
+        return "extra"
+    if tk == mk:
+        return "near"
+    if set(tk) < set(mk):
+        return "extra names"
+    if set(mk) < set(tk):
+        return "missing names"
+    return "different"
+
+
 def compare(truth: dict, reading: dict) -> dict:
     """Each field the reading gets wrong, with the kind of wrong.
 
     `blank` is a miss, `extra` a value where the page has none, `near` the
     right content with different formatting (case, punctuation, Ave for
     Avenue, a group term, LLC), and `different` anything else. Defendants
-    are compared as a set of names, so order never counts; a superset is
-    `extra names` and a subset `missing names`."""
-    wrong = {}
-    t, m = truth.get("plaintiff", ""), reading.get("plaintiff", "")
-    if _squash(t) != _squash(m):
-        if not _squash(m):
-            wrong["plaintiff"] = "blank"
-        elif not _squash(t):
-            wrong["plaintiff"] = "extra"
-        elif _party_key(t) == _party_key(m):
-            wrong["plaintiff"] = "near"
-        else:
-            wrong["plaintiff"] = "different"
-
-    td, md = truth.get("defendants") or [], reading.get("defendants") or []
-    if [_squash(n) for n in td] != [_squash(n) for n in md]:
-        tk, mk = _name_keys(td), _name_keys(md)
-        if not mk:
-            wrong["defendants"] = "blank"
-        elif not tk:
-            wrong["defendants"] = "extra"
-        elif tk == mk:
-            wrong["defendants"] = "near"
-        elif set(tk) < set(mk):
-            wrong["defendants"] = "extra names"
-        elif set(mk) < set(tk):
-            wrong["defendants"] = "missing names"
-        else:
-            wrong["defendants"] = "different"
+    and attorneys are compared as a set of names, so order never counts; a
+    superset is `extra names` and a subset `missing names`. The attorney
+    block is compared only when the answer has one."""
+    found = {
+        "plaintiff": _party_wrong(truth.get("plaintiff", ""), reading.get("plaintiff", "")),
+        "defendants": _names_wrong(truth.get("defendants") or [],
+                                   reading.get("defendants") or []),
+    }
+    if "attorneys" in truth:
+        if "attorneys" in reading:
+            found["attorneys"] = _names_wrong(truth["attorneys"] or [],
+                                              reading["attorneys"] or [])
+        found["attorney_firm"] = _party_wrong(truth.get("attorney_firm", ""),
+                                              reading.get("attorney_firm", ""))
+    wrong = {k: v for k, v in found.items() if v}
 
     same = {
         "street": lambda a, b: norm(a) == norm(b),
@@ -94,6 +110,11 @@ def compare(truth: dict, reading: dict) -> dict:
         "state": lambda a, b: _squash(a) == _squash(b),
         "zip": lambda a, b: str(a or "")[:5] == str(b or "")[:5],
     }
+    if "attorneys" in truth:
+        # norm is the validation's metric and knows Ste but not Suite, which
+        # office addresses spell out often
+        suite = lambda a: norm(re.sub(r"\bsuite\b", "ste", a, flags=re.I))
+        same["attorney_address"] = lambda a, b: suite(a) == suite(b)
     for field, alike in same.items():
         t, m = str(truth.get(field) or ""), str(reading.get(field) or "")
         if _squash(t) == _squash(m):
@@ -151,9 +172,17 @@ def score(out_dir) -> dict:
             continue
         per_field = {}
         for field in FIELDS:
-            f = {"n": len(seen), "right": 0, "near": 0, "right_random": 0,
+            f = {"n": 0, "right": 0, "near": 0, "right_random": 0,
                  "n_random": 0, "kinds": Counter()}
             for c, (reading, wrong), row in seen:
+                # answers saved before the attorney boxes existed are not
+                # scored on the attorney block
+                if field.startswith("attorney") and "attorneys" not in c["truth"]:
+                    continue
+                # nor is an engine scored on a field it does not read
+                if field == "attorneys" and "attorneys" not in reading:
+                    continue
+                f["n"] += 1
                 random_row = c["sampled_as"] == "random"
                 f["n_random"] += random_row
                 kind = wrong.get(field)
@@ -168,7 +197,8 @@ def score(out_dir) -> dict:
                     raw = mask(row.get("defendant_address_raw", ""))
                 tallies["shapes"][(engine, field)].append(
                     (c["row"], kind, mask(reading.get(field)), mask(c["truth"].get(field)), raw))
-            per_field[field] = f
+            if f["n"]:
+                per_field[field] = f
         tallies["engines"][engine] = per_field
         if engine == "deterministic":
             for c, (reading, wrong), row in seen:
@@ -203,7 +233,7 @@ def report(out_dir, shapes=False) -> str:
                       "(random rows alone in brackets)"]
         for field, f in per_field.items():
             kinds = ", ".join(f"{n} {k}" for k, n in f["kinds"].most_common())
-            lines.append(f"  {field:<11}{_pct(f['right'], f['n'])} "
+            lines.append(f"  {field:<17}{_pct(f['right'], f['n'])} "
                          f"{_pct(f['right'] + f['near'], f['n'])} of {f['n']:>4}"
                          f"  [{_pct(f['right_random'], f['n_random']).strip()} of {f['n_random']}]"
                          + (f"   wrong: {kinds}" if kinds else ""))

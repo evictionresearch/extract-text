@@ -631,6 +631,37 @@ The measured effect on the 30 documents is in the project's issue tracker
 (#20) once Tim re-scans and re-scores; nothing here was verified on real
 records inside a session, by design.
 
+## Case files: the first slice of case context (2026-10-02)
+
+The package read the summons and nothing after it. Cheng Ren's 2024
+dissertation (https://escholarship.org/uc/item/7f36p8n6) read the whole
+Pierce County case file, 56,070 cases from 772,629 PDFs: the summons, the
+judgment summary on the motion for default (principal, attorney fee, filing
+fee, total), and the sheriff's return on the writ, with the case outcome
+taken from which documents were on file (pp. 31 to 36). That work ran on
+Microsoft Azure Document Intelligence, a cloud service, with models trained
+on about 10 to 20 labeled pages per form.
+
+`extract_text/casefile.py` and `extract-text cases` are the local,
+rules-only start on the same ground: document type from the file name, the
+case rolled up to answered, default, dismissed, judgment, and sheriff's
+return, and the return's outcome read into the dissertation's five
+categories. The manual's section 9 has the columns and the rules, including
+the two choices that are this package's own.
+
+What is not measured. Every test is synthetic. The file-name rules were
+written from the dissertation's description of Pierce County's names and
+have not been run on a real folder; the five return wordings are the ones the
+dissertation quotes (pp. 35 to 36), and other counties and years may word
+them differently. The first run is Tim's, `--names-only` first, and what
+comes back into a session is the printed report. The dissertation's stage
+counts (Figure 9, p. 46) are the benchmark for Pierce County.
+
+Still to build, tracked in the goal issue: the judgment summary amounts,
+filing and return dates, a title reader for collections whose files are not
+named for their documents, the AI engine's reading of the same documents,
+hand labels for outcomes, and R parity.
+
 ## Other reasons extraction fails
 
 Reading the failures rather than counting them changed what looks worth

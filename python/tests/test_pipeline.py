@@ -245,7 +245,11 @@ def _fake_both_engine_scan(out):
            "defendant_zip": "98100", "method": "deterministic", "flags": "x",
            "ai_backend": "local:fake", "ai_plaintiff": "EXAMPLE GREENS LLC",
            "ai_defendant_names": "PAT EXAMPLE",
-           "ai_defendant_address": "1234 SAMPLE AVE NE BLDG C Apt # 5 SAMPLETON, WA 98100"}
+           "ai_defendant_address": "1234 SAMPLE AVE NE BLDG C Apt # 5 SAMPLETON, WA 98100",
+           "attorney_names": "SAM EXAMPLE", "attorney_firm": "EXAMPLE LAW PLLC",
+           "attorney_address_raw": "100 SAMPLE ST STE 2\nSAMPLETON, WA 98100",
+           "ai_law_firm": "EXAMPLE LAW PLLC",
+           "ai_law_firm_address": "100 SAMPLE ST STE 2 SAMPLETON, WA 98100"}
     with open(out / "extracted.csv", "w", newline="") as f:
         w = csv.DictWriter(f, fieldnames=list(row))
         w.writeheader()
@@ -255,7 +259,9 @@ def _fake_both_engine_scan(out):
                  "defendant_address": {"raw": row["ai_defendant_address"],
                                        "street": "1234 SAMPLE AVE NE BLDG C Apt # 5",
                                        "unit": "BLDG C Apt # 5", "city": "Sampleton",
-                                       "state": "WA", "zip": "98100"}}
+                                       "state": "WA", "zip": "98100"},
+                 "attorney": {"names": "SAM EXAMPLE; ROBIN EXAMPLE", "firm": "EXAMPLE LAW PLLC",
+                              "address": {"raw": row["ai_law_firm_address"]}}}
     with open(out / "extracted.jsonl", "w") as f:
         f.write(json.dumps({"file": str(out / "missing.pdf"), "deterministic": None,
                             "ai": {"record": ai_record}}) + "\n")
@@ -389,3 +395,188 @@ def test_graders_page_orders_worst_first_and_records_the_grader(tmp_path):
     text = report(tmp_path)
     assert "Graded by A. Grader (1)" in text
     assert "grader@example.org" not in text     # the report names graders, never emails
+
+
+def test_graders_page_shows_only_the_chosen_batch(tmp_path):
+    # the card rule sets display:flex, which beats the hidden attribute unless
+    # hidden cards get their own rule; without it every document showed
+    _fake_both_engine_scan(tmp_path)
+    html = write_review(tmp_path, graders=True).read_text()
+    assert ".doc[hidden]{display:none}" in html
+    assert "c.hidden = !batch.includes(c)" in html
+
+
+def test_attorney_block_is_on_the_form_and_scored(tmp_path):
+    from extract_text.corrections import build_correction
+    from extract_text.pipeline import read_scan
+    import re as _re
+
+    from extract_text.score import report
+
+    _fake_both_engine_scan(tmp_path)
+    html = write_review(tmp_path, graders=True, attorneys="all").read_text()
+    assert '<textarea name="attorneys" rows="2">SAM EXAMPLE</textarea>' in html
+    assert 'name="attorney_firm" value="EXAMPLE LAW PLLC"' in html
+    # the engine's two-line block arrives on one line
+    assert 'name="attorney_address" value="100 SAMPLE ST STE 2 SAMPLETON, WA 98100"' in html
+
+    rows, details = read_scan(tmp_path)
+    truth = {"plaintiff": "EXAMPLE GREENS LLC", "defendants": ["PAT EXAMPLE"],
+             "street": "1234 SAMPLE AVE NE", "unit": "BLDG C Apt # 5",
+             "city": "Sampleton", "state": "WA", "zip": "98100"}
+    # an answer from a page without the attorney boxes says nothing about them
+    old = build_correction(1, {"truth": truth}, rows, details, tmp_path)
+    assert "attorneys" not in old["truth"]
+    assert not any(k.startswith("attorney") for k in old["changed_fields"])
+    with open(tmp_path / "corrections.jsonl", "w") as f:
+        f.write(json.dumps(old) + "\n")
+    assert not _re.search(r"^  attorney", report(tmp_path), _re.M)
+
+    truth.update({"attorneys": ["SAM EXAMPLE"], "attorney_firm": "Example Law, PLLC",
+                  "attorney_address": "100 SAMPLE STREET SUITE 2 SAMPLETON, WA 98100"})
+    c = build_correction(1, {"truth": truth}, rows, details, tmp_path)
+    assert c["truth"]["attorneys"] == ["SAM EXAMPLE"]
+    assert c["changed_fields"] == ["plaintiff", "unit", "attorney_firm", "attorney_address"]
+    assert "attorneys" not in c["ai"]["changed_fields"]   # the AI engine does not read names
+    with open(tmp_path / "corrections.jsonl", "a") as f:
+        f.write(json.dumps(c) + "\n")
+    text = report(tmp_path, shapes=True)
+    assert _re.search(r"attorneys +100\.0% +100\.0% of +1", text)
+    assert _re.search(r"attorney_firm +0\.0% +100\.0% of +1 .*1 near", text)
+    assert _re.search(r"attorney_address +0\.0% +100\.0% of +1 .*1 near", text)
+    ai_part = text.split("ai engine", 1)[1]
+    assert "attorney_firm" in ai_part and not _re.search(r"^  attorneys ", ai_part, _re.M)
+    for word in ("EXAMPLE", "SAMPLE", "Sampleton"):
+        assert word not in text
+
+
+def test_attorney_box_is_optional_and_the_same_for_every_grader(tmp_path):
+    from extract_text.cli import _count_or_all
+
+    _fake_both_engine_scan(tmp_path)
+    one = (tmp_path / "extracted.csv").read_text().splitlines()
+    (tmp_path / "extracted.csv").write_text("\n".join([one[0]] + one[1:] * 20) + "\n")
+    detail = (tmp_path / "extracted.jsonl").read_text()
+    (tmp_path / "extracted.jsonl").write_text(detail * 20)
+
+    count = lambda html: html.count('<fieldset class="att">')
+    assert count(write_review(tmp_path, graders=True).read_text()) == 0   # off by default
+    shown = json.loads((tmp_path / "review" / "sample.json").read_text())
+    html = write_review(tmp_path, graders=True, attorneys=5).read_text()
+    assert count(html) == 5
+    # the draw does not move the page's own sample, and repeats exactly
+    assert json.loads((tmp_path / "review" / "sample.json").read_text()) == shown
+    assert write_review(tmp_path, graders=True, attorneys=5).read_text() == html
+    assert count(write_review(tmp_path, graders=True, attorneys=50).read_text()) == 20
+    assert count(write_review(tmp_path, graders=True, attorneys="all").read_text()) == 20
+    assert _count_or_all("all") == "all" and _count_or_all("12") == 12
+
+
+def test_graders_page_in_random_order_records_random_draws(tmp_path):
+    _fake_both_engine_scan(tmp_path)          # a flagged row the engines disagree on
+    html = write_review(tmp_path, graders=True, order="random").read_text()
+    assert "in random order" in html and 'data-tier="0"' in html
+    assert json.loads((tmp_path / "review" / "sample.json").read_text()) == {"1": "random"}
+    html = write_review(tmp_path, graders=True).read_text()   # the default is unchanged
+    assert "worst first" in html and 'data-tier="2"' in html
+    with pytest.raises(ValueError):
+        write_review(tmp_path, graders=True, order="best")
+
+
+def _fake_folder_of(tmp_path, n):
+    """The one-document fake scan, repeated n times."""
+    _fake_both_engine_scan(tmp_path)
+    one = (tmp_path / "extracted.csv").read_text().splitlines()
+    (tmp_path / "extracted.csv").write_text("\n".join([one[0]] + one[1:] * n) + "\n")
+    detail = (tmp_path / "extracted.jsonl").read_text()
+    (tmp_path / "extracted.jsonl").write_text(detail * n)
+
+
+def test_overlap_puts_one_shared_set_first_for_every_grader(tmp_path):
+    import re as _re
+
+    _fake_folder_of(tmp_path, 20)
+    html = write_review(tmp_path, graders=True, order="random", overlap=5).read_text()
+    shared = _re.findall(r'id="doc(\d+)" data-tier="0" data-shared="(\d+)"', html)
+    assert sorted(int(k) for _, k in shared) == [0, 1, 2, 3, 4]
+    again = write_review(tmp_path, graders=True, order="random", overlap=5).read_text()
+    assert _re.findall(r'id="doc(\d+)" data-tier="0" data-shared', again) == [d for d, _ in shared]
+    assert "(sharedAt(a) - sharedAt(b))" in html
+    drawn = json.loads((tmp_path / "review" / "sample.json").read_text())
+    assert all(drawn[d] == "random" for d, _ in shared)
+    assert "data-shared" not in write_review(tmp_path, graders=True).read_text()
+
+
+def test_settling_page_shows_chosen_rows_and_every_answer(tmp_path):
+    import threading
+    import urllib.request
+
+    from extract_text.corrections import make_review_server
+
+    _fake_folder_of(tmp_path, 4)
+    write_review(tmp_path, graders=True, order="random")
+    before = (tmp_path / "review" / "sample.json").read_text()
+    html = write_review(tmp_path, rows=[3, 1], attorneys="all").read_text()
+    assert 'id="doc1"' in html and 'id="doc3"' in html and 'id="doc2"' not in html
+    assert "const SETTLE = true;" in html
+    assert (tmp_path / "review" / "sample.json").read_text() == before   # left alone
+    with pytest.raises(ValueError):
+        write_review(tmp_path, rows=[9])
+
+    server = make_review_server(tmp_path, port=0)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    base = f"http://127.0.0.1:{server.server_address[1]}"
+    truth = {"plaintiff": "EXAMPLE GREENS LLC", "defendants": ["PAT EXAMPLE"],
+             "street": "1234 SAMPLE AVE NE", "unit": "", "city": "Sampleton",
+             "state": "WA", "zip": "98100"}
+    try:
+        for who, unit in (("A. Grader", "Apt 5"), ("B. Grader", "Apt 6")):
+            body = {"row": 1, "truth": {**truth, "unit": unit}, "reviewer": who}
+            req = urllib.request.Request(f"{base}/api/corrections", data=json.dumps(body).encode(),
+                                         headers={"Content-Type": "application/json"})
+            urllib.request.urlopen(req).close()
+        with urllib.request.urlopen(f"{base}/api/answers") as r:
+            answers = json.loads(r.read())
+    finally:
+        server.shutdown()
+        server.server_close()
+    assert set(answers["1"]) == {"A. Grader", "B. Grader"}
+    assert answers["1"]["B. Grader"]["truth"]["unit"] == "Apt 6"
+
+
+def test_agreement_report_counts_masks_and_merges_once(tmp_path):
+    from extract_text.agree import merge, report
+    from extract_text.corrections import build_correction, load_answers
+    from extract_text.pipeline import read_scan
+
+    _fake_folder_of(tmp_path, 3)
+    write_review(tmp_path, graders=True, overlap=3)
+    rows, details = read_scan(tmp_path)
+    truth = {"plaintiff": "EXAMPLE GREENS LLC", "defendants": ["PAT EXAMPLE"],
+             "street": "1234 SAMPLE AVE NE", "unit": "Apt 5", "city": "Sampleton",
+             "state": "WA", "zip": "98100"}
+
+    def answers(who, changes):
+        lines = []
+        for row in (1, 2, 3):
+            t = {**truth, **changes.get(row, {})}
+            c = build_correction(row, {"truth": t, "reviewer": who}, rows, details, tmp_path)
+            lines.append(json.dumps(c))
+        path = tmp_path / f"corrections_{who}.jsonl"
+        path.write_text("\n".join(lines) + "\n")
+        return path
+
+    a = answers("april", {})
+    b = answers("araina", {2: {"unit": "Apt 6"}, 3: {"street": "1234 Sample Avenue NE"}})
+    text = report(tmp_path, [a, b])
+    import re as _re
+    assert "Documents answered by more than one grader: 3." in text
+    assert _re.search(r"unit +66\.7% +66\.7% of +3 pairs +differ: 1 different", text)
+    assert _re.search(r"street +66\.7% +100\.0% of +3 pairs", text)   # formatting only
+    assert "--rows 2 --serve" in text and "araina: Aaa 9" in text
+    for word in ("EXAMPLE", "SAMPLE", "Sampleton", "1234"):
+        assert word not in text
+
+    assert merge(tmp_path, [a, b]) == 6
+    assert merge(tmp_path, [a, b]) == 0                 # twice adds nothing
+    assert set(load_answers(tmp_path)[2]) == {"april", "araina"}

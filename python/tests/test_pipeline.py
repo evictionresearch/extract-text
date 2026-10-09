@@ -544,6 +544,27 @@ def test_settling_page_shows_chosen_rows_and_every_answer(tmp_path):
     assert answers["1"]["B. Grader"]["truth"]["unit"] == "Apt 6"
 
 
+def test_graders_page_of_chosen_rows_records_names_blind(tmp_path):
+    from extract_text.cli import main
+
+    _fake_folder_of(tmp_path, 6)
+    write_review(tmp_path, graders=True, overlap=2)
+    before = (tmp_path / "review" / "sample.json").read_text()
+    html = write_review(tmp_path, graders=True, rows=[5, 2]).read_text()
+    assert 'id="doc2"' in html and 'id="doc5"' in html and 'id="doc1"' not in html
+    assert 'id="gname"' in html and "const GRADERS = true;" in html
+    assert "const SETTLE = false;" in html          # no other grader's answer shown
+    assert '<fieldset class="att">' not in html     # attorneys follow --attorneys
+    assert (tmp_path / "review" / "sample.json").read_text() == before
+
+    assert main(["review", "--out", str(tmp_path), "--graders", "--rows", "2,5"]) == 0
+    html = (tmp_path / "review" / "index.html").read_text()
+    assert "const GRADERS = true;" in html and "const SETTLE = false;" in html
+    assert 'id="doc1"' not in html
+    assert main(["review", "--out", str(tmp_path), "--rows", "2,5"]) == 0
+    assert "const SETTLE = true;" in (tmp_path / "review" / "index.html").read_text()
+
+
 def test_agreement_report_counts_masks_and_merges_once(tmp_path):
     from extract_text.agree import merge, report
     from extract_text.corrections import build_correction, load_answers

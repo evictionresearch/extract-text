@@ -601,6 +601,11 @@ answers into scores. The steps, in order:
    order takes over. Graders are not told which documents are shared and
    each works from a separate copy of the folder, so the second answer is
    blind. Thirty is enough to see which fields people read differently.
+   To have a chosen set graded again (say, the documents you graded
+   yourself), leave your answers out of the copy you share and give the
+   graders `--rows` with those document numbers alongside `--graders`. That
+   page holds just those documents, records each grader's name, and shows no
+   other answer, so `agree` compares the graders with you.
 4. **Ask for the attorney on some documents.** `--attorneys N` adds the
    plaintiff attorney's box (names one per line, firm, the address on one
    line) to N documents drawn at random, the same ones for every grader;

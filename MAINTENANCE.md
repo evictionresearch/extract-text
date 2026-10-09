@@ -687,6 +687,11 @@ is the manual's "Running a grading round" (section 11).
   answer (the earlier advice to concatenate files kept only the last one per
   document), and `review --rows` opens the disagreements for settling with
   all answers shown.
+- **`review --graders --rows N,N,...`** (added 2026-10-09) is a graders'
+  page of just those documents: it records each grader's name and, unlike
+  the settling page, shows no other answer. It lets graders re-grade a set
+  one person already graded, blind, without that person's answers in the
+  shared folder.
 
 **What the first report measured.** 19 documents, all from the top of the
 worst-first order (each with a scan flag or an engine disagreement), graded

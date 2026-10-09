@@ -35,7 +35,10 @@ leaves it. At the top, type your name (required) and email, and choose how
 many documents to grade. Ten is a good first batch. The page shows you the
 documents most in need of a person first and hides the rest. If Tim asks for
 `--order random` in the command, it serves them in random order instead;
-grade them the same way.
+grade them the same way. If Tim gives you a list of document numbers to
+grade first, add `--rows` and the list (for example `--rows 3,8,21`) to the
+same command; the page then holds just those documents, and once they are
+done you run the command again without `--rows`.
 
 For each document, compare the page image (click it to enlarge; the form
 stays beside it) with the form below the two engines' readings. Fix what is

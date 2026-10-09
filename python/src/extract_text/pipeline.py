@@ -507,7 +507,11 @@ def write_review(out_dir, n=30, seed=SAMPLE_SEED, flagged_first=True, graders=Fa
     more than once and `extract-text agree` can measure how often graders
     agree. `rows` builds a page of just those document numbers, for
     settling the documents graders disagreed on; it shows every answer saved
-    so far and leaves the page's sample record alone."""
+    so far and leaves the page's sample record alone. With `graders` too it
+    is a graders' page of just those documents instead: each save records
+    the grader's name, and no other answer is shown, so a chosen set (say,
+    the documents one person has already graded) can be graded again
+    blind."""
     out = Path(out_dir)
     rev = out / "review"
     rev.mkdir(parents=True, exist_ok=True)
@@ -708,7 +712,7 @@ def write_review(out_dir, n=30, seed=SAMPLE_SEED, flagged_first=True, graders=Fa
 {''.join(cells)}
 <script>
 const GRADERS = {'true' if graders else 'false'};
-const SETTLE = {'true' if rows else 'false'};
+const SETTLE = {'true' if rows and not graders else 'false'};
 const FIELDS = ["plaintiff", "street", "unit", "city", "state", "zip",
                 "attorney_firm", "attorney_address", "note"];
 const LISTS = ["defendants", "attorneys"];

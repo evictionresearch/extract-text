@@ -98,7 +98,10 @@ def _row_list(value):
 def cmd_review(args):
     from .pipeline import write_review
 
-    if args.rows:
+    if args.rows and args.graders:
+        page = write_review(args.out, seed=args.seed, graders=True, attorneys=args.attorneys,
+                            order=args.order, overlap=args.overlap, rows=args.rows)
+    elif args.rows:
         page = write_review(args.out, seed=args.seed, attorneys="all", rows=args.rows)
     elif args.graders:
         page = write_review(args.out, seed=args.seed, graders=True, attorneys=args.attorneys,
@@ -225,7 +228,8 @@ def main(argv=None):
                         "for every grader, so `extract-text agree` can compare their answers")
     a.add_argument("--rows", type=_row_list, default=None, metavar="N,N,...",
                    help="a page of just these document numbers, showing every grader's "
-                        "answer, for settling disagreements")
+                        "answer, for settling disagreements; with --graders, a blind "
+                        "graders' page of just these documents that records each name")
     a.add_argument("--attorneys", type=_count_or_all, default=0, metavar="N",
                    help="also ask for the plaintiff's attorney on N documents drawn at "
                         "random (the same documents for every grader of a folder), or 'all'")

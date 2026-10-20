@@ -628,7 +628,7 @@ masked address block beside each address error, so the next round of
 corrections will show what those blocks held.
 
 The measured effect on the 30 documents is in the project's issue tracker
-(#20) once Tim re-scans and re-scores; nothing here was verified on real
+(#17) once Tim re-scans and re-scores; nothing here was verified on real
 records inside a session, by design.
 
 ## Case files: the first slice of case context (2026-10-02)
@@ -747,6 +747,14 @@ anything quoted in a comment there must be invented, and a reviewer
 should read those comments on every release. Second, the whitelist's
 own comments must say where a value came from; "from the docs" was not
 an answer.
+
+The issues moved to the new repository the same evening and were
+renumbered, because the old tracker had three pull requests (#7, #13,
+#15) in its sequence and the new one starts clean: old #1 to #6 kept
+their numbers, old #8 to #12 became #7 to #11, old #14 became #12, and
+old #16 to #36 became #13 to #33 (subtract three). Issue numbers in this
+file and in the hq notes dated before 2026-10-20 are the old ones unless
+marked.
 
 ## Other reasons extraction fails
 

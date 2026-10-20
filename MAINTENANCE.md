@@ -725,6 +725,29 @@ attorney address is compared as its raw block, which can include the firm's
 name, so it can count as different from a correct typed address. Comparing
 the engine's parsed address parts would remove that.
 
+## History rewritten before publication (2026-10-20)
+
+A pre-publication audit found five example values in the rule file's
+comments and docstrings, and in the tests and documentation that quote
+them, that the PII sweep never triaged because it skips the rule files by
+design. Tim judged them to be real: a case number, a house number and
+street from a rating card, and three addresses used to document the
+premises anchor and the OCR repair. All were replaced with the synthetic
+values on the sweep's whitelist, and because they dated from the first
+commits, the replacement was made across the whole history with
+`git filter-repo` in a fresh clone, which also left behind the orphaned
+commits from the 2026-10-01 force-push. The rewritten history was pushed
+to a new repository under the same name; the old one was renamed
+`extract-text-vintage` and kept private. Checks on the result: a
+history-wide search for every replaced token finds nothing, the fixture
+binaries are byte-identical, the sweep is clean, and the 170 tests pass.
+
+Two lessons for the sweep. First, the rule-file skip is a blind spot:
+anything quoted in a comment there must be invented, and a reviewer
+should read those comments on every release. Second, the whitelist's
+own comments must say where a value came from; "from the docs" was not
+an answer.
+
 ## Other reasons extraction fails
 
 Reading the failures rather than counting them changed what looks worth

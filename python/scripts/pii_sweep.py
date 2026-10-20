@@ -57,12 +57,12 @@ SYNTHETIC_WHITELIST = [
     "SEATTLE, WA 98111",           # regression-test probe city line
     "PUYALLUP, WA 98374",          # OCR-repair regression probe city line
     "9876 SAMPLE AVE",             # direction-boundary regression probe
-    "1234 Example Ave",             # pattern documentation example (from the docs)
+    "1234 Example Ave",             # anchor-B docstring example, synthetic (replaced 2026-10-20)
     "1234 Example Avenue",
     "1234 115th St Ct",
     "123 4th Street",              # the Cityscape rail-failure illustration
     "123 4th street",
-    "L234 EXAMPLE ST",              # OCR-repair documentation example
+    "L234 EXAMPLE ST",              # OCR-repair documentation example, synthetic (replaced 2026-10-20)
     "1234 Example",
     "Sampleton, WA 98100",         # invented city used in the card tests
     "100 SAMPLE STREET",           # invented attorney office, attorney-grading test

@@ -6,16 +6,18 @@
         --model BASE_WEIGHTS [--adapter ADAPTER_DIR] --label tuned
 
 `scan` scores the AI engine's reading saved in the round's scan (the
-original prompt), `ollama` runs the graders'-format prompt through Ollama,
-and `mlx` runs it in this process through mlx-vlm, with or without a LoRA
-adapter, so a fine-tuned model is scored without any server. The rows are
+original prompt), `ollama` runs the engine's default prompt (the graders'
+format, with the case number) through Ollama, and `mlx` runs the prompt the
+fine-tune was trained with in this process through mlx-vlm, with or without
+a LoRA adapter, so a fine-tuned model is scored without any server. The rows are
 the `test` list in RUN_DIR/data/split.json, which the exporter wrote and
 training never saw.
 
 Each engine's readings are saved to RUN_DIR/eval/LABEL.jsonl, in governed
 storage, since they hold names and addresses. What is printed is the
-share of fields right, the way `extract-text score` counts it, and nothing
-from a record.
+share of fields right, the way `extract-text score` counts it, how each
+firm miss happened, how often the case number matches the rules engine's
+in the scan, and nothing from a record.
 """
 
 from __future__ import annotations
@@ -27,12 +29,13 @@ import time
 from collections import Counter
 from pathlib import Path
 
-from extract_text.ai.vision import LocalVisionBackend
+from extract_text.ai.vision import LISTS_PROMPT, LocalVisionBackend
 from extract_text.corrections import _sha256, load_corrections
 from extract_text.documents import render_page
 from extract_text.finetune import clean_target
-from extract_text.pipeline import ai_reading, read_scan
-from extract_text.score import FIELDS, _names_wrong, compare
+from extract_text.parties import _party_key
+from extract_text.pipeline import ai_reading, case_key, read_scan
+from extract_text.score import FIELDS, _names_wrong, _squash, compare
 
 
 def reading_of(x) -> dict:
@@ -52,7 +55,21 @@ def reading_of(x) -> dict:
         "attorneys": people, "attorney_firm": firm,
         "attorney_address": (att.address.raw if att and att.address else "") or "",
         "attorney_lines": [*people, *([firm] if firm else [])],
+        "case_number": r.case_number or "",
     }
+
+
+def firm_miss(truth: dict, reading: dict) -> str:
+    """How a round-1 firm miss happened, in words that carry no value."""
+    want, got = truth.get("attorney_firm", ""), reading.get("attorney_firm", "")
+    people = reading.get("attorneys") or []
+    if _squash(want) and any(_party_key(want) == _party_key(n) for n in people):
+        return "firm read as a person"
+    if _squash(got) and any(_party_key(got) == _party_key(n) for n in truth.get("attorneys") or []):
+        return "a person read as the firm"
+    if not _squash(got):
+        return "no firm line" if people else "no attorney block"
+    return "another firm line"
 
 
 class MLXBackend(LocalVisionBackend):
@@ -61,7 +78,7 @@ class MLXBackend(LocalVisionBackend):
     name = "mlx-vision"
 
     def __init__(self, model_path: str, adapter: str | None, label: str):
-        super().__init__(model=label, prompt_format="lists")
+        super().__init__(model=label, prompt_format="lists", prompt=LISTS_PROMPT)
         from mlx_vlm import load
 
         self._resolved = label
@@ -108,11 +125,12 @@ def main(argv=None):
         backend = LocalVisionBackend(model=a.model, prompt_format="lists")
     elif a.engine == "mlx":
         backend = MLXBackend(a.model, a.adapter, label)
-    if a.engine == "scan":
-        rows, details = read_scan(scan)
+    rows, details = read_scan(scan)
 
     tallies = {f: Counter() for f in (*FIELDS, "attorney_lines")}
     flags = Counter()
+    firm_misses = Counter()
+    case = Counter()
     started = time.time()
     with open(run / "eval" / f"{label}.jsonl", "w") as saved:
         for i, r in enumerate(test, 1):
@@ -138,6 +156,12 @@ def main(argv=None):
                 reading = reading_of(x)
             saved.write(json.dumps({"row": r, "reading": reading}, ensure_ascii=False) + "\n")
             wrong = compare(truth, reading)
+            if "attorneys" in truth and "attorney_firm" in truth and wrong.get("attorney_firm"):
+                firm_misses[firm_miss(truth, reading)] += 1
+            rules_case = case_key(rows[r - 1].get("case_number"))
+            if rules_case and "case_number" in reading:
+                case["n"] += 1
+                case["agree"] += case_key(reading["case_number"]) == rules_case
             for field in FIELDS:
                 if field.startswith("attorney") and "attorneys" not in truth:
                     continue
@@ -168,6 +192,12 @@ def main(argv=None):
                          f"{100 * t['right'] / t['n']:5.1f}%  "
                          f"{100 * (t['right'] + t['near']) / t['n']:5.1f}%"
                          + (f"   wrong: {kinds}" if kinds else ""))
+    if case["n"]:
+        lines.append(f"  case_number      {case['agree']:>3} of {case['n']:<3}"
+                     f"{100 * case['agree'] / case['n']:5.1f}%  agree with the rules engine")
+    if firm_misses:
+        lines.append("  attorney_firm misses: "
+                     + ", ".join(f"{n} {k}" for k, n in firm_misses.most_common()))
     if flags:
         lines.append("  flags: " + ", ".join(f"{n} {k}" for k, n in flags.most_common()))
     text = "\n".join(lines)

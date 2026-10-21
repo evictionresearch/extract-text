@@ -187,6 +187,14 @@ def _ai_columns(ai: Extraction | None) -> dict:
     }
 
 
+def case_key(case_number: str | None) -> str:
+    """A case number for comparison: no spaces, and without the county code
+    a page prints after it ("... SEA"), which the AI engine reads and the
+    rules engine does not."""
+    key = re.sub(r"\s+", "", case_number or "").upper()
+    return re.sub(r"(?<=\d)[-.]?[A-Z]{2,4}$", "", key)
+
+
 def _cross_check(row: dict, det: Extraction, ai: Extraction) -> dict:
     """Compare the two engines' answers and add agreement columns + flags."""
     det_addr = det.record.defendant_address.raw if det.record.defendant_address else None
@@ -205,7 +213,7 @@ def _cross_check(row: dict, det: Extraction, ai: Extraction) -> dict:
     ai_case = ai.record.case_number
     case_agree = ""
     if det_case and ai_case:
-        case_agree = det_case.replace(" ", "") == ai_case.replace(" ", "")
+        case_agree = case_key(det_case) == case_key(ai_case)
         if case_agree is False:
             extra_flags.append("engines_disagree_case_number")
 
@@ -321,6 +329,7 @@ def scan(
     engine: str = "deterministic",
     out_dir=None,
     model: str | None = None,
+    prompt_format: str = "lists",
     limit: int = 0,
     sample: int = 0,
     seed: int = SAMPLE_SEED,
@@ -331,7 +340,8 @@ def scan(
 ):
     """Extract every document under `inputs`. Returns the list of row dicts.
 
-    `engine` is 'deterministic', 'ai', or 'both'. When `write` is true (the
+    `engine` is 'deterministic', 'ai', or 'both'. `prompt_format` picks the
+    AI engine's prompt: 'lists' (the default) or 'v1', the original. When `write` is true (the
     default) and `out_dir` is given, extracted.csv, extracted.jsonl, and the
     review inputs are written there; parquet too when pyarrow is installed
     (set `parquet=False` to skip it, `parquet=True` to require it).
@@ -355,7 +365,8 @@ def scan(
     if engine in ("ai", "both"):
         from .ai.vision import DEFAULT_VISION_MODEL, LocalVisionBackend
 
-        vision = LocalVisionBackend(model=model or DEFAULT_VISION_MODEL)
+        vision = LocalVisionBackend(model=model or DEFAULT_VISION_MODEL,
+                                    prompt_format=prompt_format)
 
     rows, details, n_err = [], [], 0
     bar = _Progress(len(files), enabled=progress)
@@ -1148,12 +1159,14 @@ def ai_reading(detail: dict) -> dict | None:
         "city": addr.get("city") or "",
         "state": addr.get("state") or "",
         "zip": addr.get("zip") or "",
-        # no attorneys: the AI engine's prompt asks for the firm and its
-        # address and, by design, not the person who signed (ai/vision.py)
         "attorney_firm": att.get("firm") or "",
         "attorney_address": _one_line((att.get("address") or {}).get("raw") or ""),
         "address_unsplit": False,
     }
+    if att.get("names"):
+        # the graders'-format prompt reads the attorneys' names; the original
+        # asks for the firm and its address only, so its readings carry none
+        reading["attorneys"] = _split_names(att["names"])
     if not reading["street"] and addr.get("raw"):
         reading["street"] = addr["raw"]
         reading["address_unsplit"] = True

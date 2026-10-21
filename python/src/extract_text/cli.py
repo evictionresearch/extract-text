@@ -34,7 +34,8 @@ def cmd_doctor(args):
 def cmd_extract(args):
     from . import extract
 
-    result = extract(args.file, engine=args.engine, model=args.model)
+    result = extract(args.file, engine=args.engine, model=args.model,
+                     prompt_format=args.prompt)
     if args.engine == "both":
         payload = {
             "deterministic": result.deterministic.model_dump(mode="json"),
@@ -57,6 +58,7 @@ def cmd_scan(args):
         engine=args.engine,
         out_dir=args.out,
         model=args.model,
+        prompt_format=args.prompt,
         limit=args.limit,
         sample=args.sample,
         seed=args.seed,
@@ -190,6 +192,8 @@ def main(argv=None):
     a.add_argument("--engine", choices=("deterministic", "ai", "both"),
                    default="deterministic")
     a.add_argument("--model", default=None, help="AI model tag (default qwen3.5:9b)")
+    a.add_argument("--prompt", choices=("lists", "v1"), default="lists",
+                   help="AI engine prompt: lists (default) or v1, the original")
     a.set_defaults(fn=cmd_extract)
 
     a = sub.add_parser("scan", help="extract a folder of documents into a table")
@@ -198,6 +202,8 @@ def main(argv=None):
     a.add_argument("--engine", choices=("deterministic", "ai", "both"),
                    default="deterministic")
     a.add_argument("--model", default=None, help="AI model tag (default qwen3.5:9b)")
+    a.add_argument("--prompt", choices=("lists", "v1"), default="lists",
+                   help="AI engine prompt: lists (default) or v1, the original")
     a.add_argument("--limit", type=int, default=0, help="scan only the first N")
     a.add_argument("--sample", type=int, default=0, metavar="N",
                    help="scan N documents drawn at random from everything found")

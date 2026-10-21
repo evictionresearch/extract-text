@@ -105,6 +105,7 @@ def extract_ai(source, backend: str = "local", **kwargs) -> Extraction:
 
             source_text = kwargs.pop("source_text", None)
             return LocalVisionBackend(**kwargs).extract_file(source, source_text=source_text)
+        kwargs.pop("prompt_format", None)  # a vision prompt; the text model has its own
         from .ai.local_backend import LocalBackend
 
         return LocalBackend(**kwargs).extract(source)
@@ -147,24 +148,26 @@ class DualResult:
         return self.comparison.needs_review
 
 
-def extract(source, engine: str = "deterministic", model: str | None = None, **kwargs):
+def extract(source, engine: str = "deterministic", model: str | None = None,
+            prompt_format: str = "lists", **kwargs):
     """Extract one document. The simplest entry point.
 
     engine='deterministic' (default) returns an `Extraction` from rules
     alone. engine='ai' returns an `Extraction` from the local model.
     engine='both' runs the two and returns a `DualResult` whose
-    `.comparison` says where they disagree.
+    `.comparison` says where they disagree. `prompt_format` picks the AI
+    engine's prompt, 'lists' (the default) or 'v1', the original.
     """
     if engine == "deterministic":
         return extract_deterministic(source, **kwargs)
     if engine == "ai":
-        ai_kwargs = dict(kwargs)
+        ai_kwargs = {**kwargs, "prompt_format": prompt_format}
         if model:
             ai_kwargs["model"] = model
         return extract_ai(source, backend="local", **ai_kwargs)
     if engine == "both":
         det = extract_deterministic(source, **kwargs)
-        ai_kwargs = {"model": model} if model else {}
+        ai_kwargs = {"prompt_format": prompt_format, **({"model": model} if model else {})}
         if _is_path(source):
             # ground the model's quotes against the text the rules assembled
             from .documents import load_document

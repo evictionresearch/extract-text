@@ -441,7 +441,8 @@ def test_attorney_block_is_on_the_form_and_scored(tmp_path):
     c = build_correction(1, {"truth": truth}, rows, details, tmp_path)
     assert c["truth"]["attorneys"] == ["SAM EXAMPLE"]
     assert c["changed_fields"] == ["plaintiff", "unit", "attorney_firm", "attorney_address"]
-    assert "attorneys" not in c["ai"]["changed_fields"]   # the AI engine does not read names
+    # the graders'-format prompt reads the names, so the AI engine's two are scored
+    assert "attorneys" in c["ai"]["changed_fields"]
     with open(tmp_path / "corrections.jsonl", "a") as f:
         f.write(json.dumps(c) + "\n")
     text = report(tmp_path, shapes=True)
@@ -449,7 +450,7 @@ def test_attorney_block_is_on_the_form_and_scored(tmp_path):
     assert _re.search(r"attorney_firm +0\.0% +100\.0% of +1 .*1 near", text)
     assert _re.search(r"attorney_address +0\.0% +100\.0% of +1 .*1 near", text)
     ai_part = text.split("ai engine", 1)[1]
-    assert "attorney_firm" in ai_part and not _re.search(r"^  attorneys ", ai_part, _re.M)
+    assert "attorney_firm" in ai_part and _re.search(r"^  attorneys ", ai_part, _re.M)
     for word in ("EXAMPLE", "SAMPLE", "Sampleton"):
         assert word not in text
 
@@ -461,7 +462,7 @@ def test_attorney_block_is_on_the_form_and_scored(tmp_path):
     c = build_correction(1, {"truth": truth}, rows, details, tmp_path)
     assert "attorney_firm" not in c["truth"]
     assert c["changed_fields"] == ["plaintiff", "unit", "attorneys", "attorney_address"]
-    assert "attorneys" not in c["ai"]["changed_fields"]   # the AI engine reads only the firm
+    assert "attorneys" in c["ai"]["changed_fields"]   # its two names and firm against the box
     with open(tmp_path / "corrections.jsonl", "w") as f:
         f.write(json.dumps(c) + "\n")
     text = report(tmp_path, shapes=True)
@@ -469,7 +470,7 @@ def test_attorney_block_is_on_the_form_and_scored(tmp_path):
     assert _re.search(r"attorney_firm +0\.0% +100\.0% of +1 .*1 near", text)
     ai_part = text.split("ai engine", 1)[1]
     assert _re.search(r"attorney_firm +0\.0% +100\.0% of +1", ai_part)
-    assert not _re.search(r"^  attorneys ", ai_part, _re.M)
+    assert _re.search(r"^  attorneys ", ai_part, _re.M)
     from extract_text.score import compare
     assert "attorney_firm" not in compare(truth, {**truth, "attorney_firm": "SAM EXAMPLE"})
     assert compare(truth, {**truth, "attorney_firm": "OTHER FIRM LLP"})["attorney_firm"] == "different"
@@ -719,3 +720,17 @@ def test_agreement_report_counts_masks_and_merges_once(tmp_path):
     assert "april (3 documents)" in text and "documents)" not in text.split("araina (3 documents)")[1]
     assert "1 of the documents with disagreements are settled." in text
     assert "None is left to settle." in text and "--rows" not in text
+
+
+@pytest.mark.parametrize("a, b, same", [
+    ("25-2-00001-0", "25-2-00001-0 SEA", True),
+    ("25-2-00001-0", "25-2-00001-0.KNT", True),
+    ("25-2-00001-0", "25-2-00001-0SEA", True),
+    ("25-2-00001-0", "25 -2-00001-0", True),
+    ("25-2-00001-0", "25-2-00002-0 SEA", False),
+    ("25-2-00001-", "25-2-00001-0 SEA", False),
+])
+def test_case_numbers_compare_without_the_county_code(a, b, same):
+    from extract_text.pipeline import case_key
+
+    assert (case_key(a) == case_key(b)) is same

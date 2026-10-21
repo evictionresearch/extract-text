@@ -114,6 +114,12 @@ _LISTS_ATTORNEYS = """
 	4.	attorneys — The plaintiff's attorney signature block, usually at the bottom right: every attorney's name and the firm or office name, one entry each, without "Attorney for Plaintiff" or the bar number. Empty if the plaintiff signed for itself.
 	5.	attorney_address — That block's address on one line, as printed (street, suite, city, state, ZIP), without the phone number."""
 
+# the engine asks for the case number as the original prompt did, so batch
+# runs keep their cross-check against the docket; the graders never label
+# it, so training rows are shown the prompt without it
+_LISTS_CASE = """
+	{n}.	case_number — The case number, usually in or near the caption in the upper part of the page, labeled "Case No." or similar, as printed."""
+
 _LISTS_RULES = """
 
 Rules:
@@ -133,20 +139,59 @@ _LISTS_SHAPE = {
 _LISTS_SHAPE_ATTORNEYS = {"attorneys": [], "attorney_address": ""}
 
 
-def lists_prompt(attorneys: bool = True) -> str:
-    """The graders'-format prompt, with or without the attorney items."""
-    shape = {**_LISTS_SHAPE, **(_LISTS_SHAPE_ATTORNEYS if attorneys else {})}
-    return (_LISTS_HEAD + (_LISTS_ATTORNEYS if attorneys else "") + _LISTS_RULES
+def lists_prompt(attorneys: bool = True, case_number: bool = False) -> str:
+    """The graders'-format prompt, with or without the attorney items, and
+    with the case number item when asked."""
+    shape = {**_LISTS_SHAPE, **(_LISTS_SHAPE_ATTORNEYS if attorneys else {}),
+             **({"case_number": ""} if case_number else {})}
+    case = _LISTS_CASE.format(n=6 if attorneys else 4) if case_number else ""
+    return (_LISTS_HEAD + (_LISTS_ATTORNEYS if attorneys else "") + case + _LISTS_RULES
             + json.dumps(shape, indent=2) + "\n")
 
 
+# the prompt the 2026-10-20 fine-tune was trained and scored with; a tuned
+# model is run with this one, since it is what the model learned to answer
 LISTS_PROMPT = lists_prompt()
+# the engine's default since 2026-10-21: the same, plus the case number
+LISTS_ENGINE_PROMPT = lists_prompt(case_number=True)
 LISTS_FIELDS = ("plaintiffs", "defendants", "defendant_address", "attorneys",
                 "attorney_address")
 
-# a line of the attorney box that names the office rather than a person
-_FIRM_RE = re.compile(r"\b(?:Law|Legal|Offices?|Attorneys?|PLLC|P\.?L\.?L\.?C\.?|"
+# a line of the attorney box that names the office rather than a person.
+# "Attorney at Law" is weaker evidence than the rest: a solo attorney's line
+# carries it, so it marks the firm only when no line reads as an office
+_FIRM_RE = re.compile(r"\b(?:Law|Legal|Offices?|PLLC|P\.?L\.?L\.?C\.?|"
                       r"P\.?S\.?|P\.?C\.?)(?:\W|$)", re.IGNORECASE)
+_FIRM_WEAK_RE = re.compile(r"\bAttorneys?(?:\s+at\s+Law)?\b", re.IGNORECASE)
+# what GRADING.md keeps out of the box, which an untuned model often leaves
+# in: the role line and the bar number
+_ROLE_RE = re.compile(
+    r"[\s,;]*(?:\bAttorneys?\s+for\s+(?:the\s+)?Plaintiffs?\b[^,;]*"
+    r"|\b(?:WSBA|OSBA?|Bar)\s*(?:No\.?|Number|#)?\s*#?\s*\d+)",
+    re.IGNORECASE)
+
+# a state written out, as an untuned model writes it, to the postal code the
+# graders and the rules engine use
+_STATE_CODES = dict(pair.replace("_", " ").split("=") for pair in (
+    "ALABAMA=AL ALASKA=AK ARIZONA=AZ ARKANSAS=AR CALIFORNIA=CA COLORADO=CO "
+    "CONNECTICUT=CT DELAWARE=DE FLORIDA=FL GEORGIA=GA HAWAII=HI IDAHO=ID "
+    "ILLINOIS=IL INDIANA=IN IOWA=IA KANSAS=KS KENTUCKY=KY LOUISIANA=LA MAINE=ME "
+    "MARYLAND=MD MASSACHUSETTS=MA MICHIGAN=MI MINNESOTA=MN MISSISSIPPI=MS "
+    "MISSOURI=MO MONTANA=MT NEBRASKA=NE NEVADA=NV NEW_HAMPSHIRE=NH NEW_JERSEY=NJ "
+    "NEW_MEXICO=NM NEW_YORK=NY NORTH_CAROLINA=NC NORTH_DAKOTA=ND OHIO=OH "
+    "OKLAHOMA=OK OREGON=OR PENNSYLVANIA=PA RHODE_ISLAND=RI SOUTH_CAROLINA=SC "
+    "SOUTH_DAKOTA=SD TENNESSEE=TN TEXAS=TX UTAH=UT VERMONT=VT VIRGINIA=VA "
+    "WASHINGTON=WA WASH=WA WEST_VIRGINIA=WV WISCONSIN=WI WYOMING=WY "
+    "DISTRICT_OF_COLUMBIA=DC"
+).split())
+
+
+def _state_code(state: str | None) -> str | None:
+    """A written-out state as its postal code; anything else as it came."""
+    if not state:
+        return state
+    key = re.sub(r"[\s.]+", " ", state).strip().upper()
+    return _STATE_CODES.get(key, state)
 
 
 def parse_llm_json_best_effort(content):
@@ -308,6 +353,7 @@ def _address_parts(addr) -> Address | None:
         parts = {k: _clean(addr.get(k)) for k in keys}
         if not any(parts.values()):
             return None
+        parts["state"] = _state_code(parts["state"])
         street = " ".join(v for v in (parts["street"], parts["unit"]) if v)
         tail = " ".join(v for v in (parts["state"], parts["zip"]) if v)
         raw = ", ".join(v for v in (street, parts["city"], tail) if v)
@@ -318,7 +364,31 @@ def _address_parts(addr) -> Address | None:
     parsed = parse_address(raw)
     if not parsed:
         return Address(raw=raw)
-    return Address(raw=raw, **{k: parsed[k] or None for k in keys})
+    parts = {k: parsed[k] or None for k in keys}
+    parts["state"] = _state_code(parts["state"])
+    return Address(raw=raw, **parts)
+
+
+def _attorney_lines(value) -> list[str]:
+    """The attorney box's lines without the role line or bar numbers."""
+    lines = []
+    for line in _clean_list(value):
+        line = _ROLE_RE.sub("", line).strip(" ,;")
+        if line and line not in lines:
+            lines.append(line)
+    return lines
+
+
+def _pick_firm(lines: list[str]) -> str | None:
+    """The line that names the office: the first that reads as one, else
+    the first "Attorney at Law" line, else none."""
+    from ..deterministic.patterns import BUSINESS_MARKERS
+
+    for line in lines:
+        office = _FIRM_WEAK_RE.sub("", line)
+        if _FIRM_RE.search(office) or BUSINESS_MARKERS.search(office):
+            return line
+    return next((line for line in lines if _FIRM_WEAK_RE.search(line)), None)
 
 
 def list_fields_to_record(fields: dict) -> CourtRecord:
@@ -343,21 +413,24 @@ def list_fields_to_record(fields: dict) -> CourtRecord:
     ]
 
     attorney = None
-    lines = _clean_list(fields.get("attorneys"))
+    lines = _attorney_lines(fields.get("attorneys"))
     office = fields.get("attorney_address")
     office = _clean(office) if isinstance(office, str) else None
     if lines or office:
         # one box holds attorneys and firm together, as the graders enter it;
-        # the firm is the line that reads as an office, the rest are people
-        firms = [n for n in lines if _FIRM_RE.search(n) or BUSINESS_MARKERS.search(n)]
-        people = [n for n in lines if n not in firms]
+        # the firm is the line that reads most as an office, and every other
+        # line stays with the people, so no line of the box is lost
+        firm = _pick_firm(lines)
+        people = [n for n in lines if n != firm]
         attorney = Attorney(
             names="; ".join(people) or None,
-            firm=firms[0] if firms else None,
+            firm=firm,
             address=Address(raw=office) if office else None,
         )
 
+    case_number = fields.get("case_number")
     return CourtRecord(
+        case_number=_clean(case_number) if isinstance(case_number, str) else None,
         plaintiffs=plaintiffs,
         defendants=defendants,
         defendant_address=defendant_address,
@@ -404,6 +477,13 @@ class LocalVisionBackend:
 
     name = "local-vision"
 
+    @property
+    def backend_label(self) -> str:
+        """What a row records as its backend: the engine, the prompt when
+        it is not the original one, and the model tag."""
+        lane = self.name if self.prompt_format == "v1" else f"{self.name}-{self.prompt_format}"
+        return f"{lane}:{self.resolved_model}"
+
     def __init__(
         self,
         model: str = DEFAULT_VISION_MODEL,
@@ -414,15 +494,17 @@ class LocalVisionBackend:
         page: int = 1,
         dpi: int = 150,
         prompt: str | None = None,
-        prompt_format: str = "v1",
+        prompt_format: str = "lists",
     ) -> None:
-        # "v1" is Cheng Ren's benchmarked prompt; "lists" the graders'
-        # format, which a model fine-tuned on their labels is run with
+        # "lists" is the graders' format, the default since 2026-10-21 (on
+        # the random 30 of grading round 1 it read defendants right on 26 or
+        # 27 documents against 20; MAINTENANCE.md). "v1" is Cheng Ren's
+        # benchmarked prompt, kept so earlier runs can be reproduced.
         if prompt_format not in ("v1", "lists"):
             raise ValueError(f"prompt_format must be 'v1' or 'lists', not {prompt_format!r}")
         self.prompt_format = prompt_format
         if prompt is None:
-            prompt = LISTS_PROMPT if prompt_format == "lists" else VISION_PROMPT
+            prompt = LISTS_ENGINE_PROMPT if prompt_format == "lists" else VISION_PROMPT
         self.model = model
         self.host = (host or os.environ.get("OLLAMA_HOST") or DEFAULT_HOST).rstrip("/")
         self.timeout = timeout
@@ -530,7 +612,7 @@ class LocalVisionBackend:
         return Extraction(
             record=record,
             method="ai",
-            backend=f"{self.name}:{self.resolved_model}",
+            backend=self.backend_label,
             evidence=evidence,
             flags=flags,
             document=DocumentInfo(file=os.path.basename(str(image_path))),
@@ -573,7 +655,7 @@ class LocalVisionBackend:
         return Extraction(
             record=record,
             method="ai",
-            backend=f"{self.name}:{self.resolved_model}",
+            backend=self.backend_label,
             evidence=evidence,
             flags=flags,
             document=DocumentInfo(file=os.path.basename(str(image_path))),
@@ -608,6 +690,9 @@ class OpenAIVisionBackend(LocalVisionBackend):
         host = (host or os.environ.get("EXTRACT_TEXT_OPENAI_HOST") or DEFAULT_OPENAI_HOST)
         if not re.match(r"^https?://(?:127\.0\.0\.1|localhost|\[::1\])(?::\d+)?/?$", host):
             raise ValueError(f"OpenAI-style host must be this machine, not {host}")
+        if kwargs.get("prompt") is None and kwargs.get("prompt_format", "lists") == "lists":
+            # a tuned model is asked what it was trained on
+            kwargs["prompt"] = LISTS_PROMPT
         super().__init__(model=model, host=host, **kwargs)
 
     @property

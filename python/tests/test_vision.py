@@ -146,7 +146,7 @@ def test_live_local_model_reads_the_synthetic_page():
     backend = LocalVisionBackend(model=model)
     x = backend.extract_image(FIXTURES / "synthetic_summons_page1.png")
     assert x.method == "ai"
-    assert x.backend.startswith("local-vision:")
+    assert x.backend.startswith("local-vision-lists:")
     # a competent vision model must at least return the defendant's street
     addr = x.record.defendant_address
     assert addr is not None and "EXAMPLE" in addr.raw.upper()

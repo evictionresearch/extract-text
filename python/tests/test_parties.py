@@ -45,20 +45,29 @@ def test_shared_surname_is_not_a_match():
 
 
 def test_ai_engine_drops_the_plaintiff_from_defendants(tmp_path):
-    reply = json.dumps({
-        "plaintiff": "EXAMPLE RIDGE APARTMENTS LLC",
-        "defendant": "PAT EXAMPLE and EXAMPLE RIDGE APARTMENTS",
-        "address": "1234 EXAMPLE AVE S APT 5, SEATTLE, WA 98100",
-        "law_firm": "", "law_firm_address": "", "case_number": "25-2-00001-0",
-    })
-    backend = LocalVisionBackend()
-    backend._resolved = "fake:1"
-    backend._chat = lambda b64: reply
+    replies = {
+        "v1": {
+            "plaintiff": "EXAMPLE RIDGE APARTMENTS LLC",
+            "defendant": "PAT EXAMPLE and EXAMPLE RIDGE APARTMENTS",
+            "address": "1234 EXAMPLE AVE S APT 5, SEATTLE, WA 98100",
+            "law_firm": "", "law_firm_address": "", "case_number": "25-2-00001-0",
+        },
+        "lists": {
+            "plaintiffs": ["EXAMPLE RIDGE APARTMENTS LLC"],
+            "defendants": ["PAT EXAMPLE", "EXAMPLE RIDGE APARTMENTS"],
+            "defendant_address": {"street": "1234 EXAMPLE AVE S", "unit": "APT 5",
+                                  "city": "SEATTLE", "state": "WA", "zip": "98100"},
+        },
+    }
     page = tmp_path / "page.png"
     page.write_bytes(b"not really an image; the fake model never looks")
-    x = backend.extract_image(page)
-    assert [p.name for p in x.record.defendants] == ["PAT EXAMPLE"]
-    assert "defendant_matches_plaintiff" in x.flags
+    for prompt_format, reply in replies.items():
+        backend = LocalVisionBackend(prompt_format=prompt_format)
+        backend._resolved = "fake:1"
+        backend._chat = lambda b64, reply=reply: json.dumps(reply)
+        x = backend.extract_image(page)
+        assert [p.name for p in x.record.defendants] == ["PAT EXAMPLE"]
+        assert "defendant_matches_plaintiff" in x.flags
 
 
 def test_names_are_cleaned_and_listed_names_split():

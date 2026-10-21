@@ -13,6 +13,7 @@ from .base import SYSTEM_PROMPT, ExtractionBackend, ground
 from .local_backend import LocalBackend
 from .vision import (
     DEFAULT_VISION_MODEL,
+    LISTS_ENGINE_PROMPT,
     LISTS_PROMPT,
     VISION_PROMPT,
     LocalVisionBackend,
@@ -26,6 +27,7 @@ if TYPE_CHECKING:  # pragma: no cover
 
 __all__ = [
     "DEFAULT_VISION_MODEL",
+    "LISTS_ENGINE_PROMPT",
     "LISTS_PROMPT",
     "SYSTEM_PROMPT",
     "VISION_PROMPT",

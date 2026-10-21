@@ -927,6 +927,7 @@ configuration. Change them knowingly.
 |---|---|---|---|
 | `engine` | every entry point | `deterministic` | `ai` or `both`, per section 2 |
 | `model` | AI calls, `--model` | `qwen3.5:9b` | A newer recommended model, or a larger one if you have the memory |
+| `prompt_format` | AI calls, `--prompt` | `lists` | `v1`, the original prompt, to reproduce a run made before 2026-10-21 |
 | `host` | AI backends, or the `OLLAMA_HOST` environment variable | `http://localhost:11434` | Ollama running on another port, or a shared machine inside your own network |
 | `temperature` | AI backends | `0.0` | Higher values make the model more variable; there is no good reason for that here |
 | `seed` | AI backends | `42` | Reproducibility bookkeeping |

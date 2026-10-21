@@ -122,7 +122,7 @@ def test_openai_backend_reads_a_local_server():
         server.shutdown()
     assert seen["chat_template_kwargs"] == {"enable_thinking": False}
     assert seen["messages"][0]["content"][1]["image_url"]["url"].startswith("data:image/png")
-    assert out.backend == "openai-vision:tuned"
+    assert out.backend == "openai-vision-lists:tuned"
     assert out.record.attorney.firm == "EXAMPLE LAW GROUP PLLC"
 
 
@@ -211,3 +211,58 @@ def test_export_writes_chat_rows_and_returns_only_counts(tmp_path):
     assert json.loads((out / "split.json").read_text())["test"] == [3]
     # the report is counts only: no value from a label anywhere in it
     assert "EXAMPLE" not in json.dumps(report)
+
+
+def test_the_engine_default_is_the_lists_prompt_with_the_case_number():
+    from extract_text.ai.vision import LISTS_ENGINE_PROMPT, VISION_PROMPT
+
+    assert LocalVisionBackend().prompt == LISTS_ENGINE_PROMPT
+    assert LocalVisionBackend(prompt_format="v1").prompt == VISION_PROMPT
+    assert '"case_number"' in LISTS_ENGINE_PROMPT
+    # the prompt the fine-tune was trained with is unchanged, and a tuned
+    # model served through the OpenAI-style lane is asked that one
+    assert '"case_number"' not in LISTS_PROMPT
+    assert LISTS_ENGINE_PROMPT.startswith(LISTS_PROMPT.split("\n\nRules:")[0])
+    assert OpenAIVisionBackend(model="m").prompt == LISTS_PROMPT
+    assert "\t4.\tcase_number" in lists_prompt(attorneys=False, case_number=True)
+    record = list_fields_to_record({**ANSWER, "case_number": "25-2-00001-0"})
+    assert record.case_number == "25-2-00001-0"
+    assert list_fields_to_record(ANSWER).case_number is None
+
+
+@pytest.mark.parametrize("state, code", [
+    ("Washington", "WA"), ("WASHINGTON", "WA"), ("Wash.", "WA"), ("wa", "wa"),
+    ("New York", "NY"), ("Oregon", "OR"), ("", None),
+])
+def test_a_written_out_state_becomes_its_postal_code(state, code):
+    addr = {**ANSWER["defendant_address"], "state": state}
+    record = list_fields_to_record({**ANSWER, "defendant_address": addr})
+    assert record.defendant_address.state == code
+
+
+def test_a_one_line_address_gets_the_postal_code_too():
+    record = list_fields_to_record(
+        {**ANSWER, "defendant_address": "1234 EXAMPLE AVE S, SEATTLE, Washington 98100"})
+    assert record.defendant_address.state == "WA"
+
+
+@pytest.mark.parametrize("lines, firm, people", [
+    # an office line beats a solo attorney's "Attorney at Law"
+    (["SAM EXAMPLE, Attorney at Law", "EXAMPLE LAW GROUP PLLC"],
+     "EXAMPLE LAW GROUP PLLC", ["SAM EXAMPLE, Attorney at Law"]),
+    # with no office line, the solo attorney's line is the firm
+    (["SAM EXAMPLE, Attorney at Law"], "SAM EXAMPLE, Attorney at Law", []),
+    # the role line and bar numbers are dropped, as GRADING.md asks
+    (["SAM EXAMPLE, WSBA #12345", "Attorneys for Plaintiff", "EXAMPLE & SAMPLE, P.S."],
+     "EXAMPLE & SAMPLE, P.S.", ["SAM EXAMPLE"]),
+    (["SAM EXAMPLE, WSBA No. 12345, Attorney for Plaintiff, EXAMPLE LAW PLLC"],
+     "SAM EXAMPLE, EXAMPLE LAW PLLC", []),
+    # a second office-looking line stays with the people, never dropped
+    (["EXAMPLE LAW PLLC", "SAMPLE LEGAL SERVICES", "SAM EXAMPLE"],
+     "EXAMPLE LAW PLLC", ["SAMPLE LEGAL SERVICES", "SAM EXAMPLE"]),
+    (["SAM EXAMPLE", "ROBIN SAMPLE"], None, ["SAM EXAMPLE", "ROBIN SAMPLE"]),
+])
+def test_the_firm_is_the_line_that_reads_most_as_an_office(lines, firm, people):
+    att = list_fields_to_record({**ANSWER, "attorneys": lines}).attorney
+    assert att.firm == firm
+    assert (att.names or "").split("; ") == (people or [""])

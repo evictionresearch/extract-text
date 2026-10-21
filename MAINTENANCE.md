@@ -834,6 +834,76 @@ second prompt in the graders' format, and the original stays the default.
   the backend refuses any host but this machine. Trained weights are
   identifiable derived data and stay in the governed tree.
 
+The overnight run (495 steps, three passes over the 165 rows) finished in
+about four hours at 32.1 GB peak memory, validation loss 0.052 at step 100
+and 0.031 at the end. Right of the random 30 (attorney fields of 8):
+
+| Field | Original engine | Lists prompt, untuned | Lists prompt, tuned |
+|---|---|---|---|
+| Defendants | 20 | 27 | 27 |
+| Plaintiff | 19 | 23 | 25 |
+| Street | 28 | 29 | 30 |
+| Unit | 26 | 26 | 27 |
+| City | 28 | 30 | 29 |
+| State | 28 | 18 | 30 |
+| Zip | 28 | 30 | 30 |
+| Attorney firm | 6 | 4 | 6 |
+| Attorney address | 7 | 5 | 7 |
+
+The untuned column is the same runtime as the tuned one without the
+adapter; through Ollama the untuned prompt had defendants right on 26. The
+defendants gain is the prompt's; training mostly taught format (the state
+as "WA", the firm line). Thirty documents is a small test.
+
+## The graders'-format prompt becomes the default (2026-10-21)
+
+Tim's decision, on the table above. `LocalVisionBackend`, `extract`,
+`scan`, and the CLI now default to `prompt_format="lists"`; `--prompt v1`
+(or `prompt_format="v1"`) runs the original, so a run made before this date
+can be reproduced. A row's `backend` records the prompt
+(`local-vision-lists:qwen3.5:9b`; the original's stays `local-vision:...`).
+Four changes came with it, all in `ai/vision.py`:
+
+- **The case number is asked again** (`LISTS_ENGINE_PROMPT`), as the
+  original prompt asked it, so a scan keeps its case number column and its
+  cross-check against the rules engine. The prompt the fine-tune was
+  trained with (`LISTS_PROMPT`) is unchanged, byte for byte, and is the one
+  a tuned model is run with (`OpenAIVisionBackend`, and the `mlx` lane of
+  `finetune_eval.py`).
+- **A written-out state becomes its postal code** ("Washington" to "WA"),
+  which the untuned model's 12 state misses of 30 were.
+- **The firm pick** prefers a line that reads as an office (Law, Legal,
+  Offices, PLLC, P.S., a business marker) over a solo attorney's "Attorney
+  at Law" line, strips the role line and bar numbers that `GRADING.md`
+  keeps out of the box, and keeps every line it does not pick with the
+  people. Before, a second office-looking line was dropped. Why the
+  untuned model missed 4 firms of 8 is not yet known; the scoring script
+  now sorts each miss (firm read as a person, a person read as the firm,
+  no firm line, another firm line).
+- **The AI reading carries the attorneys' names** (`ai_reading`), so the
+  review page can fill the attorney box from the AI engine and the scorer
+  scores its names. Readings from the original prompt have none and are
+  scored as before.
+
+Measured the same day on the random 30 through Ollama
+(`finetune_eval.py --engine ollama --label lists_default_2026-10-21`),
+against the lists prompt as scored the night before: state 30 of 30 (was
+18), defendants 26, plaintiff 23, street and unit 28, city and zip 30, all
+unchanged. The attorney firm stayed at 4 of 8: one answer had no attorney
+block, one had no firm line, one took a person for the firm, one another
+firm line. The tuned model has it right on 6, so the firm is a training
+fix more than a parsing one. The run took 834 s against 444 s the night
+before; why is not known.
+
+The case number came back on all 30 and agrees with the rules engine's on
+25 of the 27 where that engine read one; the two others are cut short or
+misread on the rules side. The model reads the county code the page
+prints after the number ("... SEA") and the rules engine drops it, so an
+exact comparison agreed on none, for the original prompt too. That made
+`engines_disagree_case_number` fire on nearly every both-engines scan.
+The cross-check now compares the number without the code (`case_key` in
+`pipeline.py`).
+
 ## Other reasons extraction fails
 
 Reading the failures rather than counting them changed what looks worth

@@ -607,8 +607,9 @@ answers into scores. The steps, in order:
    page holds just those documents, records each grader's name, and shows no
    other answer, so `agree` compares the graders with you.
 4. **Ask for the attorney on some documents.** `--attorneys N` adds the
-   plaintiff attorney's box (names one per line, firm, the address on one
-   line) to N documents drawn at random, the same ones for every grader;
+   plaintiff attorney's box (attorneys and firm together, one per line, and
+   the address on one line) to N documents drawn at random, the same ones
+   for every grader;
    `all` asks on every document, and without the option no document has it.
    A few dozen answers measure the attorney block, and asking on every
    document slows the whole round.
@@ -619,9 +620,9 @@ answers into scores. The steps, in order:
    those documents. For an accuracy round this matters: leftover answers on
    hard documents would leave an easier remainder. `GRADING.md` at the
    repository root is the graders' own step-by-step.
-6. **Bring the answers back.** Each grader returns a score report (counts
-   and masked shapes only) and their `corrections.jsonl`, renamed
-   `corrections_NAME.jsonl`, through the same restricted storage. Put the
+6. **Bring the answers back.** Each grader returns their
+   `corrections.jsonl`, renamed `corrections_NAME.jsonl`, through the same
+   restricted storage; the reports are made from it. Put the
    files in the scan folder, then run
    `extract-text agree --out DIR DIR/corrections_A.jsonl DIR/corrections_B.jsonl`.
    It reports, field by field, how often each pair of graders gave the same
@@ -632,16 +633,24 @@ answers into scores. The steps, in order:
    answers where two graders did the same document (a plain copy would keep
    only the last, silently). The report ends with
    `extract-text review --out DIR --rows 12,57 --serve`, which opens just
-   the documents to settle, with every grader's answer shown above each
-   form. The answer saved there is the one that counts. A later answer to a
-   document keeps the draw it came from, so settling never turns a random
-   draw into a flagged one.
+   the documents to settle, with every grader's answers side by side above
+   each form and the fields where they differ highlighted. The form starts
+   empty: **Keep this one** fills it from one grader's answer, to save as it
+   is or edit first. The answer saved there is the one that counts, and
+   `agree` run again leaves it out of the graders' figures and lists only
+   the documents still to settle. The attorney box appears only where a
+   grader answered it. A later answer to a document keeps the draw it came
+   from, so settling never turns a random draw into a flagged one.
 8. **Score.** `extract-text score --out DIR --shapes`, described next.
 
 Answers saved before 2026-10-07 carry no attorney block, and neither does an
 answer to a document without the attorney box; the score report counts only
 the answers that have one on its three attorney lines. The AI engine is not
-scored on attorney names, which it does not read by design.
+scored on attorney names, which it does not read by design. Answers from the
+second round on hold attorneys and firm in one list, with no firm of its own:
+an engine's names and firm together are checked against that list
+(`attorneys`), and its firm alone is right when it is one of the lines
+(`attorney_firm`).
 
 **Keep a test set apart from the fix set.** Answers are used two ways: their
 failure shapes show which rule to fix, and their scores say how accurate the

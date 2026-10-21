@@ -69,10 +69,12 @@ _ENTITY_WORDS = {
 
 
 # The descriptive clause a caption hangs on a business plaintiff: "EXAMPLE
-# LLC, a Washington limited liability company".
-_ENTITY_CLAUSE_RE = re.compile(r"(?:,\s*|\s+)an?\s+(?:[a-z]+\s+)?(?:limited|corporation|"
+# LLC, a Washington limited liability company", or a lender's "EXAMPLE
+# BANK, its successors and/or assigns".
+_ENTITY_CLAUSE_RE = re.compile(r"(?:(?:,\s*|\s+)an?\s+(?:[a-z]+\s+)?(?:limited|corporation|"
                                r"company|partnership|general|non-?profit|public|"
-                               r"municipal|housing)\b.*$", re.IGNORECASE)
+                               r"municipal|housing)\b"
+                               r"|,?\s+(?:its|their)\s+successors\b).*$", re.IGNORECASE)
 
 
 def _party_key(name: str) -> str:

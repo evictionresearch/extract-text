@@ -49,6 +49,8 @@ ATTORNEY_FIELDS = ("attorney_firm", "attorney_address")
 MAX_BODY = 64 * 1024
 DOCUMENT_TYPES = {".pdf": "application/pdf", ".tif": "image/tiff", ".tiff": "image/tiff"}
 MAX_FIELD = 300
+# a caption can name a dozen plaintiffs; at MAX_FIELD the list was cut short
+MAX_PLAINTIFF = 3000
 
 CSV_COLUMNS = [
     "row", "file", "sha256", "sampled_as", "verdict", "changed_fields",
@@ -68,8 +70,8 @@ def _same(a: str, b: str) -> bool:
     return squash(a) == squash(b)
 
 
-def _text(value) -> str:
-    return str(value or "").strip()[:MAX_FIELD]
+def _text(value, limit=MAX_FIELD) -> str:
+    return str(value or "").strip()[:limit]
 
 
 def _sha256(path: Path) -> str:
@@ -91,7 +93,22 @@ def _changed(truth: dict, reading: dict) -> list:
     changed = [k for k in TRUTH_FIELDS if not _same(truth[k], reading.get(k, ""))]
     if _names_differ(truth["defendants"], reading.get("defendants", [])):
         changed.insert(1, "defendants")
-    if "attorneys" in truth:
+    if "attorneys" in truth and "attorney_firm" not in truth:
+        # one box for attorneys and firm (from round 2): the reading's names
+        # and firm together, in any order; the AI engine reads only the
+        # firm, which is right when it is one of the lines
+        firm = reading.get("attorney_firm", "")
+        if "attorneys" in reading:
+            lines = [*reading["attorneys"], firm]
+            if sorted(n.casefold() for n in truth["attorneys"]) != sorted(
+                    n.casefold() for n in lines if n.strip()):
+                changed.append("attorneys")
+        elif (firm or truth["attorneys"]) and firm.casefold() not in {
+                n.casefold() for n in truth["attorneys"]}:
+            changed.append("attorney_firm")
+        if not _same(truth["attorney_address"], reading.get("attorney_address", "")):
+            changed.append("attorney_address")
+    elif "attorneys" in truth:
         # the AI engine does not read attorney names, so it is not wrong on them
         if ("attorneys" in reading
                 and _names_differ(truth["attorneys"], reading["attorneys"])):
@@ -127,12 +144,16 @@ def build_correction(row_no: int, body: dict, rows: list, details: list,
     row, detail = rows[row_no - 1], details[row_no - 1]
     given = body.get("truth") or {}
     truth = {k: _text(given.get(k)) for k in TRUTH_FIELDS}
+    truth["plaintiff"] = _text(given.get("plaintiff"), MAX_PLAINTIFF)
     truth["defendants"] = _name_list(given, "defendants")
     # a page built before the attorney boxes sends none of them, and its
-    # answer then says nothing about the attorney block
+    # answer then says nothing about the attorney block. A page from round 2
+    # on sends no firm: its attorney box holds attorneys and firm together,
+    # one per line, and the answer has no attorney_firm
     if "attorneys" in given or any(k in given for k in ATTORNEY_FIELDS):
         truth["attorneys"] = _name_list(given, "attorneys")
-        truth.update({k: _text(given.get(k)) for k in ATTORNEY_FIELDS})
+        truth.update({k: _text(given.get(k)) for k in ATTORNEY_FIELDS if k in given})
+        truth.setdefault("attorney_address", "")
 
     machine = machine_reading(row)
     changed = _changed(truth, machine)
@@ -169,6 +190,9 @@ def build_correction(row_no: int, body: dict, rows: list, details: list,
         "reviewer": _text(body.get("reviewer")) or getpass.getuser(),
         "reviewer_email": _text(body.get("reviewer_email")),
         "saved_at": _dt.datetime.now().astimezone().isoformat(timespec="seconds"),
+        # saved on the settling page, where graders disagreed; that page
+        # shows such a document as done and every other one as still open
+        **({"settled": True} if body.get("settled") else {}),
     }
 
 
@@ -283,7 +307,10 @@ def make_review_server(out_dir, port=8765):
             if path == "/api/answers":
                 with lock:
                     every = load_answers(out)
-                return self._json(200, {str(k): {who: {"truth": c["truth"], "verdict": c["verdict"]}
+                # `settled` marks an answer saved on the settling page, which
+                # that page leaves out of the graders' columns
+                return self._json(200, {str(k): {who: {"truth": c["truth"], "verdict": c["verdict"],
+                                                       "settled": bool(c.get("settled"))}
                                                  for who, c in v.items()}
                                         for k, v in every.items()})
             if path.startswith("/doc/"):

@@ -26,6 +26,17 @@ def test_defendant_that_is_the_plaintiff_is_dropped():
     assert dropped == ["EXAMPLE RIDGE APARTMENTS"]
 
 
+def test_plaintiff_key_drops_the_caption_description():
+    from extract_text.parties import _party_key
+
+    key = _party_key("EXAMPLE HOMES")
+    assert _party_key("EXAMPLE HOMES, a public body corporate and politic,") == key
+    assert _party_key("EXAMPLE HOMES, its successors and/or assigns,") == key
+    assert _party_key("EXAMPLE HOMES, LLC") == key
+    # an "its" that is part of the name stays
+    assert _party_key("ITS EXAMPLE HOMES") != key
+
+
 def test_shared_surname_is_not_a_match():
     kept, dropped = drop_plaintiff_matches(["PAT EXAMPLE"], ["LEE EXAMPLE"])
     assert kept == ["PAT EXAMPLE"] and dropped == []

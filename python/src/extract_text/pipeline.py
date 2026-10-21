@@ -569,6 +569,37 @@ def write_review(out_dir, n=30, seed=SAMPLE_SEED, flagged_first=True, graders=Fa
     else:
         ask_attorney = set(random.Random(f"attorneys-{seed}").sample(
             [i for i, _ in numbered], min(int(attorneys or 0), len(numbered))))
+    # the settling page asks for the attorney block wherever a grader
+    # answered it; without the box a settled answer would drop that block
+    # It also marks, on each document, the fields where the graders differ
+    # and how, with a tally across the page, so patterns in the
+    # disagreements show
+    differ_by_row, settle_summary = {}, ""
+    hint = ("Boxes start with the machine's reading; fix what is wrong, clear what is "
+            "not there, then save.")
+    if rows and not graders:
+        hint = ("Press Keep this one above to fill these boxes from a grader's answer, "
+                "fix anything wrong, then save.")
+        from collections import Counter
+
+        from .agree import field_differences
+        from .corrections import load_answers
+        answers = load_answers(out)
+        ask_attorney |= {row for row, a in answers.items()
+                         if any("attorneys" in c.get("truth", {}) for c in a.values())}
+        differ_by_row = field_differences({i: answers[i] for i, _ in subset if i in answers})
+        totals = {}
+        for found in differ_by_row.values():
+            for field, how in found.items():
+                totals.setdefault(field, Counter())[how] += 1
+        if totals:
+            settle_summary = (
+                f'<p class="others">Where the graders differ, by field, across these '
+                f'{len(subset)} documents: '
+                + "; ".join(f"{field} {sum(c.values())} ("
+                            + ", ".join(f"{n} {how}" for how, n in c.most_common()) + ")"
+                            for field, c in sorted(totals.items(), key=lambda fc: -sum(fc[1].values())))
+                + ".</p>")
 
     cells = []
     esc = lambda s: ((s or "").replace("&", "&amp;").replace("<", "&lt;")
@@ -597,9 +628,11 @@ def write_review(out_dir, n=30, seed=SAMPLE_SEED, flagged_first=True, graders=Fa
                        + ".</p>")
         else:
             verdict = '<p class="agree">The engines agree on every field below.</p>'
+        # attorneys and firm share one box (from round 2): graders could not
+        # always tell a lawyer from the firm, nor did they need to
+        att_lines = [*start['attorneys'], *([start['attorney_firm']] if start['attorney_firm'] else [])]
         att_box = f"""<fieldset class="att"><legend>Plaintiff's attorney</legend>
-        <label>Attorneys, one per line <textarea name="attorneys" rows="2">{esc(chr(10).join(start['attorneys']))}</textarea></label>
-        <label>Firm <input name="attorney_firm" value="{esc(start['attorney_firm'])}"></label>
+        <label>Attorneys and firm, one per line, as printed <textarea name="attorneys" rows="2">{esc(chr(10).join(att_lines))}</textarea></label>
         <label>Address, on one line as printed <input name="attorney_address" value="{esc(start['attorney_address'])}"></label>
       </fieldset>""" if i in ask_attorney else ""
         ai_button = ('<button type="button" class="quiet use-ai">Use AI engine\'s reading</button>'
@@ -625,9 +658,10 @@ def write_review(out_dir, n=30, seed=SAMPLE_SEED, flagged_first=True, graders=Fa
           <i>{esc(r.get('defendant_anchor',''))}</i></td>{ai_col(r.get('ai_defendant_address','') + (f'  (similarity {sim})' if sim != '' else ''))}</tr>
       <tr{mark('attorney firm')}><th>Attorney</th><td>{esc(both_parts(r.get('attorney_names'), r.get('attorney_firm'), r.get('attorney_address_raw')))}</td>{ai_col(both_parts('; '.join((ai_answer or {}).get('attorneys', [])), r.get('ai_law_firm'), r.get('ai_law_firm_address')))}</tr>
     </table>
-    <form class="fix" data-row="{i}" data-ai="{esc(json.dumps(ai_answer)) if ai_answer else ''}">
-      <p class="hint">The right answer, as printed on the page. Boxes start with the machine's reading; fix what is wrong, clear what is not there, then save.</p>
-      <label>Plaintiff <input name="plaintiff" value="{esc(start['plaintiff'])}"></label>
+    <form class="fix" data-row="{i}" data-ai="{esc(json.dumps(ai_answer)) if ai_answer else ''}"
+          data-differ="{esc(json.dumps(differ_by_row.get(i, {})))}">
+      <p class="hint">The right answer, as printed on the page. {hint}</p>
+      <label>Plaintiff, the name only (several plaintiffs, one per line) <textarea name="plaintiff" rows="1">{esc(start['plaintiff'])}</textarea></label>
       <label>Defendants, one per line <textarea name="defendants" rows="2">{esc(chr(10).join(start['defendants']))}</textarea></label>
       <div class="addr">
         <label class="street">Street <input name="street" value="{esc(start['street'])}"></label>
@@ -687,6 +721,8 @@ def write_review(out_dir, n=30, seed=SAMPLE_SEED, flagged_first=True, graders=Fa
  form.fix label{{display:block;margin:.3rem 0;color:#444}}
  form.fix input,form.fix textarea{{display:block;width:100%;box-sizing:border-box;
       font:inherit;padding:.25rem .35rem;border:1px solid #bbb;border-radius:3px}}
+ /* boxes grow with what is in them (see grow), so a long list shows whole */
+ form.fix textarea{{resize:vertical;overflow-y:auto}}
  .addr{{display:flex;flex-wrap:wrap;gap:.5rem}}
  .addr label{{flex:1 1 7rem}} .addr label.street{{flex:3 1 16rem}}
  .addr label.unit{{flex:2 1 10rem}}
@@ -696,6 +732,17 @@ def write_review(out_dir, n=30, seed=SAMPLE_SEED, flagged_first=True, graders=Fa
  .hint{{margin:0 0 .4rem;color:#555}}
  .others{{background:#fbf7ec;border:1px solid #e6dcc0;padding:.3rem .6rem;margin-bottom:.5rem;font-size:13px}}
  .others p{{margin:.2rem 0}}
+ .others table{{border-collapse:collapse;margin:.3rem 0}}
+ .others th,.others td{{border:1px solid #e6dcc0;padding:.15rem .4rem;text-align:left;
+      vertical-align:top;white-space:pre-line}}
+ .others tr.differ{{background:#ffd27a}} .others tr.fmt{{background:#fff0c2}}
+ .others td.na{{color:#999;font-style:italic}}
+ .others .chosen{{box-shadow:inset 0 0 0 2px #2e6b2e;font-weight:600}}
+ .others th.chosen{{background:#2e6b2e;color:#fff}}
+ .others p.kept{{color:#2e6b2e;font-weight:600}}
+ button.keep.on{{background:#2e6b2e;color:#fff;border-color:#2e6b2e}}
+ input,textarea{{transition:background .8s}}
+ input.flash,textarea.flash{{background:#ffe27a}}
  .buttons{{display:flex;flex-wrap:wrap;gap:.6rem;align-items:center;margin-top:.5rem}}
  button{{font:inherit;padding:.3rem .9rem;cursor:pointer;white-space:nowrap}}
  button.quiet{{background:none;border:1px solid #bbb}}
@@ -705,6 +752,7 @@ def write_review(out_dir, n=30, seed=SAMPLE_SEED, flagged_first=True, graders=Fa
 <h1>Review: {len(subset)} of {len(rows_scan)} documents
     ({len(flagged)} flagged in total; {('in random order' if random_order else 'worst first') if graders else 'flagged shown first' if flagged_first else 'a random draw'})</h1>
 <p id="count"></p>
+{settle_summary}
 {GRADER_PANEL if graders else ''}
 <div id="banner" hidden>This page was opened as a file, so corrections cannot be saved.
   To save them, start it with <code>extract-text review --out YOUR_SCAN_FOLDER --serve</code>.</div>
@@ -724,6 +772,12 @@ function setStatus(f, text, cls) {{
   s.textContent = text;
   s.className = "status " + (cls || "");
 }}
+// a box as tall as what is in it; a box on a hidden card measures nothing
+// and keeps its rows
+function grow(t) {{
+  t.style.height = "auto";
+  if (t.scrollHeight) t.style.height = t.scrollHeight + 2 + "px";
+}}
 function fill(f, c) {{
   // answers saved before the attorney boxes existed leave those boxes as read
   for (const k of FIELDS) {{
@@ -731,7 +785,12 @@ function fill(f, c) {{
     else if (f.elements[k] && k in c.truth) f.elements[k].value = c.truth[k] || "";
   }}
   for (const k of LISTS) if (f.elements[k] && k in c.truth) f.elements[k].value = (c.truth[k] || []).join("\\n");
+  // an answer saved with a separate firm box brings its firm into the
+  // attorney box as one more line
+  if (f.elements.attorneys && !f.elements.attorney_firm && c.truth.attorney_firm)
+    f.elements.attorneys.value = [f.elements.attorneys.value, c.truth.attorney_firm].filter(Boolean).join("\\n");
   f.dataset.usedAi = c.used_ai_fill ? "1" : "";
+  f.querySelectorAll("textarea").forEach(grow);
 }}
 function mark(f, c) {{
   f.classList.add("saved");
@@ -740,6 +799,35 @@ function mark(f, c) {{
   let what = "Saved. Deterministic engine " + missed(c.changed_fields);
   if (c.ai && c.ai.changed_fields) what += "; AI engine " + missed(c.ai.changed_fields);
   setStatus(f, what + ".", "ok");
+}}
+// the settling page: an unsettled card's boxes start empty, so nothing is
+// chosen until Keep is pressed
+function clear(f) {{
+  for (const k of [...FIELDS, ...LISTS]) if (f.elements[k]) f.elements[k].value = "";
+  f.dataset.usedAi = "";
+  f.querySelectorAll("textarea").forEach(grow);
+}}
+// the settling page: whose answer was kept, marked on the answers table
+// (its column and its button), and a line under the table saying where
+// the card stands
+function showChosen(f) {{
+  const box = f.previousElementSibling;
+  if (!box || !box.classList.contains("others")) return;
+  const who = f.dataset.from, edited = f.dataset.edited === "1", dirty = f.dataset.dirty === "1";
+  for (const el of box.querySelectorAll("[data-who]")) el.classList.toggle("chosen", el.dataset.who === who);
+  for (const b of box.querySelectorAll("button.keep")) {{
+    const on = b.dataset.who === who;
+    b.classList.toggle("on", on);
+    b.textContent = on ? "\\u2713 Kept" : "Keep this one";
+  }}
+  const kept = who === undefined ? "" : who + "'s answer" + (edited ? ", with your changes" : "");
+  box.querySelector("p.kept").textContent =
+    f.classList.contains("saved") && !dirty
+      ? "Saved" + (kept ? ": " + kept : "") + ". To change it, edit the boxes or keep another answer, then Save again."
+    : kept ? "You kept " + kept + ". Check the boxes below against the page, then Save."
+    : dirty ? "Your own answer, typed in. Save when it matches the page."
+    : "Press Keep this one under the answer that matches the page. It fills the boxes below, "
+      + "where you can fix anything before you Save.";
 }}
 function tally() {{
   const done = forms.filter(f => f.classList.contains("saved")).length;
@@ -763,29 +851,89 @@ if (!location.protocol.startsWith("http")) {{
   fetch("api/corrections").then(r => r.json()).then(saved => {{
     for (const f of forms) {{
       const c = saved[f.dataset.row];
-      if (c) {{ fill(f, c); mark(f, c); }}
+      // on the settling page a card counts as done only once it is settled
+      // there; until then its boxes are empty, waiting for a Keep
+      if (SETTLE && !(c && c.settled)) clear(f);
+      else if (c) {{ fill(f, c); mark(f, c); }}
+      if (SETTLE) showChosen(f);
     }}
     tally();
     if (GRADERS) arrange();
   }});
-  // the settling page: every grader's answer under each form
+  // the settling page: the graders' answers side by side above each form,
+  // one row per field, the rows where they differ highlighted
   if (SETTLE) fetch("api/answers").then(r => r.json()).then(all => {{
+    const COLS = ["plaintiff", "defendants", "street", "unit", "city", "state", "zip",
+                  "attorneys", "attorney_firm", "attorney_address"];
+    const cell = (tr, tag, text, cls) => {{
+      const c = document.createElement(tag);
+      c.textContent = text;
+      if (cls) c.className = cls;
+      tr.appendChild(c);
+      return c;
+    }};
     for (const f of forms) {{
-      const answers = all[f.dataset.row] || {{}};
+      // an answer saved here is the settlement, already in the form
+      const answers = Object.entries(all[f.dataset.row] || {{}}).filter(([, a]) => !a.settled);
+      if (!answers.length) continue;
+      const differ = JSON.parse(f.dataset.differ || "{{}}");
       const box = document.createElement("div");
       box.className = "others";
-      const line = (who, a) => who + ": " + (a.verdict === "unreadable" ? "can't tell from the page" :
-        ["plaintiff", "defendants", "street", "unit", "city", "state", "zip",
-         "attorneys", "attorney_firm", "attorney_address"]
-          .filter(k => k in a.truth)
-          .map(k => k + " = " + (Array.isArray(a.truth[k]) ? a.truth[k].join("; ") : a.truth[k] || "(empty)"))
-          .join(" \u00b7 "));
-      for (const [who, a] of Object.entries(answers)) {{
-        const p = document.createElement("p");
-        p.textContent = line(who, a);
-        box.appendChild(p);
+      const what = Object.entries(differ).map(([k, how]) => k + " (" + how + ")");
+      cell(box, "p", "Graders' answers. Keep one, edit it if neither is right, then Save. "
+        + (what.length ? "They differ on " + what.join(", ") + "." : "Their answers match."));
+      const table = document.createElement("table");
+      const top = table.insertRow();
+      cell(top, "th", "");
+      for (const [who] of answers) cell(top, "th", who).dataset.who = who;
+      for (const k of COLS.filter(k => answers.some(([, a]) => k in a.truth))) {{
+        const tr = table.insertRow();
+        if (k in differ) tr.className = differ[k] === "formatting only" ? "fmt" : "differ";
+        cell(tr, "th", k);
+        for (const [who, a] of answers) {{
+          const v = a.truth[k];
+          const td = a.verdict === "unreadable" ? cell(tr, "td", "can't tell from the page", "na")
+            : !(k in a.truth) ? cell(tr, "td", "not asked", "na")
+            // a bullet starts each name, so a long name wrapping onto a
+            // second line is not mistaken for a second name
+            : cell(tr, "td", (Array.isArray(v) ? v.map(n => "\\u2022 " + n).join("\\n") : v) || "(empty)");
+          td.dataset.who = who;
+        }}
       }}
-      if (box.childNodes.length) f.before(box);
+      const bottom = table.insertRow();
+      cell(bottom, "th", "");
+      for (const [who, a] of answers) {{
+        const td = cell(bottom, "td", "");
+        if (a.verdict === "unreadable") continue;
+        // fills the form from this answer, to save as it is or edit first
+        const keep = cell(td, "button", "Keep this one", "quiet keep");
+        keep.type = "button";
+        keep.dataset.who = who;
+        keep.addEventListener("click", () => {{
+          const was = [...f.elements].map(el => [el, el.value]);
+          fill(f, a);
+          // a grader who was not asked about the attorney block leaves those
+          // boxes to a grader who was, rather than saving them empty
+          const asked = answers.find(([, b]) => b.verdict !== "unreadable" && "attorneys" in b.truth);
+          if (!("attorneys" in a.truth) && asked) fill(f, {{truth: Object.fromEntries(
+            ["attorneys", "attorney_firm", "attorney_address"].map(k => [k, asked[1].truth[k]]))}});
+          f.dataset.from = who;
+          f.dataset.dirty = "1";
+          delete f.dataset.edited;
+          showChosen(f);
+          // the boxes this choice changed flash, since often only one does
+          for (const [el, v] of was) if (el.value !== v) {{
+            el.classList.add("flash");
+            setTimeout(() => el.classList.remove("flash"), 1200);
+          }}
+          setStatus(f, "Filled from " + who + "'s answer. Check it against the page, "
+            + "edit anything wrong, then Save", "");
+        }});
+      }}
+      box.appendChild(table);
+      cell(box, "p", "", "kept");
+      f.before(box);
+      showChosen(f);
     }}
   }});
 }}
@@ -797,6 +945,11 @@ for (const b of document.querySelectorAll("button.use-ai")) {{
     for (const k of FIELDS) if (k !== "note" && f.elements[k]) f.elements[k].value = a[k] || "";
     // a field the AI engine does not read (attorneys) keeps what is there
     for (const k of LISTS) if (f.elements[k] && k in a) f.elements[k].value = (a[k] || []).join("\\n");
+    // the one attorney box takes the AI engine's firm, the only part of the
+    // block it reads; the attorneys' names are left to the grader
+    if (f.elements.attorneys && !f.elements.attorney_firm)
+      f.elements.attorneys.value = [...(a.attorneys || []), a.attorney_firm].filter(Boolean).join("\\n");
+    f.querySelectorAll("textarea").forEach(grow);
     f.dataset.usedAi = "1";
     setStatus(f, a.address_unsplit
       ? "Filled from the AI engine. Its address is all in Street; split it into the boxes, check against the page, then Save"
@@ -805,7 +958,12 @@ for (const b of document.querySelectorAll("button.use-ai")) {{
 }}
 
 for (const f of forms) {{
-  f.addEventListener("input", () => {{
+  f.querySelectorAll("textarea").forEach(grow);
+  f.addEventListener("input", e => {{
+    if (e.target.tagName === "TEXTAREA") grow(e.target);
+    if (f.dataset.from !== undefined) f.dataset.edited = "1";
+    f.dataset.dirty = "1";
+    if (SETTLE) showChosen(f);
     if (f.classList.contains("saved")) setStatus(f, "Changed since saved; press Save again", "");
   }});
   f.addEventListener("submit", async e => {{
@@ -814,6 +972,8 @@ for (const f of forms) {{
     // a document without the attorney box sends no attorney answer, and is
     // not scored on the attorney block
     for (const k of FIELDS) if (k !== "note" && f.elements[k]) truth[k] = f.elements[k].value.trim();
+    // several plaintiffs, typed one per line, are saved as one name list
+    truth.plaintiff = truth.plaintiff.split("\\n").map(s => s.trim()).filter(Boolean).join("; ");
     for (const k of LISTS) if (f.elements[k])
       truth[k] = f.elements[k].value.split("\\n").map(s => s.trim()).filter(Boolean);
     const body = {{
@@ -823,9 +983,15 @@ for (const f of forms) {{
       used_ai_fill: f.dataset.usedAi === "1",
       reviewer: GRADERS ? grader.name.value.trim() : "",
       reviewer_email: GRADERS ? grader.email.value.trim() : "",
+      settled: SETTLE,
     }};
     if (GRADERS && !body.reviewer) {{
       setStatus(f, "Not saved: put your name at the top of the page first", "err");
+      return;
+    }}
+    if (SETTLE && body.verdict === "checked"
+        && !Object.values(truth).some(v => Array.isArray(v) ? v.length : v)) {{
+      setStatus(f, "Not saved: press Keep this one above, or type the answer in", "err");
       return;
     }}
     setStatus(f, "Saving...", "");
@@ -836,6 +1002,8 @@ for (const f of forms) {{
       }});
       if (!r.ok) throw new Error(await r.text());
       mark(f, await r.json());
+      delete f.dataset.dirty;
+      if (SETTLE) showChosen(f);
       tally();
     }} catch (err) {{
       setStatus(f, "Not saved: " + err.message, "err");
@@ -870,6 +1038,8 @@ function arrange() {{
                  || (hash(salt + a.id) - hash(salt + b.id)));
   batch = todo.slice(0, want);
   for (const c of cards) c.hidden = !batch.includes(c);
+  // boxes on cards that were hidden measured nothing until now
+  for (const c of batch) c.querySelectorAll("textarea").forEach(grow);
   progress();
 }}
 function progress() {{

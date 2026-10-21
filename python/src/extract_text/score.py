@@ -62,6 +62,18 @@ def _party_wrong(t, m):
     return "near" if _party_key(t) == _party_key(m) else "different"
 
 
+def _firm_among(lines, firm):
+    """How a firm is wrong against the lines of a combined attorney box, or
+    None when it is one of them."""
+    if any(_squash(n) == _squash(firm) for n in lines if _squash(n)):
+        return None
+    if not _squash(firm):
+        return "blank" if any(_squash(n) for n in lines) else None
+    if not any(_squash(n) for n in lines):
+        return "extra"
+    return "near" if _party_key(firm) in {_party_key(n) for n in lines} else "different"
+
+
 def _names_wrong(td, md):
     """How a list of names is wrong, or None when it is right. Compared as a
     set, so order never counts."""
@@ -95,7 +107,17 @@ def compare(truth: dict, reading: dict) -> dict:
         "defendants": _names_wrong(truth.get("defendants") or [],
                                    reading.get("defendants") or []),
     }
-    if "attorneys" in truth:
+    if "attorneys" in truth and "attorney_firm" not in truth:
+        # one box for attorneys and firm (from round 2): a reading's names and
+        # firm together against the box's lines, and its firm alone against
+        # any line, since the AI engine reads only the firm
+        firm = reading.get("attorney_firm", "")
+        if "attorneys" in reading:
+            found["attorneys"] = _names_wrong(
+                truth["attorneys"] or [], [*(reading["attorneys"] or []), *([firm] if firm else [])])
+        if "attorney_firm" in reading:
+            found["attorney_firm"] = _firm_among(truth["attorneys"] or [], firm)
+    elif "attorneys" in truth:
         if "attorneys" in reading:
             found["attorneys"] = _names_wrong(truth["attorneys"] or [],
                                               reading["attorneys"] or [])
@@ -195,8 +217,11 @@ def score(out_dir) -> dict:
                 raw = ""
                 if engine == "deterministic" and field in ("street", "unit", "city", "zip"):
                     raw = mask(row.get("defendant_address_raw", ""))
+                # a combined attorney box has no firm of its own; its lines
+                # are what a firm was checked against
+                said = c["truth"].get(field, c["truth"].get("attorneys") if field == "attorney_firm" else None)
                 tallies["shapes"][(engine, field)].append(
-                    (c["row"], kind, mask(reading.get(field)), mask(c["truth"].get(field)), raw))
+                    (c["row"], kind, mask(reading.get(field)), mask(said), raw))
             if f["n"]:
                 per_field[field] = f
         tallies["engines"][engine] = per_field

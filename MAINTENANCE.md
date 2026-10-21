@@ -756,6 +756,44 @@ old #16 to #36 became #13 to #33 (subtract three). Issue numbers in this
 file and in the hq notes dated before 2026-10-20 are the old ones unless
 marked.
 
+## The first round settled, and the form for round 2 (2026-10-20)
+
+Two graders returned 300 answers (213 documents, 87 of them graded twice,
+including a random 30 held out as the test set). They gave the same
+defendants on 70% of the 135 shared pairs, about the AI engine's own
+defendants score, so the 49 documents they disagreed on were settled
+before any engine work, on the settling page (`review --rows`).
+
+- **The settling page** shows the graders' answers side by side, one row
+  per field, with the rows where they differ highlighted and a tally across
+  the page. The form starts empty; **Keep this one** fills it from one
+  answer, to save as is or edit. A saved settlement is marked `settled`,
+  `agree` leaves it out of the graders' figures and stops listing the
+  document, and the page shows the attorney box only where a grader
+  answered it. It had asked on every card, and 23 settlements saved that
+  unread box empty, which reads as "no attorney"; they were repaired by
+  appending a copy without the attorney fields (marked `repaired`).
+- **Answers were cut at 300 characters**, which shortened one long list of
+  plaintiffs. The plaintiff now keeps 3000.
+- **Labeling rules** learned while settling are in `GRADING.md`: no Doe
+  placeholders, no surname the page does not show, an alias on its
+  person's line as "a/k/a", the plaintiff's name without the description
+  after it, nothing looked up off the page, the first address when it is
+  unclear which is the defendant's. The scorer now also treats "its
+  successors and/or assigns" as a description.
+- **The form for round 2.** Plaintiffs, like defendants, go one per line;
+  the box grows to fit and the answer is saved as one `; `-separated list.
+  The attorneys and the firm share one box, one per line, because graders
+  could not always tell a lawyer from the firm. Such answers have no
+  `attorney_firm`; an engine's names and firm together are scored against
+  the lines (`attorneys`), and its firm alone is right when it is one of
+  them (`attorney_firm`), which keeps the AI engine, reading only the firm,
+  comparable.
+
+On the settled labels the AI engine has defendants right on 20 of the
+random 30 (66.7%, against 50.0% on the unsettled labels), so part of its
+apparent weakness was disagreement in the labels.
+
 ## Other reasons extraction fails
 
 Reading the failures rather than counting them changed what looks worth

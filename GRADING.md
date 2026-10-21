@@ -2,8 +2,8 @@
 
 You have been asked to check what the software read off eviction summonses
 and to type the right answer where it is wrong. Your answers become the
-test set that the deterministic engine is fixed against, so a careful ten
-is worth more than a hurried hundred.
+test set the engines are measured against and the examples the AI engine
+learns from, so a careful ten is worth more than a hurried hundred.
 
 ## What you need
 
@@ -50,19 +50,53 @@ when that is closer; check it against the page before saving.
 The "Open the full document" link does not work on your copy, since the
 original files are not in the folder; the page image is what you grade from.
 
-Write the address as printed: street without the unit, unit on its own
-(`Apt 5`, `BLDG C Apt 5`, `#12`), city, state, ZIP. Defendants go one per
-line, named people only; leave out "all other occupants", "John Doe", and
-"et al". The plaintiff is the landlord or company at the top of the page.
+Type only what the page shows, as printed. Do not look anything up, not
+even a ZIP code you could find online: the answers teach software to read
+the page, and it cannot look things up. Only the first page is shown; if
+names or the address run onto the next page, grade what this page shows
+and say so in the note.
+
+**Address.** Street without the unit, unit on its own (`Apt 5`,
+`BLDG C Apt 5`, `#12`), city, state, ZIP. It is the defendant's address,
+in the caption or after "TO:", never the attorney's address in the bottom
+right. If the page gives the defendant two addresses, use the address of
+the property the eviction is about and mention the other in the note. If 
+it's unclear which address is correct, use the first one and make a note
+about the decision. 
+
+**Defendants.** One per line, named people as printed.
+
+- Leave out placeholders and group words: "all other occupants", "John
+  Doe", "Jane Doe", "et al".
+- Do not add a surname the page does not show. A defendant listed by first
+  name only is typed by first name only.
+- An alias stays on its person's line, written with "a/k/a" whatever the
+  page's wording ("also known as", "who also appears of record as"), for
+  example `PAT EXAMPLE a/k/a PATRICIA EXAMPLE`.
+- A business the defendant does business as ("d/b/a") goes on a line of
+  its own, so businesses can be counted.
+- If the page spells a name two ways, type the likelier spelling and say
+  so in the note.
+
+**Plaintiff.** The landlord or company at the top of the page, the name
+only: leave out the description after it ("a Washington limited liability
+company", "a public body corporate and politic", "its successors and/or
+assigns") and any trailing comma. Several plaintiffs go one per line; the
+box grows to fit.
 
 Some documents also have a **Plaintiff's attorney** box (`--attorneys 100`
 puts it on 100 documents drawn at random, the same ones for every grader;
-leave the option off and no document has it). It is the signature block, usually at the
-bottom right of the page. Attorneys go one per line, each name as printed,
-without "Attorney for Plaintiff" or the bar number. Firm is the firm or
-office name, left empty if the block has none. Address goes on one line,
-as printed (street, suite, city, state, ZIP). If the plaintiff has no
-attorney (signed by the landlord itself), clear all three.
+leave the option off and no document has it). It is the signature block,
+usually at the bottom right of the page. Attorneys and the firm go in one
+box, one per line, each as printed and in any order: every attorney's name
+and the firm or office name, without "Attorney for Plaintiff" or the bar
+number. Address goes on one line, as printed (street, suite, city, state,
+ZIP). If the plaintiff has no attorney (signed by the landlord itself),
+clear both boxes.
+
+The **Note** box is for anything unusual: a name spelled two ways, a
+second address, an address on the next page, a block you are unsure of.
+Notes are read, and they shape the rules for the next round.
 
 After a batch, press **Grade another batch** or close the tab. Everything
 saved stays saved; reopening the page shows your work. Press Ctrl-C in the
@@ -70,10 +104,8 @@ terminal when you are done.
 
 ## Sending it back
 
-    extract-text score --out /path/to/the/folder --shapes --save reports/$(date +%F)_YOURNAME.txt
-
-Commit that report file to this repository, or email it to Tim; it holds no
-record values. Then copy `corrections.jsonl` from the scan folder, rename it
-with your name (`corrections_YOURNAME.jsonl`), and upload it to the same
-restricted Drive folder the zip came from. That file holds names and
-addresses: never commit it, email it, or put it anywhere else.
+Copy `corrections.jsonl` from the scan folder, rename it with your name
+(`corrections_YOURNAME.jsonl`), and upload it to the same restricted Drive
+folder the zip came from. That is the only file Tim needs; he makes the
+reports from it. It holds names and addresses: never commit it, email it,
+or put it anywhere else.

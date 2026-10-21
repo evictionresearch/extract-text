@@ -415,8 +415,12 @@ def test_attorney_block_is_on_the_form_and_scored(tmp_path):
 
     _fake_both_engine_scan(tmp_path)
     html = write_review(tmp_path, graders=True, attorneys="all").read_text()
-    assert '<textarea name="attorneys" rows="2">SAM EXAMPLE</textarea>' in html
-    assert 'name="attorney_firm" value="EXAMPLE LAW PLLC"' in html
+    # attorneys and firm in one box, one per line (from round 2)
+    assert '<textarea name="attorneys" rows="2">SAM EXAMPLE\nEXAMPLE LAW PLLC</textarea>' in html
+    assert 'name="attorney_firm"' not in html
+    # the plaintiff box takes several lines, saved as one list
+    assert '<textarea name="plaintiff" rows="1">' in html
+    assert 'truth.plaintiff = truth.plaintiff.split("\\n")' in html
     # the engine's two-line block arrives on one line
     assert 'name="attorney_address" value="100 SAMPLE ST STE 2 SAMPLETON, WA 98100"' in html
 
@@ -448,6 +452,40 @@ def test_attorney_block_is_on_the_form_and_scored(tmp_path):
     assert "attorney_firm" in ai_part and not _re.search(r"^  attorneys ", ai_part, _re.M)
     for word in ("EXAMPLE", "SAMPLE", "Sampleton"):
         assert word not in text
+
+    # from round 2 the box holds attorneys and firm together, and the answer
+    # has no firm of its own: a reading's names and firm are checked against
+    # the lines together, and its firm alone against any line
+    del truth["attorney_firm"]
+    truth["attorneys"] = ["Example Law, PLLC", "SAM EXAMPLE"]
+    c = build_correction(1, {"truth": truth}, rows, details, tmp_path)
+    assert "attorney_firm" not in c["truth"]
+    assert c["changed_fields"] == ["plaintiff", "unit", "attorneys", "attorney_address"]
+    assert "attorneys" not in c["ai"]["changed_fields"]   # the AI engine reads only the firm
+    with open(tmp_path / "corrections.jsonl", "w") as f:
+        f.write(json.dumps(c) + "\n")
+    text = report(tmp_path, shapes=True)
+    assert _re.search(r"attorneys +0\.0% +100\.0% of +1 .*1 near", text)
+    assert _re.search(r"attorney_firm +0\.0% +100\.0% of +1 .*1 near", text)
+    ai_part = text.split("ai engine", 1)[1]
+    assert _re.search(r"attorney_firm +0\.0% +100\.0% of +1", ai_part)
+    assert not _re.search(r"^  attorneys ", ai_part, _re.M)
+    from extract_text.score import compare
+    assert "attorney_firm" not in compare(truth, {**truth, "attorney_firm": "SAM EXAMPLE"})
+    assert compare(truth, {**truth, "attorney_firm": "OTHER FIRM LLP"})["attorney_firm"] == "different"
+
+
+def test_a_long_plaintiff_list_is_kept_whole(tmp_path):
+    from extract_text.corrections import build_correction
+    from extract_text.pipeline import read_scan
+
+    _fake_both_engine_scan(tmp_path)
+    rows, details = read_scan(tmp_path)
+    many = "; ".join(f"EXAMPLE OWNER {n}" for n in range(40))    # about 700 characters
+    c = build_correction(1, {"truth": {"plaintiff": many, "street": "X" * 400}},
+                         rows, details, tmp_path)
+    assert c["truth"]["plaintiff"] == many
+    assert len(c["truth"]["street"]) == 300     # other fields keep their cap
 
 
 def test_attorney_box_is_optional_and_the_same_for_every_grader(tmp_path):
@@ -530,8 +568,9 @@ def test_settling_page_shows_chosen_rows_and_every_answer(tmp_path):
              "street": "1234 SAMPLE AVE NE", "unit": "", "city": "Sampleton",
              "state": "WA", "zip": "98100"}
     try:
-        for who, unit in (("A. Grader", "Apt 5"), ("B. Grader", "Apt 6")):
-            body = {"row": 1, "truth": {**truth, "unit": unit}, "reviewer": who}
+        for who, unit, settled in (("A. Grader", "Apt 5", False), ("B. Grader", "Apt 6", False),
+                                   ("C. Settler", "Apt 6", True)):
+            body = {"row": 1, "truth": {**truth, "unit": unit}, "reviewer": who, "settled": settled}
             req = urllib.request.Request(f"{base}/api/corrections", data=json.dumps(body).encode(),
                                          headers={"Content-Type": "application/json"})
             urllib.request.urlopen(req).close()
@@ -540,8 +579,68 @@ def test_settling_page_shows_chosen_rows_and_every_answer(tmp_path):
     finally:
         server.shutdown()
         server.server_close()
-    assert set(answers["1"]) == {"A. Grader", "B. Grader"}
+    assert set(answers["1"]) == {"A. Grader", "B. Grader", "C. Settler"}
     assert answers["1"]["B. Grader"]["truth"]["unit"] == "Apt 6"
+    # the page leaves the settlement out of the graders' columns by this flag
+    assert [who for who, a in answers["1"].items() if a["settled"]] == ["C. Settler"]
+
+
+def test_settling_keeps_one_answer_and_the_attorney_block(tmp_path):
+    import html as _html
+    import re
+
+    from extract_text.corrections import build_correction
+    from extract_text.pipeline import read_scan
+
+    _fake_folder_of(tmp_path, 3)
+    rows, details = read_scan(tmp_path)
+    truth = {"plaintiff": "EXAMPLE GREENS LLC", "defendants": ["PAT EXAMPLE"],
+             "street": "1234 SAMPLE AVE NE", "unit": "", "city": "Sampleton",
+             "state": "WA", "zip": "98100"}
+    with_attorney = {**truth, "attorneys": ["SAM EXAMPLE"], "attorney_firm": "",
+                     "attorney_address": ""}
+    two_names = {**truth, "defendants": ["PAT EXAMPLE", "SAM EXAMPLE"],
+                 "plaintiff": "Example Greens, LLC"}
+    with open(tmp_path / "corrections.jsonl", "w") as f:
+        for row, who, body in ((1, "A. Grader", {"truth": with_attorney}),
+                               (1, "B. Grader", {"truth": two_names}),
+                               (2, "A. Grader", {"truth": truth}), (2, "B. Grader", {"truth": truth}),
+                               (2, "", {"truth": two_names, "settled": True})):
+            f.write(json.dumps(build_correction(row, {**body, "reviewer": who},
+                                                rows, details, tmp_path)) + "\n")
+
+    # no --attorneys: the box follows the graders' answers, not the draw
+    html = write_review(tmp_path, rows=[1, 2]).read_text()
+    card = lambda i: html.split(f'id="doc{i}"', 1)[1].split('<div class="doc"', 1)[0]
+    assert '<fieldset class="att">' in card(1) and '<fieldset class="att">' not in card(2)
+    assert "Keep this one" in html and "fill(f, a)" in html
+    assert "settled: SETTLE" in html and "else if (c) { fill(f, c); mark(f, c); }" in html
+    # an unsettled card starts empty, so nothing is chosen until a Keep;
+    # the kept grader is marked, and the boxes a Keep changes flash, since
+    # the change is often one word
+    assert "if (SETTLE && !(c && c.settled)) clear(f);" in html
+    assert "showChosen(f)" in html and 'classList.add("flash")' in html
+    assert "Press Keep this one above to fill these boxes" in html
+    assert "start with the machine's reading" not in html
+    assert "Not saved: press Keep this one above" in html
+    assert 'v.map(n => "\\u2022 " + n)' in html      # one bullet per name
+
+    # where graders differ, and how, on each card and tallied for the page;
+    # the attorney block only one of them answered is not a difference, and
+    # a settlement is not a grader
+    differ = lambda i: json.loads(_html.unescape(
+        re.search(r'data-differ="([^"]*)"', card(i)).group(1)))
+    assert differ(1) == {"plaintiff": "formatting only", "defendants": "different number of names"}
+    assert differ(2) == {}
+    assert "across these 2 documents: plaintiff 1 (1 formatting only); " \
+           "defendants 1 (1 different number of names)." in html \
+        or "across these 2 documents: defendants 1 (1 different number of names); " \
+           "plaintiff 1 (1 formatting only)." in html
+
+    settled = build_correction(1, {"truth": with_attorney, "settled": True}, rows, details, tmp_path)
+    assert settled["settled"] is True
+    graded = build_correction(1, {"truth": truth, "reviewer": "A. Grader"}, rows, details, tmp_path)
+    assert "settled" not in graded
 
 
 def test_graders_page_of_chosen_rows_records_names_blind(tmp_path):
@@ -601,3 +700,14 @@ def test_agreement_report_counts_masks_and_merges_once(tmp_path):
     assert merge(tmp_path, [a, b]) == 6
     assert merge(tmp_path, [a, b]) == 0                 # twice adds nothing
     assert set(load_answers(tmp_path)[2]) == {"april", "araina"}
+
+    # a settlement is not a third grader, and a settled document is not
+    # listed to settle again
+    settled = build_correction(2, {"truth": {**truth, "unit": "Apt 6"}, "settled": True},
+                               rows, details, tmp_path)
+    with open(tmp_path / "corrections.jsonl", "a") as f:
+        f.write(json.dumps(settled) + "\n")
+    text = report(tmp_path)
+    assert "april (3 documents)" in text and "documents)" not in text.split("araina (3 documents)")[1]
+    assert "1 of the documents with disagreements are settled." in text
+    assert "None is left to settle." in text and "--rows" not in text

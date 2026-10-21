@@ -58,7 +58,8 @@ def latest_by_grader(records) -> dict:
 
 
 def agreement(records) -> dict:
-    by_row = latest_by_grader(records)
+    # an answer saved on the settling page is the settlement, not a grader
+    by_row = latest_by_grader([c for c in records if not c.get("settled")])
     shared = {row: a for row, a in by_row.items() if len(a) > 1}
     fields = {f: {"pairs": 0, "same": 0, "near": 0, "kinds": Counter()} for f in FIELDS}
     verdicts = {"pairs": 0, "both": 0}
@@ -79,8 +80,10 @@ def agreement(records) -> dict:
             wrong = compare(ta, tb)
             for field in FIELDS:
                 # the attorney box is only on some documents, and only in
-                # answers saved after 2026-10-07
-                if field.startswith("attorney") and not ("attorneys" in ta and "attorneys" in tb):
+                # answers saved after 2026-10-07; from round 2 it has no
+                # separate firm
+                need = "attorney_firm" if field == "attorney_firm" else "attorneys"
+                if field.startswith("attorney") and not (need in ta and need in tb):
                     continue
                 f = fields[field]
                 f["pairs"] += 1
@@ -104,13 +107,42 @@ def agreement(records) -> dict:
     }
 
 
+def field_differences(answers_by_row) -> dict:
+    """{row: {field: how}} for the settling page: each field where some pair
+    of graders differs, in the KINDS words, a substantive difference winning
+    over formatting. Answers saved on the settling page are the settlement,
+    not a grader, so they are left out."""
+    found_by_row = {}
+    for row, answers in answers_by_row.items():
+        graders = {who: c for who, c in answers.items() if not c.get("settled")}
+        found = {}
+        for a, b in combinations(sorted(graders), 2):
+            ca, cb = graders[a], graders[b]
+            if "unreadable" in (ca["verdict"], cb["verdict"]):
+                if ca["verdict"] != cb["verdict"]:
+                    found["can't tell"] = "one could not tell"
+                continue
+            ta, tb = ca["truth"], cb["truth"]
+            for field, kind in compare(ta, tb).items():
+                if field.startswith("attorney") and not ("attorneys" in ta and "attorneys" in tb):
+                    continue
+                if found.get(field) in (None, KINDS["near"]):
+                    found[field] = KINDS[kind]
+        if found:
+            found_by_row[row] = found
+    return found_by_row
+
+
 def _pct(k, n) -> str:
     return f"{100 * k / n:5.1f}%" if n else "    –"
 
 
 def report(out_dir, files=(), shapes=True) -> str:
     out = Path(out_dir)
-    t = agreement(read_answers([out / "corrections.jsonl", *files]))
+    records = read_answers([out / "corrections.jsonl", *files])
+    t = agreement(records)
+    latest = {c["row"]: c for c in records}
+    settled = {row for row, c in latest.items() if c.get("settled")}
     lines = [f"Answers read: {t['n_answers']}, from "
              + ", ".join(f"{who or 'unknown'} ({n} documents)" for who, n in t["graders"].most_common())
              + ".",
@@ -141,6 +173,13 @@ def report(out_dir, files=(), shapes=True) -> str:
             for who, shape in who_said:
                 if shape or field != "can't tell":
                     lines.append(f"        {who or 'unknown'}: {shape or '(empty)'}")
+    done = [row for row in rows if row in settled]
+    rows = [row for row in rows if row not in settled]
+    if done:
+        lines += ["", f"{len(done)} of the documents with disagreements are settled."]
+    if not rows:
+        lines.append("None is left to settle.")
+        return "\n".join(lines)
     lines += ["", f"{len(rows)} documents to settle. Open them, read the page, and save "
                   "the right answer; it becomes the answer that counts:",
               f"  extract-text review --out {out_dir} --rows {','.join(map(str, rows))} --serve"]

@@ -102,7 +102,9 @@ def cmd_review(args):
         page = write_review(args.out, seed=args.seed, graders=True, attorneys=args.attorneys,
                             order=args.order, overlap=args.overlap, rows=args.rows)
     elif args.rows:
-        page = write_review(args.out, seed=args.seed, attorneys="all", rows=args.rows)
+        # the settling page adds the attorney box wherever a grader answered
+        # it; asking on every card saved an unread box as "no attorney"
+        page = write_review(args.out, seed=args.seed, attorneys=args.attorneys, rows=args.rows)
     elif args.graders:
         page = write_review(args.out, seed=args.seed, graders=True, attorneys=args.attorneys,
                             order=args.order, overlap=args.overlap)

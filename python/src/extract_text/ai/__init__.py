@@ -13,8 +13,10 @@ from .base import SYSTEM_PROMPT, ExtractionBackend, ground
 from .local_backend import LocalBackend
 from .vision import (
     DEFAULT_VISION_MODEL,
+    LISTS_PROMPT,
     VISION_PROMPT,
     LocalVisionBackend,
+    OpenAIVisionBackend,
     available,
     pulled_models,
 )
@@ -24,12 +26,14 @@ if TYPE_CHECKING:  # pragma: no cover
 
 __all__ = [
     "DEFAULT_VISION_MODEL",
+    "LISTS_PROMPT",
     "SYSTEM_PROMPT",
     "VISION_PROMPT",
     "AnthropicBackend",
     "ExtractionBackend",
     "LocalBackend",
     "LocalVisionBackend",
+    "OpenAIVisionBackend",
     "available",
     "ground",
     "pulled_models",

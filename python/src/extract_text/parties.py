@@ -59,6 +59,19 @@ def _strip_group_terms(text: str) -> tuple[str, bool]:
     return (current or text), found
 
 
+# A defendant entry that is a placeholder for an unnamed person, even with a
+# surname after it ("JANE DOE" and the tenant's surname, "JOHN DOE II"). The
+# group-term rule above strips trailing terms only, so these got through it
+# into the round-1 labels. Settling rule (2026-10-20): no Doe placeholders.
+_PLACEHOLDER_RE = re.compile(r"^\W*(?:john|jane)\s+does?\b", re.IGNORECASE)
+
+
+def is_placeholder(name: str) -> bool:
+    """Whether a defendant entry stands for an unnamed person."""
+    kept, found = _strip_group_terms(name)
+    return bool(_PLACEHOLDER_RE.match(name)) or (found and kept == name)
+
+
 # Words that name a business's legal form rather than the business, so
 # "EXAMPLE RIDGE APARTMENTS, LLC" and "Example Ridge Apartments" compare equal.
 _ENTITY_WORDS = {

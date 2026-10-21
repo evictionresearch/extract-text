@@ -794,6 +794,46 @@ On the settled labels the AI engine has defendants right on 20 of the
 random 30 (66.7%, against 50.0% on the unsettled labels), so part of its
 apparent weakness was disagreement in the labels.
 
+## Fine-tuning the AI engine on the graders' labels (2026-10-20)
+
+The model learns the shape of what it is trained on, and the original
+prompt asked for a shape the graders do not record (at most two defendants
+on one line, the address as one string). So the fine-tune starts with a
+second prompt in the graders' format, and the original stays the default.
+
+- **The graders'-format prompt** (`ai/vision.py`, `lists_prompt`,
+  `prompt_format="lists"`) asks for plaintiffs and defendants as lists, the
+  defendant's address in parts, and the attorney box as lines plus an
+  address, each with the `GRADING.md` rule. The prompt has no case number,
+  because no label has one and the model would learn to leave it out. A
+  training example whose label never answered the attorney box gets the
+  prompt without the attorney items, so it never teaches "no attorney".
+- **A Doe entry with a surname** ("JANE DOE" and the tenant's surname,
+  "JOHN DOE II") is a placeholder too (`parties.is_placeholder`). The
+  group-term rule strips trailing terms only, so ten such entries were
+  still in the training labels.
+- **The exporter** (`finetune.py`) cleans each label with the package's
+  rules and returns counts of what changed: 22 placeholders dropped, 11
+  plaintiff descriptions and 49 trailing commas off, 66 round-1 firms
+  joined into the attorney lines. The random 30 are the test set and are
+  never exported; the flagged 183 split 165 to training and 18 to
+  validation (seed in `split.json`).
+- **Toolchain**, verified 2026-10-20: `mlx-vlm` 0.7.9 in its own
+  environment (it also needs `torch` and `torchvision`, for the Qwen3.5
+  processor), base weights `mlx-community/Qwen3.5-9B-bf16`, LoRA rank 16,
+  completion-only loss (`--train-on-completions`), `--max-seq-length 4096`
+  (a page is about 2,100 image tokens; the default of 2048 would cut the
+  answer off). The chat template renders the training prefix and the
+  inference prompt identically, thinking off.
+- **Scoring** (`scripts/finetune_eval.py`) runs on the held-out 30 with the
+  scorer's own `compare`, in this process through mlx-vlm, so a trained
+  adapter is scored without any server. Reproduced the settled baseline
+  first: the original engine has defendants right on 20 of 30.
+- **Serving** is through an OpenAI-style local server (`OpenAIVisionBackend`,
+  LM Studio or `mlx_vlm.server`), since Ollama does not load LoRA adapters;
+  the backend refuses any host but this machine. Trained weights are
+  identifiable derived data and stay in the governed tree.
+
 ## Other reasons extraction fails
 
 Reading the failures rather than counting them changed what looks worth

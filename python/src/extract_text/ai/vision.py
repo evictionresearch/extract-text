@@ -34,6 +34,7 @@ from ..parties import (  # noqa: F401
     _GROUP_TERM_RE,
     _strip_group_terms,
     drop_plaintiff_matches,
+    is_placeholder,
 )
 from ..schema import (
     Address,
@@ -91,6 +92,61 @@ Output format:
   "case_number": ""
 }
 """
+
+
+# The graders' format, added 2026-10-20 for fine-tuning: every party as a
+# list, the defendant's address in parts, and the plaintiff attorney's block
+# as lines plus an address, each following the rules in GRADING.md. A model
+# trained on the graders' labels learns this shape, so the prompt it is
+# trained and run with has to ask for it. The attorney items are optional:
+# a training example whose label says nothing about the attorney block is
+# shown the prompt without them, so the model is never taught to answer
+# "no attorney" where nobody looked.
+_LISTS_HEAD = """\
+You are a researcher extracting structured information from the first page of a court document in a housing (eviction) case.
+
+Read the page image and return what it prints, as printed:
+	1.	plaintiffs — The landlord or company bringing the case, usually at the top of the caption before the defendants. One entry per plaintiff, the name only: leave out the description after it ("a Washington limited liability company", "its successors and/or assigns") and any trailing comma.
+	2.	defendants — Every named defendant, one entry per person. Leave out placeholders and group words ("all other occupants", "John Doe", "Jane Doe", "et al."). Never add a surname the page does not show. An alias stays in its person's entry, written "a/k/a" ("PAT EXAMPLE a/k/a PATRICIA EXAMPLE"). A business the defendant does business as ("d/b/a") is an entry of its own.
+	3.	defendant_address — The defendant's address, in the caption or after "TO:", never the attorney's address. Street without the unit; the unit on its own ("Apt 5", "#12"); then city, state, and ZIP. If the page gives two, use the address of the property the case is about; if that is unclear, the first one."""
+
+_LISTS_ATTORNEYS = """
+	4.	attorneys — The plaintiff's attorney signature block, usually at the bottom right: every attorney's name and the firm or office name, one entry each, without "Attorney for Plaintiff" or the bar number. Empty if the plaintiff signed for itself.
+	5.	attorney_address — That block's address on one line, as printed (street, suite, city, state, ZIP), without the phone number."""
+
+_LISTS_RULES = """
+
+Rules:
+	•	Extract only what the page prints. Do not infer, guess, or look anything up.
+	•	Use [] for a missing list and "" for a missing value.
+	•	Output must be valid JSON with no additional text.
+
+Output format:
+
+"""
+
+_LISTS_SHAPE = {
+    "plaintiffs": [],
+    "defendants": [],
+    "defendant_address": {"street": "", "unit": "", "city": "", "state": "", "zip": ""},
+}
+_LISTS_SHAPE_ATTORNEYS = {"attorneys": [], "attorney_address": ""}
+
+
+def lists_prompt(attorneys: bool = True) -> str:
+    """The graders'-format prompt, with or without the attorney items."""
+    shape = {**_LISTS_SHAPE, **(_LISTS_SHAPE_ATTORNEYS if attorneys else {})}
+    return (_LISTS_HEAD + (_LISTS_ATTORNEYS if attorneys else "") + _LISTS_RULES
+            + json.dumps(shape, indent=2) + "\n")
+
+
+LISTS_PROMPT = lists_prompt()
+LISTS_FIELDS = ("plaintiffs", "defendants", "defendant_address", "attorneys",
+                "attorney_address")
+
+# a line of the attorney box that names the office rather than a person
+_FIRM_RE = re.compile(r"\b(?:Law|Legal|Offices?|Attorneys?|PLLC|P\.?L\.?L\.?C\.?|"
+                      r"P\.?S\.?|P\.?C\.?)(?:\W|$)", re.IGNORECASE)
 
 
 def parse_llm_json_best_effort(content):
@@ -225,6 +281,90 @@ def fields_to_record(fields: dict) -> CourtRecord:
     )
 
 
+def _clean_list(value) -> list[str]:
+    """A list field as a list of cleaned names; a model that answers one
+    string where a list was asked gets it split on semicolons or new lines."""
+    if value is None:
+        return []
+    if isinstance(value, str):
+        value = re.split(r"\s*;\s*|\n", value)
+    out = []
+    for item in value if isinstance(value, list) else [value]:
+        item = _clean(item if isinstance(item, str) else None)
+        if item:
+            item = re.sub(r"[\s,;]+$", "", item)
+            if item:
+                out.append(item)
+    return out
+
+
+def _address_parts(addr) -> Address | None:
+    """The graders'-format address, or a one-string address split the way
+    the original prompt's answer is split."""
+    from ..deterministic.summons import parse_address
+
+    keys = ("street", "unit", "city", "state", "zip")
+    if isinstance(addr, dict):
+        parts = {k: _clean(addr.get(k)) for k in keys}
+        if not any(parts.values()):
+            return None
+        street = " ".join(v for v in (parts["street"], parts["unit"]) if v)
+        tail = " ".join(v for v in (parts["state"], parts["zip"]) if v)
+        raw = ", ".join(v for v in (street, parts["city"], tail) if v)
+        return Address(raw=raw, **parts)
+    raw = _clean(addr) if isinstance(addr, str) else None
+    if raw is None:
+        return None
+    parsed = parse_address(raw)
+    if not parsed:
+        return Address(raw=raw)
+    return Address(raw=raw, **{k: parsed[k] or None for k in keys})
+
+
+def list_fields_to_record(fields: dict) -> CourtRecord:
+    """Map the graders'-format fields into the shared schema."""
+    from ..deterministic.patterns import BUSINESS_MARKERS
+
+    defendant_address = _address_parts(fields.get("defendant_address"))
+    defendants = []
+    for name in _clean_list(fields.get("defendants")):
+        if is_placeholder(name):
+            continue  # "JOHN DOE", or "JANE DOE" with a surname
+        name = _strip_group_terms(name)[0]
+        if len(name) >= 2:
+            defendants.append(Party(
+                name=name, role="defendant",
+                is_business=bool(BUSINESS_MARKERS.search(name)),
+                address=defendant_address,
+            ))
+    plaintiffs = [
+        Party(name=name, role="plaintiff", is_business=bool(BUSINESS_MARKERS.search(name)))
+        for name in _clean_list(fields.get("plaintiffs"))
+    ]
+
+    attorney = None
+    lines = _clean_list(fields.get("attorneys"))
+    office = fields.get("attorney_address")
+    office = _clean(office) if isinstance(office, str) else None
+    if lines or office:
+        # one box holds attorneys and firm together, as the graders enter it;
+        # the firm is the line that reads as an office, the rest are people
+        firms = [n for n in lines if _FIRM_RE.search(n) or BUSINESS_MARKERS.search(n)]
+        people = [n for n in lines if n not in firms]
+        attorney = Attorney(
+            names="; ".join(people) or None,
+            firm=firms[0] if firms else None,
+            address=Address(raw=office) if office else None,
+        )
+
+    return CourtRecord(
+        plaintiffs=plaintiffs,
+        defendants=defendants,
+        defendant_address=defendant_address,
+        attorney=attorney,
+    )
+
+
 def resolve_model(requested: str, host: str | None = None, warn: bool = True) -> str:
     """Match the requested model tag against what Ollama has pulled.
 
@@ -273,8 +413,16 @@ class LocalVisionBackend:
         seed: int = 42,
         page: int = 1,
         dpi: int = 150,
-        prompt: str = VISION_PROMPT,
+        prompt: str | None = None,
+        prompt_format: str = "v1",
     ) -> None:
+        # "v1" is Cheng Ren's benchmarked prompt; "lists" the graders'
+        # format, which a model fine-tuned on their labels is run with
+        if prompt_format not in ("v1", "lists"):
+            raise ValueError(f"prompt_format must be 'v1' or 'lists', not {prompt_format!r}")
+        self.prompt_format = prompt_format
+        if prompt is None:
+            prompt = LISTS_PROMPT if prompt_format == "lists" else VISION_PROMPT
         self.model = model
         self.host = (host or os.environ.get("OLLAMA_HOST") or DEFAULT_HOST).rstrip("/")
         self.timeout = timeout
@@ -338,6 +486,9 @@ class LocalVisionBackend:
         b64 = base64.b64encode(Path(image_path).read_bytes()).decode()
         raw = self._chat(b64)
 
+        if self.prompt_format == "lists":
+            return self._lists_extraction(raw, image_path)
+
         flags: list[str] = []
         fields = parse_llm_json_best_effort(raw)
         if fields is None:
@@ -385,6 +536,49 @@ class LocalVisionBackend:
             document=DocumentInfo(file=os.path.basename(str(image_path))),
         )
 
+    def _lists_extraction(self, raw: str, image_path) -> Extraction:
+        """The graders'-format answer as an extraction. There is no regex
+        fallback for this shape: nested lists do not survive one, and a
+        broken answer is better flagged than half-read."""
+        flags: list[str] = []
+        fields = parse_llm_json_best_effort(raw)
+        if not isinstance(fields, dict):
+            fields = {}
+            flags.append("vision_json_unparsed")
+        record = list_fields_to_record(fields)
+        if not (record.plaintiffs or record.defendants or record.defendant_address
+                or record.attorney):
+            flags.append("vision_no_fields")
+        if any(_strip_group_terms(n)[1] for n in _clean_list(fields.get("defendants"))):
+            flags.append("vision_defendant_group_term")
+        kept, dropped = drop_plaintiff_matches(
+            [p.name for p in record.defendants], [p.name for p in record.plaintiffs])
+        if dropped:
+            flags.append("defendant_matches_plaintiff")
+            record.defendants = [p for p in record.defendants if p.name in kept]
+
+        evidence: dict[str, Evidence] = {}
+        quotes = {
+            "plaintiff": "; ".join(p.name for p in record.plaintiffs),
+            "defendant": "; ".join(p.name for p in record.defendants),
+            "address": record.defendant_address.raw if record.defendant_address else "",
+            "attorneys": "; ".join(_clean_list(fields.get("attorneys"))),
+            "law_firm_address": (record.attorney.address.raw
+                                 if record.attorney and record.attorney.address else ""),
+        }
+        for key, value in quotes.items():
+            if value:
+                evidence[key] = Evidence(quote=value, grounded=False, page=self.page)
+
+        return Extraction(
+            record=record,
+            method="ai",
+            backend=f"{self.name}:{self.resolved_model}",
+            evidence=evidence,
+            flags=flags,
+            document=DocumentInfo(file=os.path.basename(str(image_path))),
+        )
+
     def extract_file(self, path, source_text: str | None = None) -> Extraction:
         """Render the page of a PDF or TIFF, then extract from the image."""
         from ..documents import render_page
@@ -395,6 +589,64 @@ class LocalVisionBackend:
         out = self.extract_image(png, source_text=source_text)
         out.document = DocumentInfo(file=os.path.basename(str(path)))
         return out
+
+
+DEFAULT_OPENAI_HOST = "http://127.0.0.1:1234"
+
+
+class OpenAIVisionBackend(LocalVisionBackend):
+    """The vision lane through a local server that speaks the OpenAI chat
+    API (`/v1/chat/completions`): LM Studio, or `mlx_vlm.server`. This is
+    how a fine-tuned model is served, since Ollama does not load LoRA
+    adapters. The host must be this machine; a model trained on court
+    records can repeat names from them, so it is never served to a network.
+    """
+
+    name = "openai-vision"
+
+    def __init__(self, model: str, host: str | None = None, **kwargs) -> None:
+        host = (host or os.environ.get("EXTRACT_TEXT_OPENAI_HOST") or DEFAULT_OPENAI_HOST)
+        if not re.match(r"^https?://(?:127\.0\.0\.1|localhost|\[::1\])(?::\d+)?/?$", host):
+            raise ValueError(f"OpenAI-style host must be this machine, not {host}")
+        super().__init__(model=model, host=host, **kwargs)
+
+    @property
+    def resolved_model(self) -> str:
+        return self.model
+
+    def _chat(self, b64_image: str) -> str:
+        payload = {
+            "model": self.model,
+            "stream": False,
+            "temperature": self.temperature,
+            "seed": self.seed,
+            "max_tokens": 2048,
+            "messages": [{"role": "user", "content": [
+                {"type": "text", "text": self.prompt},
+                {"type": "image_url",
+                 "image_url": {"url": f"data:image/png;base64,{b64_image}"}},
+            ]}],
+            # thinking off, as in the Ollama lane; LM Studio and mlx_vlm
+            # read this from the chat template arguments
+            "chat_template_kwargs": {"enable_thinking": False},
+        }
+        request = urllib.request.Request(
+            f"{self.host}/v1/chat/completions",
+            data=json.dumps(payload).encode(),
+            headers={"Content-Type": "application/json"},
+        )
+        try:
+            with urllib.request.urlopen(request, timeout=self.timeout) as resp:
+                body = json.loads(resp.read())
+        except urllib.error.HTTPError as exc:
+            raise RuntimeError(f"The model server returned an error: {exc}") from exc
+        except urllib.error.URLError as exc:
+            raise RuntimeError(
+                f"No OpenAI-style model server at {self.host}. Start one "
+                "(LM Studio: lms server start), or set EXTRACT_TEXT_OPENAI_HOST."
+            ) from exc
+        choices = body.get("choices") or [{}]
+        return (choices[0].get("message") or {}).get("content") or ""
 
 
 def available(host: str | None = None) -> bool:

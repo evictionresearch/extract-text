@@ -129,11 +129,17 @@ def _sampled_as(out: Path, row_no: int, row: dict) -> str:
         return "flagged" if row.get("flags") else "random"
 
 
+def _bare(name: str) -> str:
+    """A name without the comma or semicolon a caption puts after it; a
+    period that ends an abbreviation ("Inc.") stays."""
+    return re.sub(r"[\s,;]+$", "", name)
+
+
 def _name_list(given: dict, key: str) -> list:
     names = given.get(key) or []
     if not isinstance(names, list):
         raise ValueError(f"{key} must be a list")
-    return [_text(n) for n in names if _text(n)][:20]
+    return [_bare(_text(n)) for n in names if _bare(_text(n))][:20]
 
 
 def build_correction(row_no: int, body: dict, rows: list, details: list,
@@ -144,7 +150,9 @@ def build_correction(row_no: int, body: dict, rows: list, details: list,
     row, detail = rows[row_no - 1], details[row_no - 1]
     given = body.get("truth") or {}
     truth = {k: _text(given.get(k)) for k in TRUTH_FIELDS}
-    truth["plaintiff"] = _text(given.get("plaintiff"), MAX_PLAINTIFF)
+    truth["plaintiff"] = "; ".join(
+        p for p in (_bare(part.strip()) for part in
+                    _text(given.get("plaintiff"), MAX_PLAINTIFF).split(";")) if p)
     truth["defendants"] = _name_list(given, "defendants")
     # a page built before the attorney boxes sends none of them, and its
     # answer then says nothing about the attorney block. A page from round 2

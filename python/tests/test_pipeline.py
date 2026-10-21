@@ -487,6 +487,14 @@ def test_a_long_plaintiff_list_is_kept_whole(tmp_path):
     assert c["truth"]["plaintiff"] == many
     assert len(c["truth"]["street"]) == 300     # other fields keep their cap
 
+    # a comma or semicolon a caption puts after a name is not part of it; a
+    # period ending an abbreviation is
+    c = build_correction(1, {"truth": {"plaintiff": "EXAMPLE HOMES,,;\nEXAMPLE INC.",
+                                       "defendants": ["PAT EXAMPLE,", " , "]}},
+                         rows, details, tmp_path)
+    assert c["truth"]["plaintiff"] == "EXAMPLE HOMES; EXAMPLE INC."
+    assert c["truth"]["defendants"] == ["PAT EXAMPLE"]
+
 
 def test_attorney_box_is_optional_and_the_same_for_every_grader(tmp_path):
     from extract_text.cli import _count_or_all

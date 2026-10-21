@@ -50,11 +50,17 @@ when that is closer; check it against the page before saving.
 The "Open the full document" link does not work on your copy, since the
 original files are not in the folder; the page image is what you grade from.
 
-Type only what the page shows, as printed. Do not look anything up, not
-even a ZIP code you could find online: the answers teach software to read
-the page, and it cannot look things up. Only the first page is shown; if
-names or the address run onto the next page, grade what this page shows
-and say so in the note.
+Type only what the page shows, as printed. Do not add anything the page
+leaves out, such as a ZIP code it does not print: the answers teach
+software to read the page, and it cannot look things up. When something
+printed is hard to read (a digit that could be a 5 or a 6), you may check
+an outside source to choose between the readings the page allows; say so
+in the note. Only the first page is shown; if names or the address run
+onto the next page, grade what this page shows and say so in the note.
+
+Leave off a comma or semicolon at the end of a name; it only separates the
+name from what follows on the page. A period that ends an abbreviation
+("Inc.", "Jr.") stays. Save drops a trailing comma for you.
 
 **Address.** Street without the unit, unit on its own (`Apt 5`,
 `BLDG C Apt 5`, `#12`), city, state, ZIP. It is the defendant's address,

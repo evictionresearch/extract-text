@@ -9,6 +9,7 @@ Five subcommands cover the whole workflow:
     extract-text review --out RESULTS --serve   review and save corrections
     extract-text score --out RESULTS        score the engines against the corrections
     extract-text agree --out RESULTS FILE   how often graders agree, and merging their answers
+    extract-text import --out RESULTS FILE  answers downloaded from the graders' page, as corrections
     extract-text cases DIR --out RESULTS    roll case folders up to their outcomes
 
 Run any of them with -h for the options. The library behind this is
@@ -166,6 +167,17 @@ def cmd_agree(args):
     return 0
 
 
+def cmd_import(args):
+    from pathlib import Path
+
+    from .corrections import import_answers
+
+    for path in args.files:
+        dest, n = import_answers(args.out, path)
+        print(f"{n} answers from {Path(path).name} written to {dest}", file=sys.stderr)
+    return 0
+
+
 def cmd_cases(args):
     from .casefile import report, scan_cases
 
@@ -282,6 +294,13 @@ def main(argv=None):
     a.add_argument("--save", default=None, metavar="FILE",
                    help="also write the report to FILE (it holds no record values)")
     a.set_defaults(fn=cmd_agree)
+
+    a = sub.add_parser("import", help="turn the answers a grader downloaded from the "
+                                      "graders' page into a corrections file")
+    a.add_argument("--out", required=True, help="the scan folder the page was built from")
+    a.add_argument("files", nargs="+", metavar="FILE",
+                   help="the graders' answers_NAME_FOLDER.jsonl files")
+    a.set_defaults(fn=cmd_import)
 
     a = sub.add_parser("cases", help="roll case folders up to their outcomes")
     a.add_argument("inputs", nargs="+", help="directories of case folders")

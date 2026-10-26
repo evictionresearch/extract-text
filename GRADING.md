@@ -7,42 +7,27 @@ learns from, so a careful ten is worth more than a hurried hundred.
 
 ## What you need
 
-1. This repository, cloned, and Python 3.10 or newer. Then, in a terminal:
+Google Chrome and a zip from Tim in a restricted Google
+Drive folder shared with you by name (never by email, never by a public
+link). Nothing to install, and no terminal.
 
-       cd extract-text/python
-       python3 -m venv .venv && source .venv/bin/activate
-       pip install -e .
-       extract-text --version
-
-   A version number means it is installed. Grading needs nothing else: no
-   AI model and no scanning tools, because the readings and the page images
-   are already in the folder you receive. If you already have the
-   repository from an earlier round, update it with
-   `git fetch origin && git reset --hard origin/main` from its folder; a
-   plain `git pull` refuses, because the history was rewritten before the
-   repository went public on 2026-10-20.
-
-2. A scan folder from Tim, as a zip in a restricted Google Drive folder
-   shared with you by name (never by email, never by a public link). It
-   holds `extracted.csv`, `extracted.jsonl`, and a `review` folder of page
-   images. It is real court records. Download the zip, unzip it on your own
-   computer, and work from that copy. Keep it out of this repository and out
-   of any other shared or synced folder, and delete it when the round is
-   over.
+The zip holds a `review` folder: the grading page and the page images it
+shows. It is real court records. Download the zip, unzip it on your own
+computer, and work from that copy. Keep it out of any shared or synced
+folder (not in Dropbox, iCloud Drive, OneDrive, or a Google Drive that
+syncs), leave it where you unzipped it until the round is over, and delete
+it then.
 
 ## Grading
 
-    extract-text review --out /path/to/the/folder --graders --attorneys 100 --serve
+Open the `review` folder and double-click `index.html`. If it opens in a
+browser other than Chrome, open it from Chrome instead (File, Open
+File). Do not use a private or incognito window: it
+forgets your answers when it closes.
 
-Your browser opens the page from a server on your own computer; nothing
-leaves it. At the top, type your name (required) and email, and choose how
-many documents to grade. Ten is a good first batch. The page shows you the
-documents most in need of a person first and hides the rest. If Tim asks for
-`--order random` in the command, it serves them in random order instead;
-grade them the same way. If Tim gives you a list of document numbers to
-grade first, add `--rows` and the list (for example `--rows 3,8,21`) to the
-same command; the page then holds just those documents, and once they are
-done you run the command again without `--rows`.
+At the top, type your name (required) and email, and choose how many
+documents to grade. Ten is a good first batch. The page decides the order
+(Tim set it when he built the page) and shows one batch at a time.
 
 For each document, compare the page image (click it to enlarge; the form
 stays beside it) with the form below the two engines' readings. Fix what is
@@ -51,8 +36,7 @@ is already right, press **Save** anyway; that records that the software was
 right. If you cannot tell from the page, press **Can't tell from the page**.
 The **Use AI engine's reading** button fills the form from the AI's answer
 when that is closer; check it against the page before saving.
-The "Open the full document" link does not work on your copy, since the
-original files are not in the folder; the page image is what you grade from.
+Only the page image is in the folder; it is what you grade from.
 
 Type only what the page shows, as printed. Do not add anything the page
 leaves out, such as a ZIP code it does not print: the answers teach
@@ -94,9 +78,9 @@ company", "a public body corporate and politic", "its successors and/or
 assigns") and any trailing comma. Several plaintiffs go one per line; the
 box grows to fit.
 
-Some documents also have a **Plaintiff's attorney** box (`--attorneys 100`
-puts it on 100 documents drawn at random, the same ones for every grader;
-leave the option off and no document has it). It is the signature block,
+Some documents also have a **Plaintiff's attorney** box (Tim chooses how
+many when he builds the page; they are drawn at random, the same ones for
+every grader). It is the signature block,
 usually at the bottom right of the page. Attorneys and the firm go in one
 box, one per line, each as printed and in any order: every attorney's name
 and the firm or office name, without "Attorney for Plaintiff" or the bar
@@ -108,15 +92,43 @@ The **Note** box is for anything unusual: a name spelled two ways, a
 second address, an address on the next page, a block you are unsure of.
 Notes are read, and they shape the rules for the next round.
 
-After a batch, press **Grade another batch** or close the tab. Everything
-saved stays saved; reopening the page shows your work. Press Ctrl-C in the
-terminal when you are done.
+After a batch, press **Grade another batch** or close the tab. Each Save
+is kept in that browser on that computer, and reopening `index.html` there
+shows your work. Use the same browser every time, and do not clear its
+browsing data until the round is over.
 
 ## Sending it back
 
-Copy `corrections.jsonl` from the scan folder, rename it with your name
-(`corrections_YOURNAME.jsonl`; with two folders in a round, add the folder's
-name too), and upload it to the same restricted Drive folder the zip came
-from. That is the only file Tim needs; he makes the
-reports from it. It holds names and addresses: never commit it, email it,
-or put it anywhere else.
+When you stop for the day, press **Download my answers** in the green box
+at the top. The browser saves a file named
+`answers_YOURNAME_FOLDER.jsonl` to your Downloads folder. Upload it to the
+same restricted Drive folder the zip came from. Each download holds every
+answer you have saved on that page so far, so the newest file is the only
+one Tim needs; replace the older one in Drive. With two folders in a
+round, each folder's page gives its own file.
+
+The green box counts the answers not yet downloaded, and the browser asks
+before you close the page while there are any. If your answers ever
+disappear from the page (a cleared browser, a new computer), press
+**Bring back answers from a downloaded file** and choose your newest
+download.
+
+The file holds names and addresses: Drive only. Never email it, commit
+it, or put it anywhere else, and delete it from Downloads when Tim
+confirms he has it.
+
+## The terminal route
+
+The page also runs from a server on your own computer, as in round 1:
+clone this repository, install it (`cd extract-text/python && python3 -m
+venv .venv && source .venv/bin/activate && pip install -e .`), and run
+
+    extract-text review --out /path/to/the/folder --graders --attorneys 100 --serve
+
+on a full scan folder. Saves then go to `corrections.jsonl` in that
+folder; rename a copy `corrections_YOURNAME.jsonl` and upload it to Drive.
+Press Ctrl-C in the terminal when you are done. If you have the
+repository from an earlier round, update it with
+`git fetch origin && git reset --hard origin/main` from its folder; a
+plain `git pull` refuses, because the history was rewritten before the
+repository went public on 2026-10-20.

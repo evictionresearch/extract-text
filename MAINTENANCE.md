@@ -948,6 +948,28 @@ fixtures only, while the graders'-format default waited for its commit.
   graders' message drops the report step; the corrections file is all that
   comes back.
 
+## The graders' page needs no terminal (2026-10-26)
+
+Tim asked that graders not have to type commands to start grading. The
+graders' page, opened as a plain file, now keeps each Save in the browser
+(`localStorage`, keyed by the scan folder's name) and offers **Download my
+answers**, which writes `answers_NAME_FOLDER.jsonl` holding every answer so
+far, as the page would have sent it to the server. `extract-text import`
+turns that file into `corrections_NAME_FOLDER.jsonl` in the scan folder
+through the same `build_correction` the server uses, so the record matches
+a served save field for field except `saved_at`, which keeps the time the
+grader pressed Save. Each answer carries the folder's name and the import
+refuses another folder's answers. Tim builds the page; the zip holds only
+the `review` folder, so the scan tables, with every document's full text,
+no longer leave his machine. The served route is unchanged.
+
+Checked on synthetic fixtures in headless Brave from a `file://` URL: a
+save without a name is refused, a save survives a reload, the download
+writes the file, and `import` then `agree` read it. Not checked: Safari
+and Firefox, whose storage rules for pages opened from files differ from
+Chromium's; `GRADING.md` asks for Chrome, the engine tested, and tells
+graders not to use a private window.
+
 ## Observed engine differences
 
 Notes for whoever runs the AI-lane head-to-head. These are observations from

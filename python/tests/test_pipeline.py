@@ -775,3 +775,67 @@ def test_street_in_text_tells_a_rule_failure_from_an_ocr_failure():
     assert _street_in_text("1234 EXAMPLE AVE S", text)[0] == "exact"
     assert _street_in_text("1243 EXAMPLE AVE", text)[0] == "near"      # one digit off
     assert _street_in_text("99999 NOWHERE PKWY", text) == ("absent", None)
+
+
+def test_graders_page_opened_as_a_file_keeps_answers_for_download(tmp_path):
+    out = tmp_path / "_round_x"
+    _fake_both_engine_scan(out)
+    html = write_review(out, graders=True).read_text()
+    # the folder's name travels with every answer, and the page knows to
+    # keep answers in the browser when no server is behind it
+    assert 'const PAGE = "_round_x";' in html
+    assert 'id="keep"' in html and 'id="kdown"' in html and 'id="kload"' in html
+    assert "const LOCAL = GRADERS && !location.protocol.startsWith(\"http\")" in html
+
+
+def test_import_turns_downloaded_answers_into_the_servers_corrections(tmp_path):
+    from extract_text.corrections import build_correction, import_answers
+    from extract_text.pipeline import read_scan
+
+    out = tmp_path / "_round_x"
+    _fake_both_engine_scan(out)
+    write_review(out, graders=True)
+    body = {"row": 1, "verdict": "checked", "note": "", "used_ai_fill": True, "settled": False,
+            "truth": {"plaintiff": "EXAMPLE GREENS LLC", "defendants": ["PAT EXAMPLE"],
+                      "street": "1234 SAMPLE AVE NE", "unit": "BLDG C Apt # 5",
+                      "city": "Sampleton", "state": "WA", "zip": "98100"},
+            "reviewer": "A. Grader", "reviewer_email": "grader@example.org",
+            "page": "_round_x", "saved_at": "2026-10-27T16:05:00.000Z"}
+    answers = tmp_path / "answers_a_grader_round_x.jsonl"
+    answers.write_text(json.dumps(body) + "\n")
+
+    dest, n = import_answers(out, answers)
+    assert n == 1 and dest == out / "corrections_a_grader_round_x.jsonl"
+    got = json.loads(dest.read_text())
+    rows, details = read_scan(out)
+    served = build_correction(1, body, rows, details, out)
+    # the same record the server would have saved, with the time of the Save
+    assert got["saved_at"] == "2026-10-27T16:05:00.000Z"
+    assert {k: v for k, v in got.items() if k != "saved_at"} == \
+        {k: v for k, v in served.items() if k != "saved_at"}
+    assert got["reviewer"] == "A. Grader" and got["used_ai_fill"] is True
+
+    # the answers feed `agree` like a returned corrections file
+    from extract_text.agree import report
+    assert "A. Grader (1 documents)" in report(out, [dest])
+
+    # answers saved on another folder's page are refused, not mixed in
+    other = tmp_path / "answers_a_grader_elsewhere.jsonl"
+    other.write_text(json.dumps({**body, "page": "_round_y"}) + "\n")
+    with pytest.raises(ValueError, match="_round_y"):
+        import_answers(out, other)
+
+
+def test_import_command_writes_one_corrections_file_per_download(tmp_path):
+    from extract_text.cli import main
+
+    out = tmp_path / "_round_x"
+    _fake_both_engine_scan(out)
+    write_review(out, graders=True)
+    body = {"row": 1, "verdict": "unreadable", "truth": {}, "reviewer": "B. Grader",
+            "page": "_round_x", "saved_at": "2026-10-27T16:06:00.000Z"}
+    answers = tmp_path / "answers_b_grader_round_x.jsonl"
+    answers.write_text(json.dumps(body) + "\n")
+    assert main(["import", "--out", str(out), str(answers)]) == 0
+    got = json.loads((out / "corrections_b_grader_round_x.jsonl").read_text())
+    assert got["verdict"] == "unreadable" and got["reviewer"] == "B. Grader"

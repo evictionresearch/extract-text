@@ -204,6 +204,44 @@ def build_correction(row_no: int, body: dict, rows: list, details: list,
     }
 
 
+def import_answers(out_dir, path) -> tuple[Path, int]:
+    """Turn the answers a grader downloaded from the graders' page, opened
+    as a plain file, into corrections_NAME.jsonl in the scan folder: the
+    same records the server would have saved, built from the scan's own
+    record of each document, with the time the grader pressed Save. NAME is
+    the downloaded file's name after "answers_". Returns the file written
+    and how many answers it holds.
+
+    Each answer carries the name of the scan folder its page was built
+    from, so answers from one folder's page cannot land in another's."""
+    out = Path(out_dir)
+    rows, details = read_scan(out)
+    page = out.resolve().name
+    built = []
+    with open(path) as f:
+        for n, line in enumerate(f, 1):
+            if not line.strip():
+                continue
+            body = json.loads(line)
+            if body.get("page") != page:
+                raise ValueError(f"{Path(path).name} line {n} was saved on the page of "
+                                 f"{body.get('page')!r}, not of {page!r}")
+            row_no = int(body.get("row"))
+            if not 1 <= row_no <= len(rows):
+                raise ValueError(f"{Path(path).name} line {n}: no document numbered {row_no}")
+            correction = build_correction(row_no, body, rows, details, out)
+            if body.get("saved_at"):
+                correction["saved_at"] = _text(body["saved_at"])
+            built.append(correction)
+    name = Path(path).stem
+    name = name[len("answers_"):] if name.startswith("answers_") else name
+    dest = out / f"corrections_{name}.jsonl"
+    with open(dest, "w") as f:
+        for c in built:
+            f.write(json.dumps(c) + "\n")
+    return dest, len(built)
+
+
 def load_corrections(out_dir) -> dict:
     """The latest saved correction for each row, keyed by row number."""
     path = Path(out_dir) / "corrections.jsonl"

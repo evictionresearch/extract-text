@@ -528,6 +528,19 @@ GRADER_PANEL = """
       <option value="all">all</option></select></label>
   <button type="button" id="gmore">Grade another batch</button>
   <span id="gnote"></span>
+</div>
+<div id="keep" hidden>
+  <p><b>Your answers are kept in this web browser, on this computer.</b>
+    Use this browser each time you grade. When you stop for the day, press
+    <b>Download my answers</b> and upload the file to the Drive folder the
+    zip came from. Each download holds every answer so far, so the newest
+    file is the only one Tim needs.</p>
+  <div class="buttons">
+    <button type="button" id="kdown">Download my answers</button>
+    <label class="quiet">Bring back answers from a downloaded file
+      <input type="file" id="kload" accept=".jsonl"></label>
+    <span id="knote"></span>
+  </div>
 </div>"""
 
 WORST_FLAGS = ("no_defendant_address", "defendant_equals_attorney", "engines_disagree_address",
@@ -757,6 +770,9 @@ def write_review(out_dir, n=30, seed=SAMPLE_SEED, flagged_first=True, graders=Fa
  #grader label{{font-size:14px;color:#333}} #grader input,#grader select{{display:block;font:inherit;padding:.25rem .35rem}}
  #gnote{{align-self:center;color:#2e4a6b}}
  #banner{{background:#fff3cd;border:1px solid #e0c870;padding:.6rem;margin:.5rem 0}}
+ #keep{{background:#eef7ee;border:1px solid #b9dbb9;padding:.2rem .8rem .6rem;margin:.4rem 0}}
+ #keep p{{margin:.4rem 0;max-width:60rem}} #keep label{{font-size:14px;color:#333}}
+ #knote.warn{{color:#a02020;font-weight:600}}
  .doc{{display:flex;gap:1rem;background:#fff;border:1px solid #ddd;
       margin-bottom:1rem;padding:1rem}}
  /* display:flex above would otherwise override the hidden attribute, and the
@@ -828,6 +844,13 @@ def write_review(out_dir, n=30, seed=SAMPLE_SEED, flagged_first=True, graders=Fa
 <script>
 const GRADERS = {'true' if graders else 'false'};
 const SETTLE = {'true' if rows and not graders else 'false'};
+// the scan folder the page was built from; every answer carries it, so
+// `extract-text import` can refuse answers from another folder's page
+const PAGE = {json.dumps(out.resolve().name)};
+// the graders' page opened as a plain file, with no server behind it: each
+// Save is kept in the browser, and the grader downloads the answers to send
+const LOCAL = GRADERS && !location.protocol.startsWith("http");
+const STORE = "extract-text answers " + PAGE;
 const FIELDS = ["plaintiff", "street", "unit", "city", "state", "zip",
                 "attorney_firm", "attorney_address", "note"];
 const LISTS = ["defendants", "attorneys"];
@@ -910,7 +933,94 @@ for (const img of document.querySelectorAll(".page img")) {{
   }});
 }}
 
-if (!location.protocol.startsWith("http")) {{
+// answers kept in this browser, {{row: what Save sent}}; null when the
+// browser refuses storage to a page opened as a file
+function kept() {{
+  try {{ return JSON.parse(localStorage.getItem(STORE) || "{{}}"); }} catch (e) {{ return null; }}
+}}
+function markKept(f, c) {{
+  f.classList.add("saved");
+  setStatus(f, c.verdict === "unreadable" ? "Saved in this browser: can't tell from the page"
+                                          : "Saved in this browser.", "ok");
+}}
+// how many answers are kept, and how many are newer than the last download;
+// those are the ones closing the page would put at risk
+function unsent() {{
+  let since = "";
+  try {{ since = localStorage.getItem(STORE + " downloaded") || ""; }} catch (e) {{}}
+  const all = Object.values(kept() || {{}});
+  return [all.length, all.filter(c => c.saved_at > since).length];
+}}
+const answers = n => n + (n === 1 ? " answer" : " answers");
+function keepNote() {{
+  const [n, waiting] = unsent();
+  const note = document.getElementById("knote");
+  note.textContent = answers(n) + " kept in this browser"
+    + (waiting ? "; " + waiting + " not yet downloaded." : n ? ", all downloaded." : ".");
+  note.className = waiting ? "warn" : "";
+}}
+function showKept() {{
+  const all = kept() || {{}};
+  for (const f of forms) {{
+    const c = all[f.dataset.row];
+    if (c) {{ fill(f, c); markKept(f, c); }}
+  }}
+  tally();
+  arrange();
+  keepNote();
+}}
+function downloadKept() {{
+  const all = Object.values(kept() || {{}}).sort((a, b) => a.row - b.row);
+  const who = (grader.name.value.trim().toLowerCase().replace(/[^a-z0-9]+/g, "_")
+               .replace(/^_+|_+$/g, "")) || "grader";
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([all.map(c => JSON.stringify(c) + "\\n").join("")],
+                                        {{type: "application/json"}}));
+  a.download = "answers_" + who + "_" + PAGE.replace(/^_+/, "") + ".jsonl";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  try {{ localStorage.setItem(STORE + " downloaded", new Date().toISOString()); }} catch (e) {{}}
+  keepNote();
+}}
+// a downloaded file brought back, for a browser whose storage was cleared;
+// for each document the newer of the two answers stays
+async function restoreKept(file) {{
+  const all = kept() || {{}};
+  let added = 0, other = 0;
+  for (const line of (await file.text()).split("\\n")) {{
+    if (!line.trim()) continue;
+    const c = JSON.parse(line);
+    if (c.page !== PAGE) {{ other++; continue; }}
+    if (!all[c.row] || all[c.row].saved_at < c.saved_at) {{ all[c.row] = c; added++; }}
+  }}
+  try {{ localStorage.setItem(STORE, JSON.stringify(all)); }} catch (e) {{}}
+  showKept();
+  document.getElementById("knote").textContent = answers(added) + " brought back"
+    + (other ? "; " + other + " were from another folder's page and were left out" : "") + ".";
+}}
+
+if (LOCAL) {{
+  if (kept() === null) {{
+    const b = document.getElementById("banner");
+    b.textContent = "This browser will not keep answers for a page opened from a file. "
+      + "Open the page in Google Chrome instead, or tell Tim.";
+    b.hidden = false;
+    forms.forEach(f => f.querySelectorAll("button").forEach(b => b.disabled = true));
+  }} else {{
+    document.getElementById("keep").hidden = false;
+    document.getElementById("kdown").addEventListener("click", downloadKept);
+    document.getElementById("kload").addEventListener("change", e => {{
+      if (e.target.files[0]) restoreKept(e.target.files[0]);
+      e.target.value = "";
+    }});
+    // closing the tab with answers not yet downloaded asks first
+    addEventListener("beforeunload", e => {{
+      if (unsent()[1]) {{ e.preventDefault(); e.returnValue = ""; }}
+    }});
+    setTimeout(showKept);
+  }}
+}} else if (!location.protocol.startsWith("http")) {{
   document.getElementById("banner").hidden = false;
   forms.forEach(f => f.querySelectorAll("button").forEach(b => b.disabled = true));
 }} else {{
@@ -1059,6 +1169,24 @@ for (const f of forms) {{
     if (SETTLE && body.verdict === "checked"
         && !Object.values(truth).some(v => Array.isArray(v) ? v.length : v)) {{
       setStatus(f, "Not saved: press Keep this one above, or type the answer in", "err");
+      return;
+    }}
+    if (LOCAL) {{
+      body.page = PAGE;
+      body.saved_at = new Date().toISOString();
+      const all = kept() || {{}};
+      all[body.row] = body;
+      try {{
+        localStorage.setItem(STORE, JSON.stringify(all));
+      }} catch (err) {{
+        setStatus(f, "Not saved: this browser would not keep it (" + err.message + "). "
+          + "Download your answers now and tell Tim", "err");
+        return;
+      }}
+      markKept(f, body);
+      delete f.dataset.dirty;
+      tally();
+      keepNote();
       return;
     }}
     setStatus(f, "Saving...", "");

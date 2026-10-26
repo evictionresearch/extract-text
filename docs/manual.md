@@ -616,18 +616,34 @@ answers into scores. The steps, in order:
    `all` asks on every document, and without the option no document has it.
    A few dozen answers measure the attorney block, and asking on every
    document slows the whole round.
-5. **Hand out the folder.** Zip the scan folder and share it through
-   restricted storage, by name. Anything already graded in it is hidden from
-   the graders and shown with its answer, so remove `corrections.jsonl` and
-   `corrections.csv` from the copy you share unless you mean graders to skip
-   those documents. For an accuracy round this matters: leftover answers on
-   hard documents would leave an easier remainder. `GRADING.md` at the
-   repository root is the graders' own step-by-step.
-6. **Bring the answers back.** Each grader returns their
-   `corrections.jsonl`, renamed `corrections_NAME.jsonl`, through the same
-   restricted storage; the reports are made from it. Put the
-   files in the scan folder, then run
-   `extract-text agree --out DIR DIR/corrections_A.jsonl DIR/corrections_B.jsonl`.
+5. **Hand out the page.** Build it once yourself, with the options from
+   steps 2 to 4 and without `--serve`, and zip only the scan's `review`
+   folder: the page and its page images. A grader double-clicks
+   `index.html` and grades in Chrome with nothing installed.
+   Opened as a file, the graders' page keeps each Save in that browser,
+   counts the answers not yet downloaded, asks before the tab closes while
+   there are any, and gives a **Download my answers** button that writes
+   `answers_NAME_FOLDER.jsonl`, every answer so far. The scan tables, with
+   each document's full text, stay on your machine. Share the zip through
+   restricted storage, by name. Build the page before anyone grades and
+   leave the folder's name alone afterward: each answer carries it, and
+   the import in step 6 refuses answers from another folder's page.
+   `GRADING.md` at the repository root is the graders' own step-by-step.
+   The older route still works: a grader with the package installed runs
+   `review --out DIR --graders ... --serve` on a full copy of the scan
+   folder, and answers save to that copy's `corrections.jsonl`. Anything
+   already graded in a shared folder is then hidden from the graders and
+   shown with its answer, so remove `corrections.jsonl` and
+   `corrections.csv` from the copy you share unless you mean graders to
+   skip those documents.
+6. **Bring the answers back.** Each grader uploads their newest download
+   through the same restricted storage. `extract-text import --out DIR
+   answers_A_FOLDER.jsonl answers_B_FOLDER.jsonl` turns each into
+   `DIR/corrections_A_FOLDER.jsonl` (the same records the server saves,
+   built from the scan's own record of each document, with the time of each
+   Save); a grader on the server route returns `corrections_NAME.jsonl`
+   instead, which needs no import. Then run
+   `extract-text agree --out DIR DIR/corrections_A_FOLDER.jsonl DIR/corrections_B_FOLDER.jsonl`.
    It reports, field by field, how often each pair of graders gave the same
    answer on the documents they shared, and lists each disagreement by
    document number with the answers masked.

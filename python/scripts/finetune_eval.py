@@ -6,7 +6,8 @@
         --model BASE_WEIGHTS [--adapter ADAPTER_DIR] --label tuned
 
 `scan` scores the AI engine's reading saved in the round's scan (the
-original prompt), `ollama` runs the graders'-format prompt through Ollama,
+original prompt), `rules` the deterministic engine's columns from the same
+scan, `ollama` runs the graders'-format prompt through Ollama,
 and `mlx` runs it in this process through mlx-vlm, with or without a LoRA
 adapter, so a fine-tuned model is scored without any server. The rows are
 the `test` list in RUN_DIR/data/split.json, which the exporter wrote and
@@ -16,6 +17,14 @@ Each engine's readings are saved to RUN_DIR/eval/LABEL.jsonl, in governed
 storage, since they hold names and addresses. What is printed is the
 share of fields right, the way `extract-text score` counts it, and nothing
 from a record.
+
+    python finetune_eval.py --scan ROUND_DIR --run RUN_DIR --compare LABEL_A LABEL_B
+
+compares saved readings document by document: both right, one right, both
+wrong, the rows that flipped, and how often the two agreed and were right
+when they agreed. `--rows all` scores every graded row instead of the
+held-out draw, for that agreement check only; readings made that way must
+never feed training.
 """
 
 from __future__ import annotations
@@ -31,7 +40,7 @@ from extract_text.ai.vision import LocalVisionBackend
 from extract_text.corrections import _sha256, load_corrections
 from extract_text.documents import render_page
 from extract_text.finetune import clean_target
-from extract_text.pipeline import ai_reading, read_scan
+from extract_text.pipeline import ai_reading, machine_reading, read_scan
 from extract_text.score import FIELDS, _names_wrong, compare
 
 
@@ -88,17 +97,37 @@ def main(argv=None):
     p = argparse.ArgumentParser()
     p.add_argument("--scan", required=True)
     p.add_argument("--run", required=True)
-    p.add_argument("--engine", choices=("scan", "ollama", "mlx"), required=True)
+    p.add_argument("--engine", choices=("scan", "rules", "ollama", "mlx"), default=None,
+                   help="scan: the AI reading saved in the round; rules: the deterministic "
+                        "engine's columns; ollama or mlx: run the graders'-format prompt")
     p.add_argument("--model", default="qwen3.5:9b")
     p.add_argument("--adapter", default=None)
     p.add_argument("--label", default=None)
-    p.add_argument("--limit", type=int, default=None, help="first N test rows only (a check)")
+    p.add_argument("--rows", choices=("test", "all"), default="test",
+                   help="test: the held-out random draw (default); all: every graded row, "
+                        "for an agreement check that must never feed training")
+    p.add_argument("--limit", type=int, default=None, help="first N rows only (a check)")
+    p.add_argument("--compare", nargs="+", metavar="LABEL", default=None,
+                   help="instead of scoring, compare saved readings document by document: "
+                        "two or more labels from RUN_DIR/eval")
     a = p.parse_args(argv)
 
     scan, run = Path(a.scan), Path(a.run)
+    if a.compare:
+        from extract_text.finetune import compare_report, compare_runs
+
+        text = compare_report(compare_runs(scan, run, a.compare))
+        (run / "eval" / ("compare_" + "_vs_".join(a.compare) + ".txt")).write_text(text + "\n")
+        print(text)
+        return
+    if not a.engine:
+        p.error("--engine is required unless --compare is given")
     label = a.label or a.engine
-    test = json.loads((run / "data" / "split.json").read_text())["test"][:a.limit]
     latest = load_corrections(scan)
+    if a.rows == "all":
+        test = sorted(r for r, c in latest.items() if c["verdict"] != "unreadable")[:a.limit]
+    else:
+        test = json.loads((run / "data" / "split.json").read_text())["test"][:a.limit]
     images = run / "test_images"
     images.mkdir(exist_ok=True)
     (run / "eval").mkdir(exist_ok=True)
@@ -108,7 +137,7 @@ def main(argv=None):
         backend = LocalVisionBackend(model=a.model, prompt_format="lists")
     elif a.engine == "mlx":
         backend = MLXBackend(a.model, a.adapter, label)
-    if a.engine == "scan":
+    if a.engine in ("scan", "rules"):
         rows, details = read_scan(scan)
 
     tallies = {f: Counter() for f in (*FIELDS, "attorney_lines")}
@@ -118,11 +147,14 @@ def main(argv=None):
         for i, r in enumerate(test, 1):
             c = latest[r]
             truth = c["truth"]
-            if a.engine == "scan":
+            if a.engine in ("scan", "rules"):
                 if c.get("sha256") and _sha256(Path(details[r - 1].get("file", ""))) != c["sha256"]:
                     flags["skipped: document changed"] += 1
                     continue
-                reading = ai_reading(details[r - 1]) or c.get("ai") or {}
+                if a.engine == "rules":
+                    reading = machine_reading(rows[r - 1])
+                else:
+                    reading = ai_reading(details[r - 1]) or c.get("ai") or {}
             else:
                 png = images / f"row_{r:04d}.png"
                 if not png.exists():
@@ -157,7 +189,7 @@ def main(argv=None):
                 print(f"  {label}: {i} of {len(test)} documents, "
                       f"{time.time() - started:.0f} s", file=sys.stderr, flush=True)
 
-    lines = [f"{label}: {len(test)} random documents held out, "
+    lines = [f"{label}: {len(test)} {'graded documents' if a.rows == 'all' else 'random documents held out'}, "
              f"{time.time() - started:.0f} s",
              "  field             right  right or near"]
     for field, t in tallies.items():

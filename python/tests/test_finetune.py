@@ -211,3 +211,39 @@ def test_export_writes_chat_rows_and_returns_only_counts(tmp_path):
     assert json.loads((out / "split.json").read_text())["test"] == [3]
     # the report is counts only: no value from a label anywhere in it
     assert "EXAMPLE" not in json.dumps(report)
+
+
+def test_compare_runs_pairs_documents_and_measures_agreement(tmp_path):
+    from extract_text.finetune import compare_report, compare_runs
+
+    scan, run = tmp_path / "scan", tmp_path / "run"
+    (run / "eval").mkdir(parents=True)
+    scan.mkdir()
+    truth = {"plaintiff": "EXAMPLE HOLDINGS LLC", "defendants": ["ALEX SAMPLE"],
+             "street": "1234 Example Ave S", "unit": "", "city": "Seattle", "state": "WA",
+             "zip": "98100"}
+    with open(scan / "corrections.jsonl", "w") as f:
+        for r in (1, 2, 3):
+            f.write(json.dumps({"row": r, "file": f"{r}.pdf", "sha256": "", "sampled_as": "random",
+                                "verdict": "corrected", "truth": truth, "changed_fields": []}) + "\n")
+    right = dict(truth)
+    wrong_street = {**truth, "street": "9999 Other Rd"}
+    wrong_def = {**truth, "defendants": ["SOMEONE ELSE"]}
+    a = {1: right, 2: wrong_street, 3: wrong_def}
+    b = {1: right, 2: right, 3: wrong_def}
+    for label, readings in (("a", a), ("b", b)):
+        with open(run / "eval" / f"{label}.jsonl", "w") as f:
+            for r, reading in readings.items():
+                f.write(json.dumps({"row": r, "reading": reading}) + "\n")
+    result = compare_runs(scan, run, ["a", "b"])
+    street = result["pairs"][("a", "b")]["street"]
+    assert street["counts"] == {"both right": 2, "second only": 1}
+    assert street["flipped"] == {"first only": [], "second only": [2]}
+    assert street["agreed"] == 2 and street["agreed_right"] == 2
+    defendants = result["pairs"][("a", "b")]["defendants"]
+    assert defendants["counts"] == {"both right": 2, "both wrong": 1}
+    # both agreed on all three defendants answers, and were right on two
+    assert defendants["agreed"] == 3 and defendants["agreed_right"] == 2
+    text = compare_report(result)
+    assert "3 documents read by every label" in text and "#2" in text
+    assert "SAMPLE" not in text and "Example" not in text

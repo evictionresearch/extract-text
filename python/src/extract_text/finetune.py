@@ -162,3 +162,104 @@ def export_training_set(scan_dir, out_dir, dpi=150) -> dict:
     report["changes"] = dict(changes)
     report["skipped"] = dict(report["skipped"])
     return report
+
+
+# ---------------------------------------------------------------------------
+# Paired comparison of saved readings, and how far machine agreement can be
+# trusted as a label.
+
+PAIR_KINDS = ("both right", "first only", "second only", "both wrong")
+
+
+def _agree(a: dict, b: dict, field: str) -> bool:
+    """Two readings give the same content for a field, formatting aside."""
+    from .score import compare
+
+    return compare({field: a.get(field)}, {field: b.get(field)}).get(field) in (None, "near")
+
+
+def compare_runs(scan_dir, run_dir, labels, rows=None) -> dict:
+    """Score two or more saved reading sets document by document against the
+    latest corrections, so a change shows as the documents it flipped and
+    not only as a total.
+
+    `labels` name files RUN_DIR/eval/LABEL.jsonl (one `{"row", "reading"}`
+    line per document, as finetune_eval.py writes them). `rows` limits the
+    comparison to those row numbers; by default every row all the labels
+    read. For each field and each pair of labels the result holds the four
+    paired counts (`PAIR_KINDS`), the rows that flipped either way, and the
+    agreement figures: how many documents the pair agreed on and how many of
+    those the first was right on. Nothing in the result is a record value.
+    """
+    from .corrections import load_corrections
+    from .score import FIELDS, compare
+
+    scan, run = Path(scan_dir), Path(run_dir)
+    latest = load_corrections(scan)
+    readings = {}
+    for label in labels:
+        with open(run / "eval" / f"{label}.jsonl") as fh:
+            readings[label] = {int(json.loads(line)["row"]): json.loads(line)["reading"]
+                               for line in fh if line.strip()}
+    shared = set.intersection(*(set(r) for r in readings.values()))
+    shared = {r for r in shared if r in latest and latest[r]["verdict"] != "unreadable"}
+    if rows is not None:
+        shared &= set(rows)
+    wrong = {label: {r: compare(latest[r]["truth"], readings[label][r]) for r in shared}
+             for label in labels}
+
+    def scored(label, r, field):
+        truth, reading = latest[r]["truth"], readings[label][r]
+        if field.startswith("attorney") and "attorneys" not in truth:
+            return None
+        if field == "attorneys" and "attorneys" not in reading:
+            return None
+        return wrong[label][r].get(field) is None
+
+    out = {"n": len(shared), "labels": list(labels), "pairs": {}}
+    for i, a in enumerate(labels):
+        for b in labels[i + 1:]:
+            per_field = {}
+            for field in FIELDS:
+                counts = Counter()
+                flipped = {"first only": [], "second only": []}
+                agreed = agreed_right = 0
+                for r in sorted(shared):
+                    ra, rb = scored(a, r, field), scored(b, r, field)
+                    if ra is None or rb is None:
+                        continue
+                    kind = ("both right" if ra and rb else "first only" if ra
+                            else "second only" if rb else "both wrong")
+                    counts[kind] += 1
+                    if kind in flipped:
+                        flipped[kind].append(r)
+                    if _agree(readings[a][r], readings[b][r], field):
+                        agreed += 1
+                        agreed_right += ra
+                if sum(counts.values()):
+                    per_field[field] = {"counts": counts, "flipped": flipped,
+                                        "agreed": agreed, "agreed_right": agreed_right}
+            out["pairs"][(a, b)] = per_field
+    return out
+
+
+def compare_report(result: dict) -> str:
+    """The printed form of `compare_runs`: counts, row numbers, and nothing
+    from a record."""
+    lines = [f"{result['n']} documents read by every label: " + ", ".join(result["labels"])]
+    for (a, b), per_field in result["pairs"].items():
+        lines += ["", f"{a} (first) against {b} (second)",
+                  "  field              both   first  second   both   agree  right when agreed",
+                  "                    right    only    only  wrong"]
+        for field, f in per_field.items():
+            c = f["counts"]
+            share = (f"{100 * f['agreed_right'] / f['agreed']:5.1f}%" if f["agreed"] else "    -")
+            lines.append(f"  {field:<17}{c['both right']:>6}{c['first only']:>8}"
+                         f"{c['second only']:>8}{c['both wrong']:>7}{f['agreed']:>8}  {share}")
+        flips = [(field, kind, rows) for field, f in per_field.items()
+                 for kind, rows in f["flipped"].items() if rows]
+        if flips:
+            lines.append("  rows that flipped (document numbers):")
+            for field, kind, rows in flips:
+                lines.append(f"    {field:<15}{kind:<12}" + ", ".join(f"#{r}" for r in rows))
+    return "\n".join(lines)

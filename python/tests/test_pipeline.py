@@ -359,6 +359,26 @@ def test_scan_sample_is_a_seeded_random_draw(tmp_path):
     assert [r["file"] for r in rows] == sorted(r["file"] for r in rows)
 
 
+def test_scan_exclude_skips_an_earlier_round_by_path_and_by_content(tmp_path):
+    docs, first = tmp_path / "docs", tmp_path / "first"
+    docs.mkdir()
+    for k in range(8):
+        (docs / f"{k}.pdf").write_bytes(b"%PDF-1.4 " + bytes([48 + k]))
+    rows = scan([docs], out_dir=first, progress=False, sample=3, seed=7)
+    used = {r["file"] for r in rows}
+    # the same filing under a new name: excluded by content, not by path
+    twin = next(iter(used))
+    (docs / "copy_of_a_first_round_file.pdf").write_bytes((docs / twin).read_bytes())
+    again = scan([docs], out_dir=None, write=False, progress=False, sample=4, seed=7,
+                 exclude=[first])
+    names = {r["file"] for r in again}
+    assert len(names) == 4 and not names & used
+    assert "copy_of_a_first_round_file.pdf" not in names
+    # without a sample, exclusion still applies to the whole collection
+    rest = scan([docs], out_dir=None, write=False, progress=False, exclude=[first])
+    assert {r["file"] for r in rest} == {f"{k}.pdf" for k in range(8)} - used
+
+
 def test_graders_page_orders_worst_first_and_records_the_grader(tmp_path):
     import threading
     import urllib.request
@@ -407,10 +427,10 @@ def test_graders_page_shows_only_the_chosen_batch(tmp_path):
 
 
 def test_attorney_block_is_on_the_form_and_scored(tmp_path):
-    from extract_text.corrections import build_correction
-    from extract_text.pipeline import read_scan
     import re as _re
 
+    from extract_text.corrections import build_correction
+    from extract_text.pipeline import read_scan
     from extract_text.score import report
 
     _fake_both_engine_scan(tmp_path)
@@ -719,3 +739,24 @@ def test_agreement_report_counts_masks_and_merges_once(tmp_path):
     assert "april (3 documents)" in text and "documents)" not in text.split("araina (3 documents)")[1]
     assert "1 of the documents with disagreements are settled." in text
     assert "None is left to settle." in text and "--rows" not in text
+
+
+def test_attorney_address_comes_from_parsed_parts_when_found():
+    from extract_text.pipeline import machine_reading
+
+    # the synthetic law-firm office from the fixtures (on the sweep's whitelist)
+    row = {"attorney_street": "100 MAIN ST", "attorney_unit": "STE 200",
+           "attorney_city": "SEATTLE", "attorney_state": "WA", "attorney_zip": "98101",
+           "attorney_address_raw": "SAMPLE & SPECIMEN\n(a block with the firm, phone and all)"}
+    assert machine_reading(row)["attorney_address"] == "100 MAIN ST STE 200, SEATTLE, WA 98101"
+    raw_only = {"attorney_address_raw": "SAMPLE & SPECIMEN\nsome block"}
+    assert machine_reading(raw_only)["attorney_address"] == "SAMPLE & SPECIMEN some block"
+
+
+def test_street_in_text_tells_a_rule_failure_from_an_ocr_failure():
+    from extract_text.score import _street_in_text
+
+    text = "SUMMONS\nTO: ALEX SAMPLE\n1234 EXAMPLE AVENUE SOUTH\nSEATTLE WA 98100\n"
+    assert _street_in_text("1234 EXAMPLE AVE S", text)[0] == "exact"
+    assert _street_in_text("1243 EXAMPLE AVE", text)[0] == "near"      # one digit off
+    assert _street_in_text("99999 NOWHERE PKWY", text) == ("absent", None)

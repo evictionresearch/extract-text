@@ -583,7 +583,10 @@ answers into scores. The steps, in order:
 1. **Draw the documents.** `extract-text scan COLLECTION --out DIR --engine
    both --sample 300` scans 300 documents drawn at random (seeded, so the
    draw repeats) from a whole collection. Both engines are worth running,
-   because the page then shows where they disagree.
+   because the page then shows where they disagree. For a later round, add
+   `--exclude EARLIER_DIR` (repeatable) so no document of an earlier scan
+   is drawn again, matched by path and by content; with it, the draw walks
+   a seeded shuffle and differs from what the same seed gives alone.
 2. **Choose the order.** `extract-text review --out DIR --graders --serve`
    builds the graders' page. Every document goes on it; each grader types a
    name and email at the top, chooses a batch of 10, 30, or 100, and sees

@@ -16,7 +16,11 @@ learns from, so a careful ten is worth more than a hurried hundred.
 
    A version number means it is installed. Grading needs nothing else: no
    AI model and no scanning tools, because the readings and the page images
-   are already in the folder you receive.
+   are already in the folder you receive. If you already have the
+   repository from an earlier round, update it with
+   `git fetch origin && git reset --hard origin/main` from its folder; a
+   plain `git pull` refuses, because the history was rewritten before the
+   repository went public on 2026-10-20.
 
 2. A scan folder from Tim, as a zip in a restricted Google Drive folder
    shared with you by name (never by email, never by a public link). It
@@ -111,7 +115,8 @@ terminal when you are done.
 ## Sending it back
 
 Copy `corrections.jsonl` from the scan folder, rename it with your name
-(`corrections_YOURNAME.jsonl`), and upload it to the same restricted Drive
-folder the zip came from. That is the only file Tim needs; he makes the
+(`corrections_YOURNAME.jsonl`; with two folders in a round, add the folder's
+name too), and upload it to the same restricted Drive folder the zip came
+from. That is the only file Tim needs; he makes the
 reports from it. It holds names and addresses: never commit it, email it,
 or put it anywhere else.

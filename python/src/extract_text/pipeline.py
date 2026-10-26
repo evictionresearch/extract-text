@@ -79,6 +79,36 @@ def choose_summons(case_dir):
     return best, variant
 
 
+def _content_hash(path) -> str:
+    import hashlib
+
+    h = hashlib.sha256()
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(1 << 20), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def _excluded_documents(exclude) -> tuple[set, set]:
+    """The resolved paths and content hashes of every document in the scans
+    listed in `exclude`, so a new draw can leave them out."""
+    paths, shas = set(), set()
+    for folder in exclude or []:
+        _, details = read_scan(folder)
+        for detail in details:
+            src = detail.get("file") or ""
+            if not src:
+                continue
+            path = Path(src)
+            paths.add(path.resolve())
+            try:
+                shas.add(_content_hash(path))
+            except OSError:
+                # the earlier scan's file is gone; its path still excludes it
+                pass
+    return paths, shas
+
+
 def collect_inputs(inputs, recursive=True):
     """Expand files and directories into a sorted document list."""
     if isinstance(inputs, (str, Path)):
@@ -328,8 +358,16 @@ def scan(
     write: bool = True,
     parquet: bool | None = None,
     progress: bool = True,
+    exclude=None,
 ):
     """Extract every document under `inputs`. Returns the list of row dicts.
+
+    `exclude` lists earlier scan folders whose documents must not be drawn
+    again, matched by path and by content, so a second grading round never
+    repeats a document of the first even where the same filing sits under
+    two names. With `sample`, the draw walks a seeded shuffle and skips
+    those, so it differs from the draw the same seed gives without
+    `exclude`.
 
     `engine` is 'deterministic', 'ai', or 'both'. When `write` is true (the
     default) and `out_dir` is given, extracted.csv, extracted.jsonl, and the
@@ -342,10 +380,28 @@ def scan(
     files = collect_inputs(inputs, recursive=recursive)
     if limit:
         files = files[:limit]
-    if sample and sample < len(files):
+    skip_paths, skip_shas = _excluded_documents(exclude)
+    if skip_paths:
+        files = [p for p in files if p.resolve() not in skip_paths]
+    if sample and sample < len(files) and skip_shas:
+        # a seeded shuffle, taking the first `sample` documents whose
+        # content is not in an earlier scan; only the drawn ones are hashed
+        order = list(files)
+        random.Random(seed).shuffle(order)
+        drawn = []
+        for path in order:
+            if _content_hash(path) in skip_shas:
+                continue
+            drawn.append(path)
+            if len(drawn) == sample:
+                break
+        files = sorted(drawn)
+    elif sample and sample < len(files):
         # a seeded random draw across the whole collection, so a grading
         # round is not the first N paths in sort order (one county, one year)
         files = sorted(random.Random(seed).sample(files, sample))
+    elif skip_shas:
+        files = [p for p in files if _content_hash(p) not in skip_shas]
     if not files:
         raise FileNotFoundError(
             "No documents found. Supported types: " + ", ".join(DOCUMENT_SUFFIXES)
@@ -1125,8 +1181,25 @@ def machine_reading(row: dict) -> dict:
         "zip": row.get("defendant_zip", "") or "",
         "attorneys": _split_names(row.get("attorney_names", "")),
         "attorney_firm": row.get("attorney_firm", "") or "",
-        "attorney_address": _one_line(row.get("attorney_address_raw", "")),
+        "attorney_address": _attorney_address_line(row),
     }
+
+
+def _attorney_address_line(row: dict) -> str:
+    """The attorney's address as one line from its parsed parts, as a grader
+    types it; the raw block (firm name, phone and all) only when the parts
+    were not found, since a block can never equal a typed address."""
+    street = (row.get("attorney_street") or "").strip()
+    if not street:
+        return _one_line(row.get("attorney_address_raw", ""))
+    unit = (row.get("attorney_unit") or "").strip()
+    if unit and not street.upper().endswith(" " + unit.upper()):
+        street = f"{street} {unit}"
+    city = (row.get("attorney_city") or "").strip()
+    state_zip = " ".join(x for x in ((row.get("attorney_state") or "").strip(),
+                                     (row.get("attorney_zip") or "").strip()) if x)
+    tail = ", ".join(x for x in (city, state_zip) if x)
+    return f"{street}, {tail}" if tail else street
 
 
 def ai_reading(detail: dict) -> dict | None:

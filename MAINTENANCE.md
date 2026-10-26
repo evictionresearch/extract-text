@@ -921,6 +921,33 @@ handwriting was one case in eight. The rest were printed and readable:
 - **Genuinely absent.** Some summonses simply do not print the defendant's
   address on page one, and returning nothing is correct.
 
+## Round-2 tooling: a draw that excludes round 1, and paired scoring (2026-10-21)
+
+Built on a worktree branch (`round2-tools`) off `ff5aa62`, on synthetic
+fixtures only, while the graders'-format default waited for its commit.
+
+- `scan --exclude DIR` (repeatable) leaves out every document of an
+  earlier scan, by resolved path and by content hash, so a second round
+  never repeats a first-round document even where the same filing sits
+  under two names (the Whatcom `eml_` twins). With `--sample` the draw
+  walks a seeded shuffle and hashes only what it draws; it therefore
+  differs from the draw the same seed gives without `--exclude`.
+- `finetune_eval.py --compare A B` scores two saved reading sets document
+  by document against the latest corrections: both right, first only,
+  second only, both wrong, the rows that flipped, and, per field, how often
+  the two agreed and how often the first was right when they agreed. That
+  last column is the number that decides whether machine agreement can
+  stand in for a grader on later rounds; it is measured on graded rows
+  only (`--rows all`, which must never feed training) and recorded here
+  before any machine label is used. `--engine rules` saves the
+  deterministic engine's columns in the same shape, so the rules engine
+  joins the comparison. The logic lives in `finetune.compare_runs`.
+- Round 2's shape: two scans of King County with round 1 excluded, a
+  random set served with `--order random --overlap 50` as the permanent
+  King test set, and a hard set served worst first as the fix set. The
+  graders' message drops the report step; the corrections file is all that
+  comes back.
+
 ## Observed engine differences
 
 Notes for whoever runs the AI-lane head-to-head. These are observations from

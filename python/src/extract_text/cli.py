@@ -64,6 +64,7 @@ def cmd_scan(args):
         seed=args.seed,
         recursive=not args.no_recursive,
         parquet=(True if args.parquet else None),
+        exclude=args.exclude,
     )
     flagged = sum(1 for r in rows if r.get("flags"))
     found = sum(1 for r in rows if r.get("defendant_street"))
@@ -125,6 +126,15 @@ def cmd_review(args):
 
 
 def cmd_score(args):
+    if getattr(args, "where", False):
+        from .score import where_report
+
+        text = where_report(args.out)
+        print(text)
+        if getattr(args, "save", None):
+            with open(args.save, "w") as f:
+                f.write(text + "\n")
+        return 0
     from .score import report
 
     text = report(args.out, shapes=args.shapes)
@@ -208,6 +218,9 @@ def main(argv=None):
     a.add_argument("--sample", type=int, default=0, metavar="N",
                    help="scan N documents drawn at random from everything found")
     a.add_argument("--seed", type=int, default=42, help="seed for --sample")
+    a.add_argument("--exclude", action="append", default=None, metavar="DIR",
+                   help="skip every document of that earlier scan, by path and by "
+                        "content (repeatable), so a new round never repeats one")
     a.add_argument("--no-recursive", action="store_true",
                    help="do not descend into subdirectories")
     a.add_argument("--parquet", action="store_true",
@@ -252,6 +265,10 @@ def main(argv=None):
     a.add_argument("--out", required=True, help="the scan's output directory")
     a.add_argument("--shapes", action="store_true",
                    help="also print each wrong value in masked form")
+    a.add_argument("--where", action="store_true",
+                   help="for each document whose street the deterministic engine got wrong, "
+                        "say whether the graders' street is in the document's text at all "
+                        "(a rule failure) or not (an OCR failure); reads every such document again")
     a.add_argument("--save", default=None, metavar="FILE",
                    help="also write the report to FILE (it holds no record values)")
     a.set_defaults(fn=cmd_score)

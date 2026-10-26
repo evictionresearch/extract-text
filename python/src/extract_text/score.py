@@ -276,3 +276,76 @@ def report(out_dir, shapes=False) -> str:
                 if raw:
                     lines.append(f"    {'':<20}from: {raw}")
     return "\n".join(lines)
+
+
+def _street_in_text(street: str, text: str):
+    """Whether a street appears in a document's text: ("exact", line),
+    ("near", line) for the closest line at or above the same-street
+    threshold, or ("absent", None)."""
+    from .similarity import SAME_STREET_THRESHOLD, ratio
+
+    want = norm(street)
+    if not want:
+        return "absent", None
+    best, best_line = 0.0, None
+    for line in (text or "").splitlines():
+        have = norm(line)
+        if not have:
+            continue
+        if want in have:
+            return "exact", line
+        # the street against every window of the line the same length in words
+        words = have.split()
+        width = max(1, len(want.split()))
+        for i in range(0, max(1, len(words) - width + 1)):
+            r = ratio(want, " ".join(words[i:i + width]))
+            if r > best:
+                best, best_line = r, line
+    if best >= SAME_STREET_THRESHOLD:
+        return "near", best_line
+    return "absent", None
+
+
+def where_report(out_dir) -> str:
+    """For each document whose deterministic street is wrong, whether the
+    graders' street is in the document's text at all: an OCR failure
+    (absent), a rule failure (exact or near, the text has it), with the
+    matching line masked. Reads each document again, so it is slow on
+    scans. Prints no record value."""
+    from .documents import load_document
+
+    out = Path(out_dir)
+    latest = load_corrections(out)
+    rows, details = read_scan(out)
+    found = Counter()
+    lines = []
+    for row_no, c in sorted(latest.items()):
+        if c["verdict"] == "unreadable" or not 1 <= row_no <= len(rows):
+            continue
+        truth_street = str(c["truth"].get("street") or "")
+        if not truth_street:
+            continue
+        reading = machine_reading(rows[row_no - 1])
+        kind = compare(c["truth"], reading).get("street")
+        if kind in (None, "near"):
+            continue
+        src = Path(details[row_no - 1].get("file", ""))
+        if c.get("sha256") and _sha256(src) != c["sha256"]:
+            found["skipped: document changed"] += 1
+            continue
+        try:
+            text = load_document(src).text
+        except Exception as exc:  # one unreadable file must not stop the report
+            found[f"error: {type(exc).__name__}"] += 1
+            continue
+        where, line = _street_in_text(truth_street, text)
+        found[where] += 1
+        flags = (rows[row_no - 1].get("flags") or "").replace(";", " ")
+        lines.append(f"  #{row_no:<4} {kind:<10} {where:<7} {mask(line) if line else ''}"
+                     + (f"   flags: {flags}" if flags else ""))
+    head = [f"Street wrong in the deterministic engine on {sum(found.values())} documents: "
+            + ", ".join(f"{n} {k}" for k, n in found.most_common()),
+            "  exact or near: the text holds the street, so a rule missed it; "
+            "absent: the OCR never produced it",
+            "  #row  kind       where   matching line, masked"]
+    return "\n".join(head + lines)

@@ -984,20 +984,25 @@ function downloadKept() {{
   keepNote();
 }}
 // a downloaded file brought back, for a browser whose storage was cleared;
-// for each document the newer of the two answers stays
+// for each document the newer of the two answers stays, and one this browser
+// already holds is counted apart so a grader testing the button does not read
+// "0 brought back" as a failure
 async function restoreKept(file) {{
   const all = kept() || {{}};
-  let added = 0, other = 0;
+  let added = 0, held = 0, other = 0;
   for (const line of (await file.text()).split("\\n")) {{
     if (!line.trim()) continue;
     const c = JSON.parse(line);
     if (c.page !== PAGE) {{ other++; continue; }}
     if (!all[c.row] || all[c.row].saved_at < c.saved_at) {{ all[c.row] = c; added++; }}
+    else held++;
   }}
   try {{ localStorage.setItem(STORE, JSON.stringify(all)); }} catch (e) {{}}
   showKept();
-  document.getElementById("knote").textContent = answers(added) + " brought back"
-    + (other ? "; " + other + " were from another folder's page and were left out" : "") + ".";
+  const said = [answers(added) + " brought back"];
+  if (held) said.push(answers(held) + " already kept in this browser");
+  if (other) said.push(other + " from another folder's page, left out");
+  document.getElementById("knote").textContent = said.join("; ") + ".";
 }}
 
 if (LOCAL) {{

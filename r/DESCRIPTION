@@ -20,6 +20,7 @@ RoxygenNote: 8.0.0
 Depends:
     R (>= 4.1)
 Imports:
+    cli (>= 3.6.0),
     reticulate (>= 1.35),
     tibble,
     utils

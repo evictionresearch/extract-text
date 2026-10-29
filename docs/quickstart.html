@@ -1,0 +1,364 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>extract-text quick start</title>
+<meta name="description" content="Install extract-text and read eviction court documents with the deterministic engine, the local AI engine, or both.">
+<style>
+  :root {
+    --bg: #fbfaf7;
+    --surface: #ffffff;
+    --ink: #1d1f23;
+    --muted: #5b6070;
+    --rule: #e3e0d8;
+    --accent: #1f5c8a;
+    --accent-soft: #e6eff6;
+    --code-bg: #f3f1ec;
+    --det: #2e6b3f;
+    --det-soft: #e7f1e9;
+    --ai: #7a4a8c;
+    --ai-soft: #f2eaf5;
+    --both: #1f5c8a;
+    --both-soft: #e6eff6;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #15171b;
+      --surface: #1d2025;
+      --ink: #e7e5e0;
+      --muted: #a2a7b3;
+      --rule: #30343c;
+      --accent: #8cc0e8;
+      --accent-soft: #1d2f3d;
+      --code-bg: #23262c;
+      --det: #8fd0a0;
+      --det-soft: #1c2e22;
+      --ai: #d2a8e2;
+      --ai-soft: #2c2131;
+      --both: #8cc0e8;
+      --both-soft: #1d2f3d;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #15171b;
+    --surface: #1d2025;
+    --ink: #e7e5e0;
+    --muted: #a2a7b3;
+    --rule: #30343c;
+    --accent: #8cc0e8;
+    --accent-soft: #1d2f3d;
+    --code-bg: #23262c;
+    --det: #8fd0a0;
+    --det-soft: #1c2e22;
+    --ai: #d2a8e2;
+    --ai-soft: #2c2131;
+    --both: #8cc0e8;
+    --both-soft: #1d2f3d;
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font: 17px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  }
+  main { max-width: 860px; margin: 0 auto; padding: 40px 16px 80px; }
+  h1 { font-size: 2.1rem; line-height: 1.2; margin: 0 0 8px; letter-spacing: -0.01em; }
+  h2 { font-size: 1.45rem; margin: 56px 0 12px; padding-top: 8px; border-top: 1px solid var(--rule); }
+  h3 { font-size: 1.12rem; margin: 28px 0 8px; }
+  p, li { max-width: 70ch; }
+  a { color: var(--accent); }
+  .lede { font-size: 1.12rem; color: var(--muted); margin: 0 0 20px; }
+  nav.toc { margin: 24px 0 0; padding: 14px 18px; background: var(--surface); border: 1px solid var(--rule); border-radius: 8px; }
+  nav.toc ol { margin: 4px 0 0; padding-left: 20px; columns: 2; column-gap: 32px; }
+  nav.toc li { margin: 2px 0; }
+  @media (max-width: 600px) { nav.toc ol { columns: 1; } }
+  code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.9em; background: var(--code-bg); padding: 1px 5px; border-radius: 4px; }
+  pre { margin: 0; overflow-x: auto; background: var(--code-bg); border-radius: 0 0 8px 8px; padding: 14px 16px; font-size: 0.86rem; line-height: 1.5; }
+  pre code { background: none; padding: 0; font-size: inherit; }
+  .codeblock { margin: 12px 0 18px; border: 1px solid var(--rule); border-radius: 8px; }
+  .codeblock .label { display: block; font-size: 0.78rem; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); padding: 6px 14px; border-bottom: 1px solid var(--rule); background: var(--surface); border-radius: 8px 8px 0 0; }
+  .cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin: 18px 0; }
+  @media (max-width: 760px) { .cards { grid-template-columns: 1fr; } }
+  .card { background: var(--surface); border: 1px solid var(--rule); border-top: 4px solid var(--c); border-radius: 8px; padding: 14px 16px; }
+  .card h3 { margin: 0 0 6px; color: var(--c); }
+  .card p { margin: 6px 0; font-size: 0.95rem; }
+  .card .when { font-size: 0.88rem; color: var(--muted); }
+  .det { --c: var(--det); --soft: var(--det-soft); }
+  .ai { --c: var(--ai); --soft: var(--ai-soft); }
+  .both { --c: var(--both); --soft: var(--both-soft); }
+  .callout { background: var(--soft, var(--accent-soft)); border-left: 4px solid var(--c, var(--accent)); padding: 12px 16px; border-radius: 0 8px 8px 0; margin: 16px 0; }
+  .callout p { margin: 4px 0; }
+  table { border-collapse: collapse; width: 100%; margin: 12px 0 18px; font-size: 0.95rem; }
+  th, td { text-align: left; vertical-align: top; padding: 8px 10px; border-bottom: 1px solid var(--rule); }
+  th { font-weight: 600; color: var(--muted); font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.03em; }
+  .tablewrap { overflow-x: auto; }
+  .langbar { position: sticky; top: 0; z-index: 2; display: none; gap: 6px; align-items: center; padding: 10px 0; background: var(--bg); border-bottom: 1px solid var(--rule); margin: 0 0 8px; }
+  .js .langbar { display: flex; flex-wrap: wrap; }
+  .langbar span { font-size: 0.9rem; color: var(--muted); margin-right: 4px; }
+  .langbar button { font: inherit; font-size: 0.9rem; padding: 5px 14px; border-radius: 999px; border: 1px solid var(--rule); background: var(--surface); color: var(--ink); cursor: pointer; }
+  .langbar button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--bg); }
+  .js [data-lang].hidden { display: none; }
+  .engine-section { border-left: 4px solid var(--c); padding-left: 18px; margin-left: -22px; }
+  @media (max-width: 900px) { .engine-section { margin-left: 0; padding-left: 14px; } }
+  .engine-section > h2 { color: var(--c); }
+  footer { margin-top: 64px; padding-top: 16px; border-top: 1px solid var(--rule); color: var(--muted); font-size: 0.9rem; }
+</style>
+</head>
+<body>
+<main>
+
+<h1>extract-text quick start</h1>
+<p class="lede">Read eviction court documents (e-filed PDFs, scanned PDFs, TIFFs) into a table of party names, the defendant's service address, the plaintiff's attorney, and case details. Everything runs on your own computer.</p>
+
+<p>extract-text has two engines. The <strong>deterministic engine</strong> uses written rules and the layout of the page, with no AI of any kind. The <strong>AI engine</strong> shows each page to a language model that runs on your own machine. You can run either one, or both side by side. This page gets you from nothing to a finished table with whichever you choose. The full detail is in the <a href="https://github.com/evictionresearch/extract-text/blob/main/docs/manual.md">manual</a>.</p>
+
+<nav class="toc" aria-label="Contents">
+  <strong>On this page</strong>
+  <ol>
+    <li><a href="#choose">Choose an engine</a></li>
+    <li><a href="#install">Install</a></li>
+    <li><a href="#deterministic">Deterministic quick start</a></li>
+    <li><a href="#ai">AI quick start</a></li>
+    <li><a href="#both">Both engines quick start</a></li>
+    <li><a href="#output">What you get back</a></li>
+    <li><a href="#review">Check the results by hand</a></li>
+    <li><a href="#privacy">Privacy and your records</a></li>
+  </ol>
+</nav>
+
+<h2 id="choose">1. Choose an engine</h2>
+
+<div class="cards">
+  <div class="card det">
+    <h3>Deterministic</h3>
+    <p>Rules and page geometry only. No AI, no model files, no network. The same document always gives the same answer, and every value records the rule and the spot on the page it came from.</p>
+    <p class="when">Choose it when AI tools are not permitted on your machines, or when results must be reproducible and auditable.</p>
+  </div>
+  <div class="card ai">
+    <h3>AI</h3>
+    <p>A vision language model (qwen3.5 9B) reads a picture of the page through Ollama, a program on your own computer. It handles handwriting and layouts the rules were never written for.</p>
+    <p class="when">Choose it when AI is allowed and your documents include handwriting or unusual forms. Best used alongside the rules, not alone.</p>
+  </div>
+  <div class="card both">
+    <h3>Both</h3>
+    <p>Rules fill the main columns and the AI's answers sit beside them, never blended. Every disagreement is measured and flagged, which tells you which documents a person should check.</p>
+    <p class="when">The recommended mode whenever you are allowed to use AI.</p>
+  </div>
+</div>
+
+<div class="callout det">
+  <p><strong>If your organization does not allow AI on its computers, the deterministic engine is complete on its own.</strong> It needs no AI software installed, nothing else in the package depends on the AI engine, and you can skip every AI step on this page.</p>
+</div>
+
+<div class="tablewrap">
+<table>
+  <thead><tr><th>Your situation</th><th>Use</th></tr></thead>
+  <tbody>
+    <tr><td>Policy does not permit AI tools</td><td><code>deterministic</code></td></tr>
+    <tr><td>You want maximum confidence and can use AI</td><td><code>both</code></td></tr>
+    <tr><td>Your documents include handwriting or unusual layouts</td><td><code>both</code> (the AI columns cover what rules miss)</td></tr>
+    <tr><td>First look at a new collection of documents</td><td><code>deterministic</code> first, look at the flags, then decide</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h2 id="install">2. Install</h2>
+
+<div class="langbar" role="group" aria-label="Show code for">
+  <span>Show code for</span>
+  <button type="button" data-pick="r" aria-pressed="true">R</button>
+  <button type="button" data-pick="py" aria-pressed="false">Python</button>
+  <button type="button" data-pick="sh" aria-pressed="false">Terminal</button>
+  <button type="button" data-pick="all" aria-pressed="false">All</button>
+</div>
+
+<h3>Two helper programs (every engine needs these)</h3>
+<p><strong>poppler</strong> opens PDF files, and <strong>tesseract</strong> reads scanned pages (optical character recognition, or OCR). Both are free, and you install them once from your system's package manager.</p>
+<div class="tablewrap">
+<table>
+  <thead><tr><th>System</th><th>poppler</th><th>tesseract</th></tr></thead>
+  <tbody>
+    <tr><td>macOS (Homebrew)</td><td><code>brew install poppler</code></td><td><code>brew install tesseract</code></td></tr>
+    <tr><td>Debian or Ubuntu</td><td><code>sudo apt install poppler-utils</code></td><td><code>sudo apt install tesseract-ocr</code></td></tr>
+    <tr><td>Windows</td><td>poppler for Windows build, added to PATH</td><td>UB Mannheim tesseract installer, added to PATH</td></tr>
+  </tbody>
+</table>
+</div>
+<p>On Windows this is usually the hardest step. The checkup below names anything that is missing and how to fix it.</p>
+
+<h3>The package</h3>
+<div class="codeblock" data-lang="r"><span class="label">R (4.1 or newer)</span><pre><code>install.packages("remotes")
+remotes::install_github("evictionresearch/extract-text", subdir = "r")
+
+library(extracttext)
+extracttext_install()   # one time: sets up the engine in a private Python environment
+# now restart R (RStudio: Session &gt; Restart R)</code></pre></div>
+<div class="codeblock" data-lang="py"><span class="label">Python (3.10 or newer)</span><pre><code>pip install "extract-text @ git+https://github.com/evictionresearch/extract-text#subdirectory=python"</code></pre></div>
+<div class="codeblock" data-lang="sh"><span class="label">Terminal</span><pre><code># the Python install above also installs the extract-text command
+pip install "extract-text @ git+https://github.com/evictionresearch/extract-text#subdirectory=python"</code></pre></div>
+<p>R users do not need to know Python. <code>extracttext_install()</code> builds a private Python environment and the R functions call into it for you.</p>
+
+<h3>Check the setup</h3>
+<div class="codeblock" data-lang="r"><span class="label">R</span><pre><code>library(extracttext)
+extracttext_doctor()</code></pre></div>
+<div class="codeblock" data-lang="py"><span class="label">Python</span><pre><code>from extract_text.doctor import run_doctor
+run_doctor()</code></pre></div>
+<div class="codeblock" data-lang="sh"><span class="label">Terminal</span><pre><code>extract-text doctor</code></pre></div>
+<p>The checkup reads none of your documents and uses no network. When its last line reads <em>Ready: the deterministic engine can run</em>, you can start. On a machine without AI software it will list Ollama as missing, which is expected and does not matter for the deterministic engine.</p>
+
+<section class="engine-section det">
+<h2 id="deterministic">3. Deterministic quick start</h2>
+<p>No further setup. Try it first on the synthetic example summons that ships with the package (an invented case, no real person), then on a folder of your own documents.</p>
+
+<h3>One document</h3>
+<div class="codeblock" data-lang="r"><span class="label">R</span><pre><code>f &lt;- file.path(tempdir(), "synthetic_kc_printed_scanned.pdf")
+download.file(paste0("https://raw.githubusercontent.com/evictionresearch/extract-text/",
+                     "main/python/tests/fixtures/synthetic_kc_printed_scanned.pdf"),
+              f, mode = "wb")
+
+one &lt;- extract_deterministic(f)
+one$record$defendant_address      # the service address, split into parts
+one$evidence$defendant_address    # the rule that found it, and where on the page
+one$flags                         # empty means every check passed
+record_to_row(one)                # the same result as a one-row tibble</code></pre></div>
+<div class="codeblock" data-lang="py"><span class="label">Python</span><pre><code>from extract_text import extract
+
+result = extract("synthetic_kc_printed_scanned.pdf")      # rules only, the default
+result.record.defendant_address.street
+result.evidence                                           # where each field came from
+result.flags</code></pre></div>
+<div class="codeblock" data-lang="sh"><span class="label">Terminal</span><pre><code>extract-text extract synthetic_kc_printed_scanned.pdf</code></pre></div>
+<p>The example is a printed form that was scanned, so OCR reads it. The expected address is <code>1234-EXAMPLE AVE. NE BLDG ZZ Apt # 102</code>, Sampleton, WA 98100, with no flags.</p>
+
+<h3>A folder of documents</h3>
+<div class="codeblock" data-lang="r"><span class="label">R</span><pre><code>results &lt;- scan_documents("path/to/summonses/", engine = "deterministic",
+                          out_dir = "path/to/results/", review = TRUE)</code></pre></div>
+<div class="codeblock" data-lang="py"><span class="label">Python</span><pre><code>from extract_text import scan
+
+rows = scan("path/to/summonses/", engine="deterministic", out_dir="path/to/results/")</code></pre></div>
+<div class="codeblock" data-lang="sh"><span class="label">Terminal</span><pre><code>extract-text scan path/to/summonses/ --engine deterministic --out path/to/results/ --review</code></pre></div>
+<p>Expect about 5 seconds a document when OCR is needed, and much less for e-filed PDFs that carry their own text. A document the rules cannot read gets a named flag instead of a guess.</p>
+</section>
+
+<section class="engine-section ai">
+<h2 id="ai">4. AI quick start</h2>
+<p>Skip this section if AI is not permitted where you work. The AI engine needs one more program and a one-time model download.</p>
+
+<h3>Set up the local model, once</h3>
+<ol>
+  <li>Install <strong>Ollama</strong> (<code>brew install ollama</code> on macOS, or the installer at ollama.com) and start it.</li>
+  <li>Download the model. It is about 7 GB, and nothing further is downloaded after this.</li>
+</ol>
+<div class="codeblock"><span class="label">Terminal</span><pre><code>ollama pull qwen3.5:9b</code></pre></div>
+<p>The model runs comfortably with about 16 GB of memory and reads roughly one page every 17 seconds on ordinary hardware. Run the checkup again; it reports whether Ollama is running and the model is present.</p>
+
+<h3>One document</h3>
+<div class="codeblock" data-lang="r"><span class="label">R</span><pre><code>model &lt;- extract_ai("summons.pdf")      # local model, the default backend
+model$record$defendant_address$raw</code></pre></div>
+<div class="codeblock" data-lang="py"><span class="label">Python</span><pre><code>result = extract("summons.pdf", engine="ai")
+result.record.defendant_address.raw</code></pre></div>
+<div class="codeblock" data-lang="sh"><span class="label">Terminal</span><pre><code>extract-text extract summons.pdf --engine ai</code></pre></div>
+
+<h3>A folder of documents</h3>
+<div class="codeblock" data-lang="r"><span class="label">R</span><pre><code>results &lt;- scan_documents("path/to/summonses/", engine = "ai",
+                          out_dir = "path/to/results/", review = TRUE)</code></pre></div>
+<div class="codeblock" data-lang="py"><span class="label">Python</span><pre><code>rows = scan("path/to/summonses/", engine="ai", out_dir="path/to/results/")</code></pre></div>
+<div class="codeblock" data-lang="sh"><span class="label">Terminal</span><pre><code>extract-text scan path/to/summonses/ --engine ai --out path/to/results/ --review</code></pre></div>
+
+<div class="callout ai">
+  <p>A language model can give a confident, fluent, wrong answer. Run alone, the AI engine's values are not checked against the document's text. When the rules engine runs too (the next section), each AI value is checked against the text the rules read.</p>
+</div>
+</section>
+
+<section class="engine-section both">
+<h2 id="both">5. Both engines quick start</h2>
+<p>Needs the AI setup from section 4. The rules fill the main columns; the AI's answers go in columns starting <code>ai_</code>; and the two are compared field by field.</p>
+
+<h3>One document</h3>
+<div class="codeblock" data-lang="r"><span class="label">R</span><pre><code>rules &lt;- extract_deterministic("summons.pdf")
+model &lt;- extract_ai("summons.pdf")
+compare_extractions(rules, model)$needs_review   # fields a person should look at</code></pre></div>
+<div class="codeblock" data-lang="py"><span class="label">Python</span><pre><code>both = extract("summons.pdf", engine="both")
+both.record.defendant_address.street      # the rules' answer
+both.ai.record.defendant_address.raw      # the AI's answer, kept separate
+both.comparison.needs_review              # fields a person should look at</code></pre></div>
+<div class="codeblock" data-lang="sh"><span class="label">Terminal</span><pre><code>extract-text extract summons.pdf --engine both</code></pre></div>
+
+<h3>A folder of documents</h3>
+<div class="codeblock" data-lang="r"><span class="label">R</span><pre><code>results &lt;- scan_documents("path/to/summonses/", engine = "both",
+                          out_dir = "path/to/results/", review = TRUE)</code></pre></div>
+<div class="codeblock" data-lang="py"><span class="label">Python</span><pre><code>rows = scan("path/to/summonses/", engine="both", out_dir="path/to/results/")</code></pre></div>
+<div class="codeblock" data-lang="sh"><span class="label">Terminal</span><pre><code>extract-text scan path/to/summonses/ --engine both --out path/to/results/ --review</code></pre></div>
+<p>Three columns appear only in this mode. <code>address_similarity</code> scores how alike the two addresses are, from 0 to 1. <code>address_same_street</code> is true when that score clears 0.7. <code>case_number_agree</code> says whether both engines read the same case number. Agreement between two independent methods is good evidence a value is right, and disagreement points to the documents worth a person's time.</p>
+</section>
+
+<h2 id="output">6. What you get back</h2>
+<p>A folder run writes these files to the output folder you name.</p>
+<ul>
+  <li><code>extracted.csv</code>, one row per document, which opens in anything.</li>
+  <li><code>extracted.jsonl</code>, the full detail behind every cell, including each value's evidence and flags.</li>
+  <li><code>extracted.parquet</code>, the same table in a faster format, when the parquet extra is installed (the R install includes it).</li>
+  <li><code>review/index.html</code>, the checking page, when review is requested.</li>
+</ul>
+<div class="tablewrap">
+<table>
+  <thead><tr><th>Column</th><th>What it holds</th></tr></thead>
+  <tbody>
+    <tr><td><code>defendant_names</code></td><td>Defendant names as printed, separated by semicolons</td></tr>
+    <tr><td><code>defendant_street</code></td><td>House number and street, including any unit printed on the street line</td></tr>
+    <tr><td><code>defendant_unit</code></td><td>The unit on its own. It repeats what is already in the street column, so use the street column alone for the full line</td></tr>
+    <tr><td><code>defendant_city</code>, <code>_state</code>, <code>_zip</code></td><td>The rest of the address</td></tr>
+    <tr><td><code>defendant_anchor</code></td><td>The rule that found the address (the audit trail)</td></tr>
+    <tr><td><code>plaintiffs</code>, <code>attorney_firm</code>, <code>case_number</code></td><td>Other parties and case details, as printed</td></tr>
+    <tr><td><code>text_source</code></td><td><code>pdf_text_layer</code> for digital text, or <code>pdf_ocr</code> and similar when OCR read the page</td></tr>
+    <tr><td><code>flags</code></td><td>Named warnings, separated by semicolons. Empty means every check passed</td></tr>
+  </tbody>
+</table>
+</div>
+<p>The full column list is in the manual, section 10.</p>
+
+<h2 id="review">7. Check the results by hand</h2>
+<p>The review page shows each document's page image beside what the engine read, with flagged documents first. Opened as a plain file it is read-only. To save corrections, serve it with the package's own command, which opens it in your browser and writes each correction to <code>corrections.jsonl</code> in the results folder. Then score the engine against those corrections.</p>
+<div class="codeblock"><span class="label">Terminal</span><pre><code>extract-text review --out path/to/results/ --serve
+extract-text score --out path/to/results/ --shapes</code></pre></div>
+<p>R users can run these in RStudio's Terminal tab. The command lives in the package's private Python environment, at the path this returns.</p>
+<div class="codeblock"><span class="label">R</span><pre><code>file.path(dirname(reticulate::virtualenv_python("r-extracttext")), "extract-text")</code></pre></div>
+<p>The score report masks every value (letters become A or a, digits become 9), so it can be shared without exposing anyone's name or address.</p>
+
+<h2 id="privacy">8. Privacy and your records</h2>
+<p>With the default engines, no document, page image, or extracted value leaves your computer. The deterministic engine has no network code in its path at all. The AI engine talks only to Ollama on your own machine. There is no telemetry and nothing checks for updates, so after installation everything runs offline.</p>
+<p>The output files hold whatever the documents hold, names and addresses included. Keep them on governed storage, never in a code repository and never anywhere publicly served.</p>
+<p>The rules were written for and measured on Washington State documents. Documents from another court, or newer forms, deserve a check by hand before their results are trusted. Section 16 of the manual covers adapting the rules.</p>
+
+<footer>
+  <p>extract-text is open source under AGPL-3.0, by Cheng Ren, Tim Thomas, and Aaron Culich, Eviction Research Network, UC Berkeley. Source and issues at <a href="https://github.com/evictionresearch/extract-text">github.com/evictionresearch/extract-text</a>.</p>
+</footer>
+
+</main>
+<script>
+  (function () {
+    document.documentElement.classList.add("js");
+    var buttons = document.querySelectorAll(".langbar button");
+    var blocks = document.querySelectorAll("[data-lang]");
+    function show(pick) {
+      blocks.forEach(function (b) {
+        b.classList.toggle("hidden", pick !== "all" && b.getAttribute("data-lang") !== pick);
+      });
+      buttons.forEach(function (btn) {
+        btn.setAttribute("aria-pressed", btn.getAttribute("data-pick") === pick ? "true" : "false");
+      });
+      try { localStorage.setItem("et-lang", pick); } catch (e) {}
+    }
+    buttons.forEach(function (btn) {
+      btn.addEventListener("click", function () { show(btn.getAttribute("data-pick")); });
+    });
+    var saved = null;
+    try { saved = localStorage.getItem("et-lang"); } catch (e) {}
+    show(saved || "r");
+  })();
+</script>
+</body>
+</html>

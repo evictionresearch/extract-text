@@ -10,7 +10,8 @@ scan_documents(
   out_dir = NULL,
   model = NULL,
   limit = 0,
-  review = FALSE
+  review = FALSE,
+  progress = interactive()
 )
 }
 \arguments{
@@ -29,6 +30,12 @@ default (qwen3.5:9b).}
 
 \item{review}{Also build \code{review/index.html} in \code{out_dir}: page images
 beside extracted fields, flagged documents first, for human checking.}
+
+\item{progress}{Show a progress bar while documents are read: documents
+done, time elapsed, and an estimate of the time left. On by default in
+an interactive session. It updates as each document starts and
+finishes, and never shows file or folder names, which in court
+collections can carry case numbers.}
 }
 \value{
 A tibble with one row per document. Attributes: \code{out_dir}.

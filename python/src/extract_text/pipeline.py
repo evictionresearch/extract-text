@@ -35,6 +35,7 @@ import shutil
 import sys
 import threading
 import time
+import warnings
 from pathlib import Path
 
 from .deterministic import extract_from_document
@@ -284,13 +285,22 @@ class _Progress:
     slow AI page never looks like a hang. Elsewhere (a log file, a pipe) it
     falls back to a plain line every 25 documents. It never shows file or
     folder names: in court collections those can carry case numbers, and
-    terminal output is what gets pasted into issues and chats."""
+    terminal output is what gets pasted into issues and chats.
+
+    `callback`, when given, is called as callback(done, total, failed,
+    current, what) each time a document starts or finishes, whether or not
+    the line itself is shown. The R package draws its own bar from it. It is
+    only ever called from the scanning thread, never from the ticker, since
+    R cannot be called from another thread; and like the line it carries
+    counts, never names. A callback that raises is dropped with a warning,
+    so a display problem can never stop a scan."""
 
     WIDTH = 24
 
-    def __init__(self, total: int, enabled: bool = True, stream=None):
+    def __init__(self, total: int, enabled: bool = True, stream=None, callback=None):
         self.total = total
         self.enabled = enabled
+        self.callback = callback
         self.stream = stream or sys.stderr
         self.live = enabled and self.stream.isatty()
         self.start = time.monotonic()
@@ -308,6 +318,7 @@ class _Progress:
             self.current, self.what = i, what
         if self.live:
             self._draw()
+        self._report()
 
     def advance(self, failed: bool = False):
         with self._lock:
@@ -319,6 +330,16 @@ class _Progress:
             self._draw()
         elif self.enabled and (self.done % 25 == 0 or self.done == self.total):
             print(f"  scanned {self.done}/{self.total}", file=self.stream)
+        self._report()
+
+    def _report(self):
+        if self.callback is None:
+            return
+        try:
+            self.callback(self.done, self.total, self.failed, self.current, self.what)
+        except Exception as e:
+            self.callback = None
+            warnings.warn(f"progress display stopped: {type(e).__name__}: {e}", stacklevel=2)
 
     def close(self):
         self._stop.set()
@@ -368,6 +389,7 @@ def scan(
     parquet: bool | None = None,
     progress: bool = True,
     exclude=None,
+    on_progress=None,
 ):
     """Extract every document under `inputs`. Returns the list of row dicts.
 
@@ -383,6 +405,10 @@ def scan(
     default) and `out_dir` is given, extracted.csv, extracted.jsonl, and the
     review inputs are written there; parquet too when pyarrow is installed
     (set `parquet=False` to skip it, `parquet=True` to require it).
+
+    `progress` shows the progress line on stderr. `on_progress`, a function
+    of (done, total, failed, current, what), is called as each document
+    starts and finishes, for callers that draw their own (see _Progress).
     """
     if engine not in ("deterministic", "ai", "both"):
         raise ValueError("engine must be 'deterministic', 'ai', or 'both'")
@@ -425,7 +451,7 @@ def scan(
                                     prompt_format=prompt_format)
 
     rows, details, n_err = [], [], 0
-    bar = _Progress(len(files), enabled=progress)
+    bar = _Progress(len(files), enabled=progress, callback=on_progress)
     try:
         for i, path in enumerate(files, 1):
             failed = False

@@ -103,3 +103,17 @@ test_that("scan_documents returns one tidy row per file and writes outputs", {
   expect_true(file.exists(file.path(out_dir, "extracted.jsonl")))
   expect_identical(attr(results, "out_dir"), out_dir)
 })
+
+test_that("scan_documents with a progress bar returns the same rows", {
+  skip_if_not(extracttext_available(), "Python engine not installed")
+  skip_if_not(have_fixture_files, "fixture files not present (not a full clone)")
+  skip_if_not(have_system_tools, "poppler not installed")
+
+  files <- file.path(fixtures_dir, c("synthetic_summons_efiled.pdf", "synthetic_kc_efiled.pdf"))
+  quiet <- scan_documents(files, out_dir = file.path(tempdir(), "et-quiet"), progress = FALSE)
+  old <- options(cli.dynamic = TRUE)
+  on.exit(options(old), add = TRUE)
+  shown <- scan_documents(files, out_dir = file.path(tempdir(), "et-shown"), progress = TRUE)
+  expect_equal(nrow(shown), 2L)
+  expect_identical(shown$defendant_street, quiet$defendant_street)
+})

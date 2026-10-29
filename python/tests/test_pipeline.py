@@ -207,6 +207,39 @@ def test_progress_line_shows_count_step_and_failures():
     assert shown.endswith("\n")
 
 
+def test_progress_callback_gets_counts_and_a_bad_one_is_dropped():
+    from extract_text.pipeline import _Progress
+
+    calls = []
+    bar = _Progress(2, enabled=False, callback=lambda *a: calls.append(a))
+    bar.status(1, "deterministic engine")
+    bar.advance()
+    bar.status(2, "deterministic engine")
+    bar.advance(failed=True)
+    bar.close()
+    assert calls[0] == (0, 2, 0, 1, "deterministic engine")
+    assert calls[-1] == (2, 2, 1, 2, "")
+
+    def broken(*a):
+        raise RuntimeError("display failed")
+
+    bar = _Progress(2, enabled=False, callback=broken)
+    with pytest.warns(UserWarning, match="progress display stopped"):
+        bar.status(1, "deterministic engine")
+    bar.advance()
+    assert bar.callback is None and bar.done == 1
+
+
+@needs_system_tools
+def test_scan_reports_progress_without_file_names(tmp_path):
+    calls = []
+    files = [FIXTURES / "synthetic_summons_efiled.pdf", FIXTURES / "synthetic_kc_efiled.pdf"]
+    scan(files, out_dir=None, write=False, progress=False,
+         on_progress=lambda *a: calls.append(a))
+    assert calls[-1][:3] == (2, 2, 0)
+    assert all(f.name not in repr(calls) for f in files)
+
+
 @needs_system_tools
 def test_scan_survives_broken_and_unsupported_files(tmp_path):
     # a corrupt PDF degrades gracefully: no text, flagged, no crash

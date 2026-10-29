@@ -3,7 +3,7 @@
 # Author: Tim Thomas
 # Created: 2026-08-18
 # Reviewer:
-# Updated:
+# Updated: 2026-10-29
 # =============================================================================
 
 #' Extract a folder of court documents into a tibble
@@ -34,6 +34,11 @@
 #' @param limit Process only the first `limit` documents (0 means all).
 #' @param review Also build `review/index.html` in `out_dir`: page images
 #'   beside extracted fields, flagged documents first, for human checking.
+#' @param progress Show a progress bar while documents are read: documents
+#'   done, time elapsed, and an estimate of the time left. On by default in
+#'   an interactive session. It updates as each document starts and
+#'   finishes, and never shows file or folder names, which in court
+#'   collections can carry case numbers.
 #' @return A tibble with one row per document. Attributes: `out_dir`.
 #' @importFrom tibble as_tibble
 #' @importFrom utils read.csv
@@ -48,7 +53,7 @@
 #' }
 scan_documents <- function(paths, engine = c("deterministic", "ai", "both"),
                            out_dir = NULL, model = NULL, limit = 0,
-                           review = FALSE) {
+                           review = FALSE, progress = interactive()) {
   engine <- match.arg(engine)
   if (is.null(out_dir)) {
     out_dir <- file.path(tempdir(), paste0("extracttext_", format(Sys.time(), "%H%M%S")))
@@ -60,9 +65,11 @@ scan_documents <- function(paths, engine = c("deterministic", "ai", "both"),
     out_dir = path.expand(out_dir),
     model = model,
     limit = as.integer(limit),
-    progress = FALSE
+    progress = FALSE,
+    on_progress = if (isTRUE(progress)) progress_reporter(environment())
   )
   if (review) {
+    if (isTRUE(progress)) cli::cli_progress_step("Building the review page")
     pl$write_review(path.expand(out_dir))
   }
   out <- as_tibble(read.csv(file.path(out_dir, "extracted.csv"),
@@ -72,4 +79,32 @@ scan_documents <- function(paths, engine = c("deterministic", "ai", "both"),
                                            attorney_zip = "character")))
   attr(out, "out_dir") <- out_dir
   out
+}
+
+# The engine calls this as each document starts and finishes, always from
+# its main thread. The bar is created on the first call, once the engine
+# has counted the documents, and belongs to the caller's frame so it closes
+# when scan_documents() returns. Elapsed time and the estimate only move
+# when a document starts or finishes.
+progress_reporter <- function(envir) {
+  bar <- NULL
+  function(done, total, failed, current, what) {
+    status <- if (failed > 0) paste0(failed, " failed") else ""
+    if (is.null(bar)) {
+      bar <<- cli::cli_progress_bar(
+        total = total,
+        format = paste(
+          "{cli::pb_bar} {cli::pb_current}/{cli::pb_total} documents",
+          "| {cli::pb_elapsed} elapsed | about {cli::pb_eta} left {cli::pb_status}"
+        ),
+        format_done = "Read {cli::pb_total} documents in {cli::pb_elapsed} {cli::pb_status}",
+        clear = FALSE,
+        .envir = envir
+      )
+    }
+    cli::cli_progress_update(id = bar, set = done, status = status,
+                             force = TRUE, .envir = envir)
+    if (done >= total) cli::cli_progress_done(id = bar, .envir = envir)
+    invisible(NULL)
+  }
 }

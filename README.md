@@ -9,6 +9,13 @@ Network](https://evictionresearch.net), validated on more than a million
 pages of Washington State filings, and designed to work anywhere court
 documents follow American conventions.
 
+**Status: under development (version 0.2.0).** The engines work and are
+being checked against hand-labeled Washington filings, but command options,
+output fields, and the default AI model can still change between releases.
+Accuracy has been measured only on Washington documents, and the head-to-head
+test of the AI engine against the labeled sets is still open. Versions below
+1.0 make no promise of a stable interface, so pin the version you build on.
+
 There are **three** parts: two engines that read documents, and a card game
 that lets people check the reading. The engines are only as good as what has
 been measured about them, and the game is how that measurement happens.

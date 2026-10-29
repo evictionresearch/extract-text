@@ -88,6 +88,12 @@ scan_documents <- function(paths, engine = c("deterministic", "ai", "both"),
   # the order of extracted.csv
   out <- tibble::add_column(out, doc = seq_len(nrow(out)), .before = 1)
   attr(out, "out_dir") <- out_dir
+  if (isTRUE(progress) && !file.exists(file.path(out_dir, "corrections.jsonl"))) {
+    cli::cli_inform(c(
+      "i" = "How accurate this is on your documents is unknown until a person checks a random batch.",
+      " " = "{.code review_documents(res, correct = TRUE, n = 50, draw = \"random\")}, then {.code score_documents(res)}"
+    ))
+  }
   out
 }
 

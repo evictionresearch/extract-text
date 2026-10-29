@@ -8,6 +8,7 @@ review_documents(
   out_dir,
   correct = FALSE,
   n = 30,
+  draw = c("flagged", "random"),
   rebuild = FALSE,
   open = interactive()
 )
@@ -18,9 +19,16 @@ review_documents(
 
 \item{correct}{\code{FALSE} to look only; \code{TRUE} to save corrections.}
 
-\item{n}{How many documents the page shows: every flagged document, then
-a fixed random draw of the rest, up to \code{n} in all. \code{Inf} shows every
-document. Giving \code{n} rebuilds the page.}
+\item{n}{How many documents the page shows, up to \code{n} in all. \code{Inf}
+shows every document. Giving \code{n} or \code{draw} rebuilds the page.}
+
+\item{draw}{How the page chooses documents. \code{"flagged"} (the default)
+puts every flagged document first, then fills with a random draw of the
+rest: the quickest way to find what the rules get wrong, but a
+pessimistic accuracy figure, because flagged documents are the hard
+ones. \code{"random"} draws all \code{n} at random, flagged or not, so the share
+right is a fair estimate for the whole scan: the calibration batch to
+correct before trusting a run (50 is a sensible minimum).}
 
 \item{rebuild}{Rebuild the page even when one exists. The page is built
 on first use and kept, since building it renders an image of every
@@ -58,6 +66,8 @@ document does not have it.
 res <- scan_documents("summonses/", out_dir = "results/")
 review_documents(res)                    # look
 review_documents(res, correct = TRUE)    # correct, then Esc or Ctrl-C
+# the calibration batch: 50 drawn at random, for a fair accuracy figure
+review_documents(res, correct = TRUE, n = 50, draw = "random")
 score_documents(res)
 }
 }

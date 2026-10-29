@@ -29,9 +29,15 @@
 #' @param out_dir The scan's output folder, or the tibble returned by
 #'   [scan_documents()].
 #' @param correct `FALSE` to look only; `TRUE` to save corrections.
-#' @param n How many documents the page shows: every flagged document, then
-#'   a fixed random draw of the rest, up to `n` in all. `Inf` shows every
-#'   document. Giving `n` rebuilds the page.
+#' @param n How many documents the page shows, up to `n` in all. `Inf`
+#'   shows every document. Giving `n` or `draw` rebuilds the page.
+#' @param draw How the page chooses documents. `"flagged"` (the default)
+#'   puts every flagged document first, then fills with a random draw of the
+#'   rest: the quickest way to find what the rules get wrong, but a
+#'   pessimistic accuracy figure, because flagged documents are the hard
+#'   ones. `"random"` draws all `n` at random, flagged or not, so the share
+#'   right is a fair estimate for the whole scan: the calibration batch to
+#'   correct before trusting a run (50 is a sensible minimum).
 #' @param rebuild Rebuild the page even when one exists. The page is built
 #'   on first use and kept, since building it renders an image of every
 #'   document shown.
@@ -45,16 +51,20 @@
 #' res <- scan_documents("summonses/", out_dir = "results/")
 #' review_documents(res)                    # look
 #' review_documents(res, correct = TRUE)    # correct, then Esc or Ctrl-C
+#' # the calibration batch: 50 drawn at random, for a fair accuracy figure
+#' review_documents(res, correct = TRUE, n = 50, draw = "random")
 #' score_documents(res)
 #' }
-review_documents <- function(out_dir, correct = FALSE, n = 30, rebuild = FALSE,
+review_documents <- function(out_dir, correct = FALSE, n = 30,
+                             draw = c("flagged", "random"), rebuild = FALSE,
                              open = interactive()) {
   out_dir <- scan_folder(out_dir)
   page <- file.path(out_dir, "review", "index.html")
-  if (rebuild || !missing(n) || !file.exists(page)) {
+  if (rebuild || !missing(n) || !missing(draw) || !file.exists(page)) {
+    draw <- match.arg(draw)
     n <- if (is.infinite(n)) .Machine$integer.max else as.integer(n)
     cli::cli_progress_step("Building the review page")
-    pipeline_module()$write_review(out_dir, n = n)
+    pipeline_module()$write_review(out_dir, n = n, flagged_first = draw == "flagged")
     cli::cli_progress_done()
   }
 

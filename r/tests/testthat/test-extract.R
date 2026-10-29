@@ -147,6 +147,12 @@ test_that("review_documents looks, refuses to wait in a script, and score_docume
   expect_true(file.exists(file.path(out_dir, "review", "index.html")))
   expect_error(review_documents(res, correct = TRUE, open = FALSE), "interactive")
 
+  # a random draw records every document on the page as drawn at random
+  suppressMessages(review_documents(res, n = Inf, draw = "random", open = FALSE))
+  drawn <- reticulate::import("json")$loads(
+    readChar(file.path(out_dir, "review", "sample.json"), 1e6))
+  expect_true(all(unlist(drawn) == "random"))
+
   empty <- suppressMessages(score_documents(res))
   expect_equal(nrow(empty), 0L)
   expect_named(empty, c("engine", "field", "checked", "right", "near", "blank",

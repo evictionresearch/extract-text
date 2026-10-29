@@ -38,7 +38,7 @@ reticulate::virtualenv_remove("r-extracttext")
 # pages, OCR). They come from the system, e.g. `brew install poppler
 # tesseract` on a Mac. On a county Windows machine this is usually the
 # hardest step; extracttext_doctor() in step 3 names anything missing.
-install.packages("remotes")
+# install.packages("remotes") # uncomment if remotes is not installed yet
 remotes::install_github("evictionresearch/extract-text", subdir = "r")
 library(extracttext)
 extracttext_install()
@@ -56,7 +56,7 @@ quit(save = "no")
 # The AI section can be ignored for a rules-only setup; on a machine where
 # AI is not allowed it will show ollama as missing, which is fine.
 library(extracttext)
-install.packages("tidyverse")
+# install.packages("tidyverse") # uncomment if you haven't installed tidyverse
 library(tidyverse)
 extracttext_doctor()
 
@@ -99,7 +99,7 @@ docs_dir <- path.expand("~/data/evictionresearch/washington/court_images/King/20
 
 # out_dir is where results go: governed storage, one dated folder per run.
 train   <- path.expand("~/data/evictionresearch/washington/development/extract_text_training")
-out_dir <- file.path(train, "_kc_walkthrough_2026-10-29")
+out_dir <- file.path(train, "_kc_walkthrough_50_2026-10-29")
 
 # Every PDF under docs_dir, case folders included (4,091 for 2017)
 pdfs <- list.files(docs_dir, pattern = "\\.pdf$", recursive = TRUE,
@@ -124,9 +124,11 @@ pdfs <- pdfs[!normalizePath(pdfs) %in% normalizePath(graded, mustWork = FALSE)]
 # 3,959 left for 2017 (132 were in a grading round)
 length(pdfs)
 
-# A reproducible random draw: the same seed always picks the same 25
+# A reproducible random draw of 50, the calibration batch. The same seed
+# always picks the same documents, and the first 25 of these 50 are the 25
+# this seed gave before.
 set.seed(20261029)
-pick <- sample(pdfs, 25)
+pick <- sample(pdfs, 50)
 
 # --------------------------------------------------------------------------
 # Step 6. Run the rules engine
@@ -135,8 +137,8 @@ pick <- sample(pdfs, 25)
 # document. engine = "deterministic" is rules only: no AI, no network.
 #
 # A progress bar shows documents done, time elapsed, and an estimate of the
-# time left. About 5 seconds a document when OCR is needed, so a couple of
-# minutes for 25.
+# time left. About 5 seconds a document when OCR is needed, so about four
+# minutes for 50.
 #
 # Written to out_dir: extracted.csv (the table), extracted.jsonl (every
 # field's evidence), and extracted.parquet. The first column of res, doc,
@@ -187,16 +189,18 @@ if (.Platform$GUI == "RStudio") View(look) else print(look, n = Inf, width = Inf
 # To look only (nothing is saved):
 review_documents(res)
 
-# To correct. The page is served from this computer only and every save is
+# To correct the calibration batch: all 50, drawn at random (draw =
+# "random"), so the share right is a fair estimate. The page is served from
+# this computer only and every save is
 # written at once to corrections.jsonl in out_dir. On each document, change
 # only what the engine got wrong and save; when it got everything right,
 # save as it is. Leave a field blank when the document does not have it.
 # R waits while you work: press Esc in RStudio, or Ctrl-C at a terminal,
 # when finished. Running it again picks up where you left off.
 #
-# The page shows every flagged document, then a random draw of the rest, up
-# to 30 in all; n = Inf shows every document.
-review_documents(res, correct = TRUE)
+# Without draw = "random" the page puts flagged documents first, which
+# finds failures faster but understates accuracy.
+review_documents(res, correct = TRUE, n = 50, draw = "random")
 
 # --------------------------------------------------------------------------
 # Step 9. Score the engine against your corrections

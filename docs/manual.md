@@ -592,6 +592,44 @@ R, `score_documents(DIR)` returns the same tallies as a tibble, one row per
 engine and field (checked, right, near, blank, wrong, and the randomly drawn
 documents alone), and its `save` argument writes the masked report.
 
+### How many documents to check
+
+How accurate the engine is on a collection is unknown until a person checks
+some of it, and the deterministic engine does not learn from those checks
+on its own: run again on the same documents, it gives the same answers.
+Corrections make it better through a person changing the rules, which is
+what keeps every change visible and auditable. The protocol this project
+recommends follows from that.
+
+1. **Before trusting a run, correct a calibration batch of at least 50
+   documents drawn at random** (`review_documents(res, correct = TRUE, n =
+   50, draw = "random")` in R, `extract-text review --out DIR --random 50
+   --serve` at a terminal). A random draw is what makes the share right a
+   fair estimate; the default page puts flagged documents first, which finds
+   failures faster but understates accuracy. For a decision that matters,
+   such as published counts or notices sent to people, check 100 or more.
+2. **If the engine falls short on the fields you need,** change the rules
+   (section 16), or ask the project for help (section 21). Scan the
+   same documents again into the same folder; the corrections stay, and
+   `score` measures the new rules against them. That confirms the fix but
+   flatters the engine, because the rules were changed with those documents
+   in view.
+3. **Then correct a fresh random batch** the changed rules have never seen.
+   Only that gives an honest accuracy figure.
+4. **In ongoing use,** check every flagged document, and spot-check about 25
+   drawn at random from each run, which is enough to notice when a new form
+   starts slipping through.
+
+The number to check does not depend on the size of the collection: 100
+checked says as much about a run of 4,000 as about one of 400,000. Roughly,
+when the engine is right about 85 percent of the time, the share right is
+known to within about 14 points after 25 random documents, 10 after 50, 7
+after 100, and 5 after 200 (95 percent confidence, normal approximation).
+Finding failures is a separate question: a failure that affects 5 percent of
+documents shows up at least once in 50 random documents about 92 percent of
+the time, and one that affects 2 percent needs about 150 for a 95 percent
+chance.
+
 ### Running a grading round
 
 A grading round puts several people on one scan folder and turns their

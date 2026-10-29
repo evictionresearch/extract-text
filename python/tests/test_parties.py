@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import json
 
+import pytest
+
 from extract_text.ai.vision import LocalVisionBackend
 from extract_text.deterministic.summons import _split_defendant_names
 from extract_text.parties import drop_plaintiff_matches
@@ -87,3 +89,23 @@ def test_names_are_cleaned_and_listed_names_split():
         "PAT EXAMPLE", "LEE EXAMPLE", "JO EXAMPLE"]
     assert split_listed_names("EXAMPLE, JOHN") == ["EXAMPLE, JOHN"]
     assert split_listed_names("EXAMPLE GREENS, LLC") == ["EXAMPLE GREENS, LLC"]
+
+
+@pytest.mark.parametrize("name, keep", [
+    ("PAT Q. OCCUPANT", True),
+    ("LE VAN AN", True),          # short capitalised words are names
+    ("AN LE", True),
+    ("JOHN EXAMPLE III", True),
+    ("OTHERS)", False),           # a bracket fragment from the caption
+    ("RE: EXAMPLE PROPERTY", False),
+    ("PAT @ 1234 SAMPLE AVE", False),
+    ("1234 SAMPLE AVENUE", False),
+    ("OC&from", False),
+    ("OR all occupants", False),  # capitals and lowercase mixed: OCR debris
+])
+def test_defendant_debris(name, keep):
+    from extract_text.parties import plausible_defendant_name, plausible_party_name
+
+    assert plausible_defendant_name(name) is keep
+    # a plaintiff can carry a number; only defendants get these checks
+    assert plausible_party_name("1500 EXAMPLE APARTMENTS LLC")

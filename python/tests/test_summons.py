@@ -399,3 +399,19 @@ def test_comma_led_unit_is_clean_in_both_columns():
     assert got["unit"] == "APARTMENT #B"
     got = parse_address("9876 SAMPLE AVE # A/B SAMPLETON, WA 98100")
     assert got["unit"] == "# A/B"
+
+
+@pytest.mark.parametrize("text, street", [
+    # a numbered street's ordinal split off by OCR is rejoined
+    ("12345 Northeast 999 th Street Sampleton, WA 98100", "12345 Northeast 999th Street"),
+    ("1234 S 3 rd St Apt 5 Sampleton WA 98100", "1234 S 3rd St Apt 5"),
+    # ...after a dash run, which leaves the street
+    ("1234 -- 99 th Example Ave NE, Sampleton WA 98100", "1234 99th Example Ave NE"),
+    # Saint is not an ordinal of 100; ST before a direction is the street type
+    ("100 St Example Ave Sampleton WA 98100", "100 St Example Ave"),
+    ("1234 21 ST NE Sampleton WA 98100", "1234 21 ST NE"),
+])
+def test_split_ordinals_rejoined(text, street):
+    from extract_text.deterministic.summons import parse_address
+
+    assert parse_address(text)["street"] == street

@@ -153,14 +153,44 @@ def plausible_party_name(name: str) -> bool:
     return True
 
 
-def finish_party_names(names: list[str]) -> list[str]:
+# Caption and service-block debris read as one more defendant. Each rule
+# answers a shape seen in the masked King County scores (round 1, 2026-10-20;
+# the random 50, 2026-10-29): a bracket fragment ("WORD)"), a label and colon
+# ("RE: ..."), part of an address ("@ 123 ...", a bare number), and OCR
+# fragments that mix capitals with lowercase. Short capitalised words alone
+# are left alone: LE, LI, NG, and WU are names.
+_LABEL_COLON_RE = re.compile(r"^[A-Z]{2,4}\s*:")
+
+
+def plausible_defendant_name(name: str) -> bool:
+    """plausible_party_name, plus the debris that reaches the defendant list
+    only. A plaintiff can carry a number ("1500 EXAMPLE APARTMENTS LLC"); a
+    tenant's name cannot."""
+    if not plausible_party_name(name):
+        return False
+    words = name.split()
+    if len(words) == 1 and (name.count(")") > name.count("(") or "&" in name):
+        return False
+    if _LABEL_COLON_RE.match(name) or "@" in name:
+        return False
+    if any(w.strip(",.;:").isdigit() for w in words):
+        return False
+    letters = [re.sub(r"[^A-Za-z]", "", w) for w in words]
+    caps = any(len(w) >= 2 and w.isupper() for w in letters)
+    lower_start = any(w and w[0].islower() for w in letters)
+    return not (caps and lower_start)
+
+
+def finish_party_names(names: list[str], defendants: bool = False) -> list[str]:
     """Clean a list of names read from a caption or service block: debris
     off, implausible entries out, and a "DBA ..." line joined to the name
-    before it, since it continues that party rather than naming another."""
+    before it, since it continues that party rather than naming another.
+    `defendants` applies the defendant-only checks too."""
+    keep = plausible_defendant_name if defendants else plausible_party_name
     out: list[str] = []
     for raw in names:
         name = clean_party_name(raw)
-        if not plausible_party_name(name):
+        if not keep(name):
             continue
         if _DBA_RE.match(name) and out:
             out[-1] = f"{out[-1]} {name}"

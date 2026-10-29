@@ -23,6 +23,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from pathlib import Path
 
 
 def cmd_doctor(args):
@@ -178,6 +179,34 @@ def cmd_import(args):
     return 0
 
 
+def _presets():
+    from .address_check import PRESETS
+
+    return PRESETS
+
+
+def cmd_check_addresses(args):
+    from .address_check import AddressList, check_scan, evaluation, summary
+
+    if args.preset:
+        addresses = AddressList.from_preset(args.reference, args.preset)
+    elif args.street:
+        addresses = AddressList.from_csv(args.reference, street=args.street, zip=args.zip,
+                                         city=args.city)
+    else:
+        print("give --preset, or --street (and --zip, --city) naming the list's columns",
+              file=sys.stderr)
+        return 2
+    results = check_scan(args.out, addresses, min_similarity=args.min_similarity)
+    # counts only; the suggestions themselves are in address_check.csv
+    print(summary(results))
+    report = evaluation(args.out, results)
+    if report:
+        print(report)
+    print(f"Details: {Path(args.out) / 'address_check.csv'}", file=sys.stderr)
+    return 0
+
+
 def cmd_cases(args):
     from .casefile import report, scan_cases
 
@@ -301,6 +330,20 @@ def main(argv=None):
     a.add_argument("files", nargs="+", metavar="FILE",
                    help="the graders' answers_NAME_FOLDER.jsonl files")
     a.set_defaults(fn=cmd_import)
+
+    a = sub.add_parser("check-addresses",
+                       help="check a scan's addresses against a list of real addresses")
+    a.add_argument("--out", required=True, help="the scan's output directory")
+    a.add_argument("--reference", required=True, metavar="CSV",
+                   help="a CSV of the addresses that exist, e.g. a county's address points")
+    a.add_argument("--preset", default=None,
+                   help="column names of a known list: " + ", ".join(sorted(_presets())))
+    a.add_argument("--street", default=None, help="column with house number and street")
+    a.add_argument("--zip", default=None, help="column with the ZIP code")
+    a.add_argument("--city", default=None, help="column with the city")
+    a.add_argument("--min-similarity", type=float, default=0.8,
+                   help="how alike a listed street must be to be suggested (0 to 1)")
+    a.set_defaults(fn=cmd_check_addresses)
 
     a = sub.add_parser("cases", help="roll case folders up to their outcomes")
     a.add_argument("inputs", nargs="+", help="directories of case folders")

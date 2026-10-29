@@ -899,3 +899,71 @@ def test_import_command_writes_one_corrections_file_per_download(tmp_path):
     assert main(["import", "--out", str(out), str(answers)]) == 0
     got = json.loads((out / "corrections_b_grader_round_x.jsonl").read_text())
     assert got["verdict"] == "unreadable" and got["reviewer"] == "B. Grader"
+
+
+@needs_system_tools
+def test_evidence_carries_boxes_and_the_review_page_draws_them(tmp_path):
+    from extract_text import extract
+    from extract_text.pipeline import evidence_boxes
+
+    x = extract(str(FIXTURES / "synthetic_kc_efiled.pdf"))
+    addr = x.evidence["defendant_address"].box
+    names = x.evidence["defendants.0.name"].box
+    assert addr and names
+    # the address sits below the name it was read with, both in the left half
+    assert names[1] < addr[1] < 0.6 and addr[0] < 0.5
+    # the case number is boxed in the top right corner, not the whole line
+    case = x.evidence["case_number"].box
+    assert case and case[0] > 0.6 and case[1] < 0.2 and case[2] - case[0] < 0.2
+
+    scan([FIXTURES / "synthetic_kc_efiled.pdf"], out_dir=tmp_path, progress=False)
+    html = write_review(tmp_path, n=5).read_text()
+    assert 'class="hl hl-address" data-label="Address"' in html
+    assert "Boxes show where the deterministic engine read each value" in html
+
+    # a scan from before boxes, and an address read from a later page
+    assert evidence_boxes({"deterministic": {"evidence": {"defendant_address": {"page": 1}}}}) == ("", "")
+    _, note = evidence_boxes({"deterministic": {"evidence": {"defendant_address": {"page": 3}}}})
+    assert "read from page 3" in note
+
+
+def test_locate_text_tight_box_and_near_tie_break():
+    from extract_text.layout import Line, Word, locate_text
+
+    def line(y, *words):
+        x, ws = 0.1, []
+        for w in words:
+            ws.append(Word(1, x, y, x + 0.05, y + 0.01, w))
+            x += 0.06
+        return Line(ws)
+
+    lines = [line(0.10, "PAT", "Q.", "OCCUPANT"),                        # caption
+             line(0.15, "CASE", "NO", "25-2-00007-1", "SUMMONS", "TO", "THE", "DEFENDANT"),
+             line(0.40, "PAT", "Q.", "OCCUPANT")]                        # service block
+    assert locate_text(lines, "PAT Q. OCCUPANT", near_y=0.41)[1] == 0.40
+    assert locate_text(lines, "PAT Q. OCCUPANT", near_y=0.09)[1] == 0.10
+    # a case number among other words: found only with tight, boxed alone
+    assert locate_text(lines, "25-2-00007-1") is None
+    box = locate_text(lines, "25-2-00007-1", tight=True)
+    assert box == pytest.approx((0.22, 0.15, 0.27, 0.16))
+
+
+def test_a_correction_keeps_the_boxes_a_reviewer_drew(tmp_path):
+    from extract_text.corrections import build_correction
+    from extract_text.pipeline import read_scan
+
+    _fake_both_engine_scan(tmp_path)
+    write_review(tmp_path, n=5)
+    rows, details = read_scan(tmp_path)
+    truth = {"plaintiff": "EXAMPLE GREENS LLC", "defendants": ["PAT EXAMPLE"],
+             "street": "1234 SAMPLE AVE NE", "unit": "", "city": "Sampleton",
+             "state": "WA", "zip": "98100"}
+    boxes = {"address": [0.1, 0.5, 0.4, 0.56123456], "case": None,
+             "attorney": [0.5, 0.5, 0.4, 0.6],          # x0 > x1: dropped
+             "plaintiff": ["a", 1, 2, 3],                # not numbers: dropped
+             "elsewhere": [0.1, 0.1, 0.2, 0.2]}          # not a field: dropped
+    c = build_correction(1, {"truth": truth, "boxes": boxes}, rows, details, tmp_path)
+    assert c["boxes"] == {"address": [0.1, 0.5, 0.4, 0.5612], "case": None}
+    assert "boxes" not in build_correction(1, {"truth": truth}, rows, details, tmp_path)
+    html = (tmp_path / "review" / "index.html").read_text()
+    assert 'class="fixbox" hidden' in html and 'data-field="address"' in html

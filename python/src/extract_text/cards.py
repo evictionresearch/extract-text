@@ -29,6 +29,8 @@ import subprocess
 import tempfile
 from pathlib import Path
 
+from .layout import locate_text
+
 __all__ = [
     "display_address", "locate_address", "locate_service_band", "name_tokens",
     "render_card", "safe_to_show", "PAD_X", "PAD_TOP", "PAD_BOT", "CARD_DPI",
@@ -44,10 +46,6 @@ CARD_DPI = 200
 # tighter than the rest: on a "TO:" service block the line directly above is
 # the defendant's name, and generous top padding drags it back into the crop.
 PAD_X, PAD_TOP, PAD_BOT = 0.020, 0.003, 0.010
-
-# A new vertical run starts when the gap exceeds this fraction of page height,
-# roughly two line heights.
-GROUP_GAP = 0.030
 
 # Words that can occur inside a party name but must never be painted over,
 # because they also occur in addresses. Blacking these out would hide a real
@@ -169,50 +167,8 @@ def locate_address(doc, address_raw: str, street: str = "", page: int = 1):
     lines are grouped into vertical runs and only the strongest run is used.
     Taking the union of every match would span most of the page.
     """
-    want = set(_toks(address_raw))
-    if not want:
-        return None
     house = next(iter(_toks(street)), None)
-    lines = [ln for ln in doc.lines if ln.page == page] or list(doc.lines)
-
-    hits = []
-    for ln in lines:
-        lt = _toks(ln.text)
-        if not lt:
-            continue
-        overlap = sum(1 for t in lt if t in want)
-        if overlap >= 2 and overlap / len(lt) >= 0.5:
-            hits.append(ln)
-    if house and not any(house in _toks(ln.text) for ln in hits):
-        for ln in lines:
-            if house in _toks(ln.text):
-                hits.append(ln)
-                break
-    if not hits:
-        return None
-
-    hits.sort(key=lambda ln: ln.y0)
-    groups, cur = [], [hits[0]]
-    for prev, ln in zip(hits, hits[1:]):
-        if ln.y0 - prev.y1 > GROUP_GAP:
-            groups.append(cur)
-            cur = [ln]
-        else:
-            cur.append(ln)
-    groups.append(cur)
-    hits = max(groups, key=lambda g: sum(
-        sum(1 for t in _toks(ln.text) if t in want) for ln in g))
-
-    # Begin at the street line. The line above it holds the defendant's name on
-    # a "TO:" block, and it is not needed to compare two address strings.
-    if house:
-        starts = [ln.y0 for ln in hits if house in _toks(ln.text)]
-        if starts:
-            top = min(starts)
-            hits = [ln for ln in hits if ln.y0 >= top - 0.004]
-
-    return (min(ln.x0 for ln in hits), min(ln.y0 for ln in hits),
-            max(ln.x1 for ln in hits), max(ln.y1 for ln in hits))
+    return locate_text(doc.lines, address_raw, page, first_token=house)
 
 
 def _blank_first_text_row(im, draw):

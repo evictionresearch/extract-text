@@ -208,3 +208,81 @@ def page_text(lines, page=None):
     if page is None:
         return "\n".join(l.text for l in lines)
     return "\n".join(l.text for l in lines if l.page == page)
+
+
+# a new vertical run starts when the gap between lines exceeds this fraction
+# of the page height, roughly two line heights
+LOCATE_GROUP_GAP = 0.030
+
+
+def _locate_toks(s: str) -> list[str]:
+    return [t for t in re.split(r"[^A-Za-z0-9#]+", (s or "").upper()) if t]
+
+
+def locate_text(lines, text: str, page: int = 1, first_token: str | None = None,
+                near_y: float | None = None, tight: bool = False):
+    """Box around the lines on `page` that hold `text`, as 0-1 page fractions
+    (x0, y0, x1, y1), or None when it cannot be found.
+
+    A line counts when it shares at least two of the text's words (one, for a
+    one-word text) and they make up at least half of the line. The same text
+    is often printed twice on a page, a name or address in the caption and
+    again in the service block, so matching lines are grouped into vertical
+    runs and only the strongest run is used; `near_y` breaks a tie toward
+    the run closest to that height. With `first_token` (an address's house
+    number), the box starts at the line holding it, leaving out the name
+    line above an address.
+
+    With `tight`, a line also counts when it holds most of the text's words
+    even among others (a case number in a two-column caption), and the box
+    covers only the matching words, not the whole lines."""
+    want = set(_locate_toks(text))
+    if not want:
+        return None
+    need = min(2, len(want))
+    on_page = [ln for ln in lines if ln.page == page] or list(lines)
+
+    hits = []
+    for ln in on_page:
+        lt = _locate_toks(ln.text)
+        if not lt:
+            continue
+        overlap = sum(1 for t in lt if t in want)
+        if overlap >= need and (overlap / len(lt) >= 0.5
+                                or (tight and len(set(lt) & want) / len(want) >= 0.8)):
+            hits.append(ln)
+    if first_token and not any(first_token in _locate_toks(ln.text) for ln in hits):
+        for ln in on_page:
+            if first_token in _locate_toks(ln.text):
+                hits.append(ln)
+                break
+    if not hits:
+        return None
+
+    hits.sort(key=lambda ln: ln.y0)
+    groups, cur = [], [hits[0]]
+    for prev, ln in zip(hits, hits[1:]):
+        if ln.y0 - prev.y1 > LOCATE_GROUP_GAP:
+            groups.append(cur)
+            cur = [ln]
+        else:
+            cur.append(ln)
+    groups.append(cur)
+
+    def strength(g):
+        score = sum(sum(1 for t in _locate_toks(ln.text) if t in want) for ln in g)
+        return (score, -abs(g[0].y0 - near_y) if near_y is not None else 0)
+
+    hits = max(groups, key=strength)
+    if first_token:
+        starts = [ln.y0 for ln in hits if first_token in _locate_toks(ln.text)]
+        if starts:
+            top = min(starts)
+            hits = [ln for ln in hits if ln.y0 >= top - 0.004]
+    if tight:
+        words = [w for ln in hits for w in ln.words if set(_locate_toks(w.text)) & want]
+        if words:
+            return (min(w.x0 for w in words), min(w.y0 for w in words),
+                    max(w.x1 for w in words), max(w.y1 for w in words))
+    return (min(ln.x0 for ln in hits), min(ln.y0 for ln in hits),
+            max(ln.x1 for ln in hits), max(ln.y1 for ln in hits))

@@ -43,6 +43,7 @@ from .documents import DOCUMENT_SUFFIXES, load_document, render_page
 from .parties import _party_key, drop_plaintiff_matches
 from .schema import Extraction
 from .similarity import SAME_STREET_THRESHOLD, address_similarity, norm
+from .standardize import standardize_address
 
 SAMPLE_SEED = 42
 
@@ -150,6 +151,14 @@ def _addr_cols(prefix, addr) -> dict:
     }
 
 
+def _std_cols(addr) -> dict:
+    """The defendant's address in USPS form (standardize.py), for matching
+    against other lists; the as-printed columns are left as they are."""
+    std = standardize_address(addr.street, addr.unit, addr.city, addr.state, addr.zip) \
+        if addr else standardize_address(None)
+    return {f"defendant_{k}": v for k, v in std.items()}
+
+
 def flatten_extraction(x: Extraction) -> dict:
     """One flat row per document. Lists join with '; '."""
     rec = x.record
@@ -167,6 +176,7 @@ def flatten_extraction(x: Extraction) -> dict:
         "n_defendants": len(rec.defendants),
         **_addr_cols("defendant", rec.defendant_address),
         "defendant_anchor": anchor,
+        **_std_cols(rec.defendant_address),
         "attorney_names": (att.names or "") if att else "",
         "attorney_firm": (att.firm or "") if att else "",
         **_addr_cols("attorney", att.address if att else None),
@@ -586,6 +596,43 @@ def review_tier(row: dict, detail: dict) -> int:
     return 1 if flags else 0
 
 
+# what each kind of evidence is called on the review page, in drawing order
+_BOX_FIELDS = (("case_number", "Case number", "case"), ("plaintiffs.", "Plaintiff", "plaintiff"),
+               ("attorney", "Attorney", "attorney"), ("defendants.", "Defendants", "defendants"),
+               ("defendant_address", "Address", "address"))
+
+
+def evidence_boxes(detail: dict) -> tuple[str, str]:
+    """Overlay boxes for page 1 of the review page, from the deterministic
+    engine's evidence, and a note when the address was read from a later
+    page. Scans made before evidence carried boxes give neither."""
+    evidence = ((detail or {}).get("deterministic") or {}).get("evidence") or {}
+    spans, shown = [], set()
+    for prefix, label, cls in _BOX_FIELDS:
+        for key, ev in evidence.items():
+            if key != prefix and not (prefix.endswith(".") and key.startswith(prefix)):
+                continue
+            box = ev.get("box")
+            if ev.get("page") != 1 or not box:
+                continue
+            x0, y0, x1, y1 = (float(v) for v in box)
+            pad = 0.004
+            place = (max(0.0, x0 - pad), max(0.0, y0 - pad), min(1.0, x1 + pad), min(1.0, y1 + pad))
+            if place in shown:
+                continue
+            # the label goes on a field's first box only (several defendants)
+            tag = f' data-label="{label}"' if not any(f"hl-{cls}" in sp for sp in spans) else ""
+            shown.add(place)
+            spans.append(
+                f'<span class="hl hl-{cls}"{tag} title="{label}" '
+                f'style="left:{place[0] * 100:.2f}%;top:{place[1] * 100:.2f}%;'
+                f'width:{(place[2] - place[0]) * 100:.2f}%;height:{(place[3] - place[1]) * 100:.2f}%"></span>')
+    addr = evidence.get("defendant_address") or {}
+    note = (f'<p class="pagelinks">The address was read from page {addr["page"]}, '
+            f'not the page shown.</p>' if (addr.get("page") or 1) > 1 else "")
+    return "".join(spans), note
+
+
 def write_review(out_dir, n=30, seed=SAMPLE_SEED, flagged_first=True, graders=False,
                  attorneys=0, order="worst", overlap=0, rows=None):
     """Build review/index.html from a finished scan directory: page-1 image
@@ -743,11 +790,19 @@ def write_review(out_dir, n=30, seed=SAMPLE_SEED, flagged_first=True, graders=Fa
       </fieldset>""" if i in ask_attorney else ""
         ai_button = ('<button type="button" class="quiet use-ai">Use AI engine\'s reading</button>'
                      if ai_answer else "")
+        boxes, box_note = evidence_boxes(details[i - 1])
+        box_legend = ('<p class="legend"><label><input type="checkbox" class="showboxes" checked> '
+                      'Boxes show where the deterministic engine read each value</label></p>'
+                      if boxes else "")
         cells.append(f"""
 <div class="doc" id="doc{i}" data-tier="{tiers.get(i, 0)}"{f' data-shared="{shared_at[i]}"' if i in shared_at else ''}>
   <div class="page">
-    <img src="{img_name}" loading="lazy" alt="page 1 of document {i}"
-         title="Click to enlarge">
+    <div class="shot"><img src="{img_name}" loading="lazy" alt="page 1 of document {i}"
+         title="Click to enlarge">{boxes}</div>
+    {box_note}{box_legend}
+    <div class="fixbox" hidden>Wrong or missing box? Pick one, then drag across the page:
+      <button type="button" data-field="plaintiff">Plaintiff</button><button type="button" data-field="defendants">Defendants</button><button type="button" data-field="address">Address</button><button type="button" data-field="attorney">Attorney</button><button type="button" data-field="case">Case number</button>
+      <button type="button" class="none" hidden>Not on this page</button></div>
     <p class="pagelinks">Click the page to enlarge it.
       <a class="full" href="doc/{i}" target="_blank" hidden>Open the full document</a></p>
   </div>
@@ -807,6 +862,26 @@ def write_review(out_dir, n=30, seed=SAMPLE_SEED, flagged_first=True, graders=Fa
  .page{{flex:0 0 460px;align-self:flex-start}}
  .fields{{align-self:flex-start}}
  .page img{{width:100%;height:auto;border:1px solid #ccc;cursor:zoom-in;display:block}}
+ .shot{{position:relative}}
+ .hl{{position:absolute;border:2px solid var(--c);border-radius:2px;pointer-events:none;
+      box-sizing:border-box;background:color-mix(in srgb, var(--c) 8%, transparent)}}
+ .hl[data-label]::after{{content:attr(data-label);position:absolute;left:-2px;bottom:100%;
+      font:600 10px/1.3 sans-serif;color:#fff;background:var(--c);padding:0 3px;
+      border-radius:2px 2px 0 0;white-space:nowrap}}
+ .hl-address{{--c:#1f6feb}} .hl-defendants{{--c:#c0392b}} .hl-plaintiff{{--c:#7d3c98}}
+ .hl-attorney{{--c:#b9770e}} .hl-case{{--c:#2e7d32}}
+ .doc.nobox .hl{{display:none}}
+ .fixbox{{font-size:13px;color:#555;margin:.3rem 0}}
+ .fixbox button{{font-size:12px;padding:1px 6px;margin:2px 2px 0 0;border:2px solid var(--c,#999);
+      background:#fff;border-radius:3px;cursor:pointer}}
+ .fixbox button.armed{{background:var(--c,#999);color:#fff}}
+ .fixbox [data-field=address]{{--c:#1f6feb}} .fixbox [data-field=defendants]{{--c:#c0392b}}
+ .fixbox [data-field=plaintiff]{{--c:#7d3c98}} .fixbox [data-field=attorney]{{--c:#b9770e}}
+ .fixbox [data-field=case]{{--c:#2e7d32}}
+ .shot.drawing, .shot.drawing img{{cursor:crosshair}}
+ .hl.edited{{border-style:dashed;border-width:3px}} .hl.ghost{{border-style:dotted}}
+ .doc.nobox .hl.edited{{display:block}}
+ .legend{{font-size:13px;color:#555;margin:.3rem 0 0}}
  .pagelinks{{font-size:13px;color:#555;margin:.3rem 0}}
  .doc{{scroll-margin-top:.5rem}}
  /* enlarged: the page takes the room, and the table and form stay beside
@@ -908,6 +983,8 @@ function fill(f, c) {{
     f.elements.attorneys.value = [f.elements.attorneys.value, c.truth.attorney_firm].filter(Boolean).join("\\n");
   f.dataset.usedAi = c.used_ai_fill ? "1" : "";
   f.querySelectorAll("textarea").forEach(grow);
+  // boxes saved with the answer are drawn again, dashed
+  if (c.boxes) for (const [k, v] of Object.entries(c.boxes)) setBox(f, k, v, true);
 }}
 function mark(f, c) {{
   f.classList.add("saved");
@@ -951,6 +1028,84 @@ function tally() {{
   count.textContent = done + " of " + forms.length + " on this page reviewed";
 }}
 
+for (const box of document.querySelectorAll(".showboxes")) {{
+  box.addEventListener("change", () => box.closest(".doc").classList.toggle("nobox", !box.checked));
+}}
+// redrawing a box: pick a field under the page, drag across the image; the
+// box goes with the answer when it is saved. Shown wherever answers can be
+// saved (served, or the graders' page keeping them in the browser)
+const BOXLABEL = {{plaintiff: "Plaintiff", defendants: "Defendants", address: "Address",
+                  attorney: "Attorney", case: "Case number"}};
+function placeBox(s, b) {{
+  s.style.left = b[0] * 100 + "%"; s.style.top = b[1] * 100 + "%";
+  s.style.width = (b[2] - b[0]) * 100 + "%"; s.style.height = (b[3] - b[1]) * 100 + "%";
+}}
+function boxSpan(field, b, extra) {{
+  const s = document.createElement("span");
+  s.className = "hl hl-" + field + " " + extra;
+  s.title = BOXLABEL[field];
+  if (extra !== "ghost") s.dataset.label = BOXLABEL[field];
+  placeBox(s, b);
+  return s;
+}}
+function setBox(f, field, box, quiet) {{
+  const card = f.closest(".doc"), shot = card && card.querySelector(".shot");
+  if (!shot || !(field in BOXLABEL)) return;
+  shot.querySelectorAll(".hl-" + field).forEach(s => s.remove());
+  if (box) shot.appendChild(boxSpan(field, box, "edited"));
+  const edits = JSON.parse(f.dataset.boxes || "{{}}");
+  edits[field] = box;
+  f.dataset.boxes = JSON.stringify(edits);
+  if (!quiet) {{
+    f.dataset.dirty = "1";
+    setStatus(f, f.classList.contains("saved") ? "Box changed since saved; press Save again"
+                                               : "Box changed; press Save to keep it", "");
+  }}
+}}
+const CANSAVE = LOCAL || location.protocol.startsWith("http");
+for (const bar of document.querySelectorAll(".fixbox")) {{
+  const card = bar.closest(".doc"), shot = card.querySelector(".shot");
+  const f = card.querySelector("form.fix");
+  if (!CANSAVE || !shot || !f) continue;
+  bar.hidden = false;
+  let armed = null, start = null, ghost = null, drew = false;
+  const arm = field => {{
+    armed = field;
+    bar.querySelectorAll("button[data-field]").forEach(b => b.classList.toggle("armed", b.dataset.field === field));
+    shot.classList.toggle("drawing", !!field);
+    bar.querySelector(".none").hidden = !field;
+  }};
+  bar.addEventListener("click", e => {{
+    const b = e.target.closest("button");
+    if (!b) return;
+    if (b.classList.contains("none")) {{ setBox(f, armed, null, false); arm(null); return; }}
+    arm(armed === b.dataset.field ? null : b.dataset.field);
+  }});
+  const at = e => {{
+    const r = shot.getBoundingClientRect();
+    return [Math.min(1, Math.max(0, (e.clientX - r.left) / r.width)),
+            Math.min(1, Math.max(0, (e.clientY - r.top) / r.height))];
+  }};
+  const span = (a, b) => [Math.min(a[0], b[0]), Math.min(a[1], b[1]), Math.max(a[0], b[0]), Math.max(a[1], b[1])];
+  shot.addEventListener("pointerdown", e => {{
+    if (!armed || e.button !== 0) return;
+    e.preventDefault();
+    start = at(e);
+    ghost = boxSpan(armed, [...start, ...start], "ghost");
+    shot.appendChild(ghost);
+    try {{ shot.setPointerCapture(e.pointerId); }} catch (err) {{}}
+  }});
+  shot.addEventListener("pointermove", e => {{ if (start) placeBox(ghost, span(start, at(e))); }});
+  shot.addEventListener("pointerup", e => {{
+    if (!start) return;
+    const b = span(start, at(e));
+    ghost.remove(); start = null; drew = true;
+    if (b[2] - b[0] > 0.005 && b[3] - b[1] > 0.003) setBox(f, armed, b.map(v => Math.round(v * 10000) / 10000), false);
+    arm(null);
+  }});
+  // the click that ends a drawing must not also enlarge the page
+  shot.addEventListener("click", e => {{ if (drew) {{ drew = false; e.stopPropagation(); }} }}, true);
+}}
 for (const img of document.querySelectorAll(".page img")) {{
   img.addEventListener("click", () => {{
     const card = img.closest(".doc");
@@ -1193,6 +1348,7 @@ for (const f of forms) {{
       reviewer: GRADERS ? grader.name.value.trim() : "",
       reviewer_email: GRADERS ? grader.email.value.trim() : "",
       settled: SETTLE,
+      boxes: JSON.parse(f.dataset.boxes || "{{}}"),
     }};
     if (GRADERS && !body.reviewer) {{
       setStatus(f, "Not saved: put your name at the top of the page first", "err");

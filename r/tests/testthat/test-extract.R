@@ -177,3 +177,28 @@ test_that("review_documents looks, refuses to wait in a script, and score_docume
   expect_equal(zip$right, 1L)
   expect_false(any(grepl("EXAMPLE|TENANT", readLines(report))))
 })
+
+test_that("check_addresses adds the check to scan results", {
+  skip_if_not(extracttext_available(), "Python engine not installed")
+  skip_if_not(have_fixture_files, "fixture files not present (not a full clone)")
+  skip_if_not(have_system_tools, "poppler not installed")
+
+  out_dir <- file.path(tempdir(), "et-check")
+  res <- scan_documents(file.path(fixtures_dir, c("synthetic_summons_efiled.pdf", "synthetic_kc_efiled.pdf")),
+                        out_dir = out_dir, progress = FALSE)
+  points <- file.path(tempdir(), "et-points.csv")
+  writeLines(c("FULL,ZIP,CITY", "1234 EXAMPLE AVE S,98100,SEATTLE"), points)
+
+  checked <- suppressMessages(check_addresses(res, points, street = "FULL", zip = "ZIP", city = "CITY"))
+  expect_equal(nrow(checked), 2L)
+  expect_identical(checked$doc, res$doc)
+  expect_identical(checked$defendant_street, res$defendant_street)
+  street <- checked$defendant_street_std == "1234 EXAMPLE AVE S"
+  expect_identical(checked$address_check[street], "match")
+  expect_identical(checked$address_check[!street], "no_match")
+  expect_true(file.exists(file.path(out_dir, "address_check.csv")))
+
+  only <- suppressMessages(check_addresses(out_dir, points, street = "FULL", zip = "ZIP", city = "CITY"))
+  expect_named(only, c("doc", "address_check", "address_suggested", "address_check_similarity"))
+  expect_error(check_addresses(res, points), "preset")
+})

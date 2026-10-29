@@ -451,6 +451,7 @@ drift apart.
 | `defendant_unit` | Apartment, unit, or suite on its own, when printed. This repeats what is already inside `defendant_street`; see the note below the table |
 | `defendant_city`, `defendant_state`, `defendant_zip` | The rest of the address, split out |
 | `defendant_anchor` | Which rule found the address (the audit trail; see section 12) |
+| `defendant_house_number`, `defendant_street_std`, `defendant_unit_std`, `defendant_address_std` | The same address in one standard form, for matching against other lists (a county's address points, a geocoder, a consumer file): upper case, no punctuation, the house number on its own, and the suffix, directionals, and unit designators abbreviated the way USPS Publication 28 does (AVENUE to AVE, NORTHEAST to NE, APARTMENT to APT). Only the spelling changes; nothing is looked up, so a misread address stays misread. `defendant_street_std` holds no unit, so these unit columns can be pasted together safely. The tables come from the Postal Service's own pages through `python/scripts/fetch_usps_tables.py` |
 | `attorney_names`, `attorney_firm` | Plaintiff counsel, as printed |
 | `attorney_address_raw`, `attorney_street`, `attorney_unit`, `attorney_city`, `attorney_state`, `attorney_zip` | The attorney's address, kept firmly separate from the defendant's. `attorney_unit` repeats what is inside `attorney_street`, as above |
 | `attorney_phone`, `attorney_bar_numbers` | Contact and bar registration (WSBA numbers in Washington) |
@@ -569,6 +570,8 @@ that you started from the AI's reading, because a field accepted unchanged
 is easier to agree with than to find, and that tilts a score of the AI
 engine in its own favor.
 
+Colored boxes on the page image show where the deterministic engine read each value: plaintiff, defendants, address, attorney, and case number. A box in the wrong place (around the attorney's office instead of the tenant's address, say) shows the error at a glance; a value with no box could not be placed on the page, and a note says when the address came from a later page. A checkbox under the page hides the boxes. They appear on scans made with this version or later. When a box is wrong or missing, and the page can save answers (served, or the graders' page), pick the field under the page and drag across the image to draw it where the value really is; "Not on this page" removes it. The box is saved with the answer, dashed, as fractions of page 1 from the top left, and comes back when the page is opened again. Boxes drawn this way are the labeled positions that form templates will be learned from.
+
 Click a page image to enlarge it, and click again to shrink it. Enlarged,
 the page takes most of the window and the comparison and form stay to its
 right, moving down the screen with you as you scroll the page, so the
@@ -591,6 +594,43 @@ and `--save FILE` writes it with every value masked so it can be shared. In
 R, `score_documents(DIR)` returns the same tallies as a tibble, one row per
 engine and field (checked, right, near, blank, wrong, and the randomly drawn
 documents alone), and its `save` argument writes the masked report.
+
+### Checking addresses against a list of real ones
+
+A county's list of the addresses that exist (its address points, from the
+county GIS office) settles a question no document can: is this address
+real? `check_addresses()` in R, or `extract-text check-addresses` at a
+terminal, looks up each document's standardized address (section 10) among
+the listed addresses with the same house number, in the same ZIP code or
+city.
+
+```r
+res <- check_addresses(res, "kc_address_points.csv", preset = "king_county_wa")
+dplyr::count(res, address_check)
+```
+
+```bash
+extract-text check-addresses --out DIR --reference kc_address_points.csv --preset king_county_wa
+```
+
+`address_check` is `match` (listed as read), `near` (not listed as read, but
+the same house number is listed on a street spelled almost the same, or on
+the same street under another ZIP code), `no_match`, or blank when nothing
+was read. For a `near`, `address_suggested` holds the listed address. It is
+a suggestion for the person reviewing, never written over what the engine
+read, and when two listed streets are equally close neither is offered. A
+`no_match` is worth a look but is not proof of an error: lists hold today's
+addresses, so a building since demolished or a street since renamed will not
+match a correct reading of an old filing. Units are not checked.
+
+Any list works as a CSV, with `street`, `zip`, and `city` naming its
+columns (house number and street together in `street`). The preset
+`king_county_wa` names the columns of King County GIS's address points. The
+list stays on your computer, and the results are saved to
+`address_check.csv` in the scan folder. When the folder holds saved
+corrections, the check also reports how it did against them, counts only:
+how many of the documents the engine read right and wrong it called match,
+near, and no_match, and how often a suggestion was the corrected street.
 
 ### How many documents to check
 

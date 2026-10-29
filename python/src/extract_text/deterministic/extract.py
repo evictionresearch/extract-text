@@ -13,7 +13,7 @@ import re
 from datetime import date, datetime
 from typing import Any
 
-from ..parties import plausible_party_name
+from ..parties import plausible_defendant_name, plausible_party_name
 from ..schema import CourtRecord, Evidence, Extraction, Judgment, Party
 from .patterns import BUSINESS_MARKERS, CAPTIONS, PARTY_SPLIT, PATTERNS
 
@@ -75,7 +75,8 @@ def _parties(text: str) -> tuple[list[Party], list[Party], dict[str, Evidence]]:
             name = name.strip(" ,\t\n")
             # a scan's caption line can be a rail digit and a border ("1]")
             # or the versus token beside debris; neither is a party
-            if len(name) < 2 or not plausible_party_name(name):
+            keep = plausible_defendant_name if role == "defendant" else plausible_party_name
+            if len(name) < 2 or not keep(name):
                 continue
             out[group].append(
                 Party(

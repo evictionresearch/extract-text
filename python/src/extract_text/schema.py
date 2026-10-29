@@ -180,6 +180,15 @@ class Evidence(BaseModel):
     page: int | None = Field(
         default=None, description="1-based page the value was read from, if known."
     )
+    box: tuple[float, float, float, float] | None = Field(
+        default=None,
+        description=(
+            "Where on that page the value was read, as (x0, y0, x1, y1) "
+            "fractions of the page width and height from the top left. Set by "
+            "the deterministic engine when it read a file; the review page "
+            "draws it over the page image."
+        ),
+    )
 
 
 class DocumentInfo(BaseModel):

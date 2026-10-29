@@ -58,6 +58,20 @@ SYNTHETIC_WHITELIST = [
     "PUYALLUP, WA 98374",          # OCR-repair regression probe city line
     "9876 SAMPLE AVE",             # direction-boundary regression probe
     "1234 Example Ave",             # anchor-B docstring example, synthetic (replaced 2026-10-20)
+    "1234 North Street",            # standardizer test: a directional that is the street's name (invented)
+    "1234 NORTH ST",                # same, its standardized form
+    "1234 West Avenue",             # standardizer test: a directional that is the street's name (invented)
+    "1234 WEST AVE",                # same, its standardized form
+    "12345 Southeast 999th Place",  # standardizer test: a numbered street that cannot exist
+    "12345 999TH AVE",              # standardizer test: the same impossible numbered street
+    "1234 EXAMPLF AVE",             # address-check test: EXAMPLE with an OCR slip
+    "1234 XAMPLE AVE",              # address-check test: EXAMPLE missing a letter (a tie)
+    "9999 EXAMPLE AVE",             # address-check test: an unlisted house number
+    "12345 Northeast 999 th Street",  # split-ordinal test, invented (no 999th street)
+    "12345 Northeast 999th Street",   # same, rejoined
+    "1234 -- 99 th Example Ave",      # split-ordinal test after a dash run, invented
+    "1234 99th Example Ave",          # same, rejoined
+    "100 St Example Ave",             # "St" as Saint, not an ordinal, invented
     "1234 Example Avenue",
     "1234 115th St Ct",
     "123 4th Street",              # the Cityscape rail-failure illustration

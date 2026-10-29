@@ -187,7 +187,7 @@ if (.Platform$GUI == "RStudio") View(look) else print(look, n = Inf, width = Inf
 # read, flagged documents first, numbered to match res$doc.
 #
 # To look only (nothing is saved):
-review_documents(res)
+review_documents(res, correct = TRUE)
 
 # To correct the calibration batch: all 50, drawn at random (draw =
 # "random"), so the share right is a fair estimate. The page is served from

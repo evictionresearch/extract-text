@@ -312,6 +312,7 @@ both.comparison.needs_review              # fields a person should look at</code
     <tr><td><code>defendant_unit</code></td><td>The unit on its own. It repeats what is already in the street column, so use the street column alone for the full line</td></tr>
     <tr><td><code>defendant_city</code>, <code>_state</code>, <code>_zip</code></td><td>The rest of the address</td></tr>
     <tr><td><code>defendant_anchor</code></td><td>The rule that found the address (the audit trail)</td></tr>
+    <tr><td><code>defendant_address_std</code></td><td>The same address in one standard USPS form (AVENUE to AVE, APARTMENT to APT, house number on its own), for matching against other lists or a geocoder. Also split as <code>defendant_house_number</code>, <code>defendant_street_std</code>, and <code>defendant_unit_std</code></td></tr>
     <tr><td><code>plaintiffs</code>, <code>attorney_firm</code>, <code>case_number</code></td><td>Other parties and case details, as printed</td></tr>
     <tr><td><code>text_source</code></td><td><code>pdf_text_layer</code> for digital text, or <code>pdf_ocr</code> and similar when OCR read the page</td></tr>
     <tr><td><code>flags</code></td><td>Named warnings, separated by semicolons. Empty means every check passed</td></tr>
@@ -335,6 +336,14 @@ score_rows("path/to/results/")</code></pre></div>
 <div class="codeblock" data-lang="sh"><span class="label">Terminal</span><pre><code>extract-text review --out path/to/results/ --serve
 extract-text score --out path/to/results/ --shapes</code></pre></div>
 <p>On each document, change only what the engine got wrong and save; when it got everything right, save as it is. Flagged documents come first and are the hard ones, so the overall share right understates accuracy for the whole run. The randomly drawn documents give the fair estimate. The saved score report masks every value (letters become A or a, digits become 9), so it can be shared without exposing anyone's name or address.</p>
+
+<h3>Check addresses against a list of real ones</h3>
+<p>With a list of the addresses that exist in your county (its address points, a CSV from the county GIS office), each extracted address is looked up at the same house number and ZIP code. The result is <code>match</code>, <code>near</code> (with the listed address suggested, for a person to confirm), or <code>no_match</code>. Lists hold today's addresses, so an old filing's address may no longer be listed even when read correctly.</p>
+<div class="codeblock" data-lang="r"><span class="label">R</span><pre><code>results &lt;- check_addresses(results, "address_points.csv",
+                           street = "FULL_ADDRESS", zip = "ZIP", city = "CITY")</code></pre></div>
+<div class="codeblock" data-lang="sh"><span class="label">Terminal</span><pre><code>extract-text check-addresses --out path/to/results/ --reference address_points.csv \
+    --street FULL_ADDRESS --zip ZIP --city CITY</code></pre></div>
+<p>For King County's address points, <code>preset = "king_county_wa"</code> (R) or <code>--preset king_county_wa</code> names the columns for you.</p>
 
 <h2 id="privacy">8. Privacy and your records</h2>
 <p>With the default engines, no document, page image, or extracted value leaves your computer. The deterministic engine has no network code in its path at all. The AI engine talks only to Ollama on your own machine. There is no telemetry and nothing checks for updates, so after installation everything runs offline.</p>

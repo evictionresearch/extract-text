@@ -33,7 +33,7 @@ from __future__ import annotations
 import re
 from collections import defaultdict
 
-from ..layout import cluster_lines
+from ..layout import cluster_lines, locate_text
 from ..parties import (
     _GROUP_TERM_RE,
     _strip_group_terms,
@@ -335,6 +335,29 @@ def _fix_ordinals(street: str) -> str:
     return _ORDINAL_MISREAD_RE.sub(lambda m: m.group(1) + _ordinal(int(m.group(1))), street)
 
 
+# OCR splits a numbered street's ordinal off its number: "12th" arrives as
+# "12 th", and the street pattern then takes 12 for the house number (the
+# random 50 of 2026-10-29: one street read wrong, one house number lost).
+# Rejoined only right after a house number (and a direction), only when the
+# letters are that number's own ordinal, so "100 St Helens Ave" (Saint)
+# stays as printed, and only when a word follows that is not a direction, so
+# "1234 21 ST NE" keeps ST as its street type.
+_SPLIT_ORDINAL_RE = re.compile(
+    rf"\b(\d{{1,6}}\.?[\s-]+(?:{DIRECTION}\.?\s+)?)(\d{{1,3}})\s+(st|nd|rd|th)\b\.?"
+    rf"(?=\s+(?!{DIRECTION}\.?(?:\s|,|$))[A-Za-z])",
+    re.IGNORECASE,
+)
+
+
+def _join_split_ordinals(text: str) -> str:
+    def join(m):
+        n, letters = m.group(2), m.group(3)
+        if _ordinal(int(n)) != letters.upper():
+            return m.group(0)
+        return f"{m.group(1)}{n}{letters}"
+    return _SPLIT_ORDINAL_RE.sub(join, text)
+
+
 def parse_address(text):
     """Split a joined address string into components; returns None if no
     street pattern is present. Keeps the raw string alongside components."""
@@ -342,7 +365,7 @@ def parse_address(text):
     # runs of dots glue onto the tokens. Two or more dots never occur inside a
     # legitimate address, so they collapse to a space; single periods (St.,
     # N.E., et. al.) are untouched.
-    t = re.sub(r"\s+", " ", re.sub(r"\.{2,}", " ", text)).strip(" ,.;")
+    t = _join_split_ordinals(re.sub(r"\s+", " ", re.sub(r"\.{2,}", " ", text)).strip(" ,.;"))
     repaired = False
     sm = _skip_rail_house_number(t, _first_street_match(t))
     t2, n_fix = repair_house_numbers(t)
@@ -364,6 +387,8 @@ def parse_address(text):
     # comma sat inside the street; half the street and unit errors in the
     # 2026-09-30 corrections were this one comma
     street = _fix_ordinals(re.sub(r"\s*,\s*", " ", re.sub(r"\s+", " ", sm.group(0))).strip(" ,."))
+    # a run of dashes printed between the number and the name ("1234 -- 12th")
+    street = re.sub(r"^(\d+)\s*-{2,}\s*", r"\1 ", street)
     unit = re.sub(r"\s*,\s*", " ", re.sub(r"\s+", " ", sm.group(3))).strip(" ,") if sm.group(3) else ""
     rest = t[sm.end():]
     city = state = zipc = ""
@@ -444,7 +469,7 @@ def parse_address_nosuffix(text):
     street_no_suffix flag, because this rule is newer than the validated
     original and its output should be reviewable as a class.
     """
-    t = re.sub(r"\s+", " ", re.sub(r"\.{2,}", " ", text)).strip(" ,.;")
+    t = _join_split_ordinals(re.sub(r"\s+", " ", re.sub(r"\.{2,}", " ", text)).strip(" ,.;"))
     if _first_street_match(t):
         return None                          # the strict pass owns this text
     dir_only = re.compile(rf"^{DIRECTION}\.?$", re.IGNORECASE)
@@ -939,7 +964,33 @@ def _split_defendant_names(joined: str) -> list[str]:
             name = clean_party_name(_strip_group_terms(name.strip(" ,;"))[0])
             if len(name) >= 2 and not _GROUP_TERM_RE.fullmatch(" " + name):
                 names += split_listed_names(name)
-    return finish_party_names(names)
+    return finish_party_names(names, defendants=True)
+
+
+def _place_evidence(doc, evidence, defendant):
+    """Give each value read from a page the box it was read from, so a
+    reviewer sees where the engine looked. Located after the fact from the
+    quoted text: the anchors pass text, not positions, up the ladder. The
+    address box starts at its house number, and a defendant's name is placed
+    in the run nearest the address, since names are printed in the caption
+    too."""
+    lines = getattr(doc, "lines", None)
+    if not lines:
+        return
+    house = next(iter((defendant.get("street") or "").split()), None) if defendant else None
+    addr = evidence.get("defendant_address")
+    if addr is not None and addr.page:
+        addr.box = locate_text(lines, addr.quote, addr.page, first_token=house, tight=True)
+    near = addr.box[1] if addr is not None and addr.box else None
+    for key, ev in evidence.items():
+        if key == "defendant_address" or not ev.page or not ev.quote:
+            continue
+        box = None
+        if key.startswith("defendants.") and near is not None:
+            # the names the address was read with sit just above it
+            band = [ln for ln in lines if ln.page == ev.page and near - 0.12 <= ln.y0 <= near + 0.01]
+            box = locate_text(band, ev.quote, ev.page, tight=True) if band else None
+        ev.box = box or locate_text(lines, ev.quote, ev.page, tight=True)
 
 
 def extract_summons_fields(doc, expected_case_number=None):
@@ -1101,6 +1152,8 @@ def extract_summons_fields(doc, expected_case_number=None):
         evidence["case_number"] = Evidence(
             quote=doc_case, grounded=True, anchor="wa_case_number", page=1,
         )
+
+    _place_evidence(doc, evidence, defendant)
 
     fields = {
         "case_number": doc_case or None,

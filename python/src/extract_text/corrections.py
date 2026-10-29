@@ -142,6 +142,31 @@ def _name_list(given: dict, key: str) -> list:
     return [_bare(_text(n)) for n in names if _bare(_text(n))][:20]
 
 
+BOX_FIELDS = ("plaintiff", "defendants", "address", "attorney", "case")
+
+
+def _boxes(given) -> dict:
+    """The boxes a reviewer drew or moved on the page image, checked: one per
+    field, as (x0, y0, x1, y1) fractions of page 1 from the top left, or None
+    for "not on this page". Anything malformed is dropped, not guessed at."""
+    out = {}
+    if not isinstance(given, dict):
+        return out
+    for field, box in given.items():
+        if field not in BOX_FIELDS:
+            continue
+        if box is None:
+            out[field] = None
+            continue
+        try:
+            x0, y0, x1, y1 = (float(v) for v in box)
+        except (TypeError, ValueError):
+            continue
+        if 0 <= x0 < x1 <= 1 and 0 <= y0 < y1 <= 1:
+            out[field] = [round(v, 4) for v in (x0, y0, x1, y1)]
+    return out
+
+
 def build_correction(row_no: int, body: dict, rows: list, details: list,
                      out_dir=None) -> dict:
     """One saved correction, assembled from the reviewer's answer and the
@@ -201,6 +226,9 @@ def build_correction(row_no: int, body: dict, rows: list, details: list,
         # saved on the settling page, where graders disagreed; that page
         # shows such a document as done and every other one as still open
         **({"settled": True} if body.get("settled") else {}),
+        # where on page 1 the reviewer says a value is, for the fields whose
+        # box they redrew; the engine's own boxes are in the scan's evidence
+        **({"boxes": boxes} if (boxes := _boxes(body.get("boxes"))) else {}),
     }
 
 

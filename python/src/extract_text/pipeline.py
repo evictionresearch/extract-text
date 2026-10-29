@@ -864,7 +864,8 @@ def write_review(out_dir, n=30, seed=SAMPLE_SEED, flagged_first=True, graders=Fa
 {settle_summary}
 {GRADER_PANEL if graders else ''}
 <div id="banner" hidden>This page was opened as a file, so corrections cannot be saved.
-  To save them, start it with <code>extract-text review --out YOUR_SCAN_FOLDER --serve</code>.</div>
+  To save them, start it with <code>extract-text review --out YOUR_SCAN_FOLDER --serve</code>,
+  or in R with <code>review_documents("YOUR_SCAN_FOLDER", correct = TRUE)</code>.</div>
 </header>
 {''.join(cells)}
 <script>

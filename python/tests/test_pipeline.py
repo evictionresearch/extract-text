@@ -370,6 +370,33 @@ def test_score_reports_counts_and_masked_shapes_only(tmp_path):
         assert word not in text                  # never a value or a file name
     assert mask("Apt # 5, Bldg C") == "Aaa # 9, Aaaa A"
 
+    from extract_text.score import score_rows
+
+    table = {(r["engine"], r["field"]): r for r in score_rows(tmp_path)}
+    assert table[("deterministic", "plaintiff")] == {
+        "engine": "deterministic", "field": "plaintiff", "checked": 1, "right": 0, "near": 0,
+        "blank": 0, "wrong": 1, "checked_random": 0, "right_random": 0}
+    assert table[("deterministic", "unit")]["blank"] == 1
+    assert table[("deterministic", "city")]["right"] == 1
+    assert table[("ai", "unit")]["right"] == 1
+    assert "EXAMPLE" not in repr(table)
+
+
+def test_serve_review_quiet_reports_its_address_and_closes(tmp_path, capsys):
+    from extract_text.corrections import serve_review
+
+    _fake_both_engine_scan(tmp_path)
+    write_review(tmp_path, n=5)
+    seen = []
+
+    def ready(url):
+        seen.append(url)
+        raise KeyboardInterrupt              # what Ctrl-C does once serving
+
+    serve_review(tmp_path, port=0, open_browser=False, quiet=True, on_ready=ready)
+    assert seen and seen[0].startswith("http://127.0.0.1:")
+    assert capsys.readouterr().err == ""
+
 
 def test_random_review_draws_from_every_row_and_records_it(tmp_path):
     _fake_both_engine_scan(tmp_path)

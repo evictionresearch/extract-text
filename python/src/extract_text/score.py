@@ -233,6 +233,23 @@ def score(out_dir) -> dict:
     return tallies
 
 
+def score_rows(out_dir) -> list[dict]:
+    """The tallies of score() as one plain row per engine and field, for
+    tables (the R package's score_documents()). Counts only, no values.
+    `checked_random` and `right_random` cover the documents drawn at random
+    for the page, the only ones that estimate accuracy for the whole scan;
+    flagged documents are drawn first and are harder than the rest."""
+    rows = []
+    for engine, per_field in score(out_dir)["engines"].items():
+        for field, f in per_field.items():
+            blank = f["kinds"].get("blank", 0)
+            rows.append({"engine": engine, "field": field, "checked": f["n"],
+                         "right": f["right"], "near": f["near"], "blank": blank,
+                         "wrong": f["n"] - f["right"] - f["near"] - blank,
+                         "checked_random": f["n_random"], "right_random": f["right_random"]})
+    return rows
+
+
 def _pct(right, n) -> str:
     return f"{100 * right / n:5.1f}%" if n else "    –"
 

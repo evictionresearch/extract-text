@@ -38,7 +38,9 @@ finishes, and never shows file or folder names, which in court
 collections can carry case numbers.}
 }
 \value{
-A tibble with one row per document. Attributes: \code{out_dir}.
+A tibble with one row per document. Its first column, \code{doc}, is
+the document's number on the review page (see \code{\link[=review_documents]{review_documents()}});
+the rest are the columns of \code{extracted.csv}. Attributes: \code{out_dir}.
 }
 \description{
 The batch workhorse. Point it at files or folders of PDFs, TIFFs, or

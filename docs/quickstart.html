@@ -321,12 +321,20 @@ both.comparison.needs_review              # fields a person should look at</code
 <p>The full column list is in the manual, section 10.</p>
 
 <h2 id="review">7. Check the results by hand</h2>
-<p>The review page shows each document's page image beside what the engine read, with flagged documents first. Opened as a plain file it is read-only. To save corrections, serve it with the package's own command, which opens it in your browser and writes each correction to <code>corrections.jsonl</code> in the results folder. Then score the engine against those corrections.</p>
-<div class="codeblock"><span class="label">Terminal</span><pre><code>extract-text review --out path/to/results/ --serve
+<p>The review page shows each document's page image beside what the engine read, with flagged documents first. You can look only, or correct as you go. Corrections are served from your own computer (address 127.0.0.1, unreachable from anywhere else) and saved to <code>corrections.jsonl</code> in the results folder. Then the engine is scored against them.</p>
+<div class="codeblock" data-lang="r"><span class="label">R</span><pre><code>review_documents(results)                    # look only
+review_documents(results, correct = TRUE)    # save corrections; Esc (RStudio) or Ctrl-C when done
+score_documents(results)                     # one row per field: checked, right, near, blank, wrong</code></pre></div>
+<div class="codeblock" data-lang="py"><span class="label">Python</span><pre><code>from extract_text.corrections import serve_review
+from extract_text.pipeline import write_review
+from extract_text.score import score_rows
+
+write_review("path/to/results/")             # build the page, if the scan did not
+serve_review("path/to/results/")             # Ctrl-C when done
+score_rows("path/to/results/")</code></pre></div>
+<div class="codeblock" data-lang="sh"><span class="label">Terminal</span><pre><code>extract-text review --out path/to/results/ --serve
 extract-text score --out path/to/results/ --shapes</code></pre></div>
-<p>R users can run these in RStudio's Terminal tab. The command lives in the package's private Python environment, at the path this returns.</p>
-<div class="codeblock"><span class="label">R</span><pre><code>file.path(dirname(reticulate::virtualenv_python("r-extracttext")), "extract-text")</code></pre></div>
-<p>The score report masks every value (letters become A or a, digits become 9), so it can be shared without exposing anyone's name or address.</p>
+<p>On each document, change only what the engine got wrong and save; when it got everything right, save as it is. Flagged documents come first and are the hard ones, so the overall share right understates accuracy for the whole run. The randomly drawn documents give the fair estimate. The saved score report masks every value (letters become A or a, digits become 9), so it can be shared without exposing anyone's name or address.</p>
 
 <h2 id="privacy">8. Privacy and your records</h2>
 <p>With the default engines, no document, page image, or extracted value leaves your computer. The deterministic engine has no network code in its path at all. The AI engine talks only to Ollama on your own machine. There is no telemetry and nothing checks for updates, so after installation everything runs offline.</p>

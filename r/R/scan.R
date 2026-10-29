@@ -39,7 +39,9 @@
 #'   an interactive session. It updates as each document starts and
 #'   finishes, and never shows file or folder names, which in court
 #'   collections can carry case numbers.
-#' @return A tibble with one row per document. Attributes: `out_dir`.
+#' @return A tibble with one row per document. Its first column, `doc`, is
+#'   the document's number on the review page (see [review_documents()]);
+#'   the rest are the columns of `extracted.csv`. Attributes: `out_dir`.
 #' @importFrom tibble as_tibble
 #' @importFrom utils read.csv
 #' @export
@@ -72,14 +74,28 @@ scan_documents <- function(paths, engine = c("deterministic", "ai", "both"),
     if (isTRUE(progress)) cli::cli_progress_step("Building the review page")
     pl$write_review(path.expand(out_dir))
   }
-  out <- as_tibble(read.csv(file.path(out_dir, "extracted.csv"),
-                            stringsAsFactors = FALSE, check.names = FALSE,
-                            colClasses = c(case_number = "character",
-                                           defendant_zip = "character",
-                                           attorney_zip = "character")))
+  # every column is read as text, so an empty one stays "" rather than
+  # turning into all-NA logical when no document has that field; then the
+  # columns that hold numbers or true/false are converted
+  out <- read.csv(file.path(out_dir, "extracted.csv"), colClasses = "character",
+                  na.strings = character(0), check.names = FALSE)
+  blank_na <- function(x) replace(x, x == "", NA)
+  for (col in intersect(scan_integer_cols, names(out))) out[[col]] <- as.integer(blank_na(out[[col]]))
+  for (col in intersect(scan_double_cols, names(out))) out[[col]] <- as.numeric(blank_na(out[[col]]))
+  for (col in intersect(scan_logical_cols, names(out))) out[[col]] <- as.logical(blank_na(out[[col]]))
+  out <- as_tibble(out)
+  # the document's number on the review page (#1, #2, ...), which follows
+  # the order of extracted.csv
+  out <- tibble::add_column(out, doc = seq_len(nrow(out)), .before = 1)
   attr(out, "out_dir") <- out_dir
   out
 }
+
+# extracted.csv columns that are not text
+scan_integer_cols <- c("n_defendants", "n_ungrounded", "n_pages")
+scan_double_cols <- c("amount_claimed", "judgment_amount", "ocr_mean_conf",
+                      "address_similarity")
+scan_logical_cols <- c("address_same_street", "case_number_agree")
 
 # The engine calls this as each document starts and finishes, always from
 # its main thread. The bar is created on the first call, once the engine

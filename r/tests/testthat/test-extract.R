@@ -117,3 +117,57 @@ test_that("scan_documents with a progress bar returns the same rows", {
   expect_equal(nrow(shown), 2L)
   expect_identical(shown$defendant_street, quiet$defendant_street)
 })
+
+test_that("scan results carry the review page's doc number and text flags", {
+  skip_if_not(extracttext_available(), "Python engine not installed")
+  skip_if_not(have_fixture_files, "fixture files not present (not a full clone)")
+  skip_if_not(have_system_tools, "poppler not installed")
+
+  files <- file.path(fixtures_dir, c("synthetic_summons_efiled.pdf", "synthetic_kc_efiled.pdf"))
+  res <- scan_documents(files, out_dir = file.path(tempdir(), "et-doc"), progress = FALSE)
+  expect_identical(res$doc, 1:2)
+  expect_type(res$flags, "character")
+  expect_type(res$n_pages, "integer")
+
+  # a field no document has stays text, not an all-NA logical column
+  no_unit <- scan_documents(file.path(fixtures_dir, "synthetic_kc_efiled.pdf"),
+                            out_dir = file.path(tempdir(), "et-no-unit"), progress = FALSE)
+  expect_identical(no_unit$defendant_unit, "")
+})
+
+test_that("review_documents looks, refuses to wait in a script, and score_documents scores", {
+  skip_if_not(extracttext_available(), "Python engine not installed")
+  skip_if_not(have_fixture_files, "fixture files not present (not a full clone)")
+  skip_if_not(have_system_tools, "poppler not installed")
+
+  out_dir <- file.path(tempdir(), "et-review")
+  res <- scan_documents(file.path(fixtures_dir, "synthetic_summons_efiled.pdf"),
+                        out_dir = out_dir, progress = FALSE)
+  expect_identical(suppressMessages(review_documents(res, open = FALSE)), out_dir)
+  expect_true(file.exists(file.path(out_dir, "review", "index.html")))
+  expect_error(review_documents(res, correct = TRUE, open = FALSE), "interactive")
+
+  empty <- suppressMessages(score_documents(res))
+  expect_equal(nrow(empty), 0L)
+  expect_named(empty, c("engine", "field", "checked", "right", "near", "blank",
+                        "wrong", "checked_random", "right_random"))
+
+  pl <- reticulate::import("extract_text.pipeline")
+  cr <- reticulate::import("extract_text.corrections")
+  scan <- pl$read_scan(out_dir)
+  truth <- list(plaintiff = "EXAMPLE PROPERTY LLC",
+                defendants = list("JANE Q. TENANT", "JON Q. TENANT"),
+                street = "1234 EXAMPLE AVE S APT 5", unit = "APT 6", city = "SEATTLE",
+                state = "WA", zip = "98100")
+  saved <- cr$build_correction(1L, list(truth = truth), scan[[1]], scan[[2]], out_dir)
+  writeLines(reticulate::import("json")$dumps(saved), file.path(out_dir, "corrections.jsonl"))
+
+  report <- file.path(tempdir(), "et-score.txt")
+  scored <- score_documents(res, save = report)
+  expect_identical(attr(scored, "reviewed"), 1L)
+  unit <- scored[scored$engine == "deterministic" & scored$field == "unit", ]
+  expect_equal(unit$right, 0L)
+  zip <- scored[scored$engine == "deterministic" & scored$field == "zip", ]
+  expect_equal(zip$right, 1L)
+  expect_false(any(grepl("EXAMPLE|TENANT", readLines(report))))
+})

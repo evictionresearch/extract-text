@@ -411,8 +411,12 @@ def make_review_server(out_dir, port=8765):
     return ThreadingHTTPServer(("127.0.0.1", port), Handler)
 
 
-def serve_review(out_dir, port=8765, open_browser=True):
-    """Serve the review page until Ctrl-C, saving corrections as they come."""
+def serve_review(out_dir, port=8765, open_browser=True, quiet=False, on_ready=None):
+    """Serve the review page until Ctrl-C, saving corrections as they come.
+
+    `on_ready(url)` is called once the server is listening, before it starts
+    serving; with `quiet` the function prints nothing, so a caller such as
+    the R package can say what to press in its own console."""
     import sys
     import webbrowser
 
@@ -421,15 +425,19 @@ def serve_review(out_dir, port=8765, open_browser=True):
     except OSError:
         server = make_review_server(out_dir, 0)  # port taken; any free one
     url = f"http://127.0.0.1:{server.server_address[1]}/"
-    print(f"Review page: {url}\nCorrections save to {Path(out_dir) / 'corrections.jsonl'}"
-          "\nPress Ctrl-C here when finished.", file=sys.stderr)
-    if open_browser:
-        webbrowser.open(url)
+    if not quiet:
+        print(f"Review page: {url}\nCorrections save to {Path(out_dir) / 'corrections.jsonl'}"
+              "\nPress Ctrl-C here when finished.", file=sys.stderr)
     try:
+        if on_ready is not None:
+            on_ready(url)
+        if open_browser:
+            webbrowser.open(url)
         server.serve_forever()
     except KeyboardInterrupt:
         pass
     finally:
         server.server_close()
     saved = load_corrections(out_dir)
-    print(f"\n{len(saved)} documents reviewed so far, in corrections.csv.", file=sys.stderr)
+    if not quiet:
+        print(f"\n{len(saved)} documents reviewed so far, in corrections.csv.", file=sys.stderr)

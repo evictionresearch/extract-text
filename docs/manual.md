@@ -524,9 +524,19 @@ To correct what the machine got wrong, open the page with saving turned on.
 extract-text review --out ~/data/extractions/2026-07/ --serve
 ```
 
-This opens the page in your browser from a small server running on your own
+R:
+
+```r
+review_documents("~/data/extractions/2026-07/")                  # look only
+review_documents("~/data/extractions/2026-07/", correct = TRUE)  # save corrections
+```
+
+Either opens the page in your browser from a small server running on your own
 computer (it answers only at 127.0.0.1, so nothing is reachable from the
-network), and prints where corrections go. Each document has a form that
+network), and prints where corrections go. In R, `review_documents()` also
+takes the tibble from `scan_documents()` in place of the folder, its `n`
+argument sets how many documents the page shows (`Inf` for all), and the
+page numbers each document to match that tibble's `doc` column. Each document has a form that
 starts with the machine's reading: plaintiff, defendants (one per line), the
 defendant's address in parts, street without the unit, and, when the page
 is built with `--attorneys N`, the plaintiff's attorney on N documents drawn
@@ -536,7 +546,8 @@ clear what the page does not show, and press Save. Saving a form you did not
 change records that the machine was right, which is as useful as a
 correction. "Can't tell from the page" records that the page does not settle
 it. Saving again replaces your earlier answer, and reopening the page later
-shows what you already saved. Press Ctrl-C in the terminal when finished.
+shows what you already saved. Press Ctrl-C in the terminal when finished
+(Esc in RStudio).
 
 In a both-engine scan each document says whether the two engines agree. A
 shaded line above the table names the fields where they differ (for the
@@ -574,6 +585,12 @@ set: it scores either engine, and it tells a rule fix exactly which
 documents it must get right. The random draws estimate accuracy for the whole
 scan; the flagged ones are the hard cases. These files hold names and
 addresses, so the scan folder must be governed storage.
+
+To see how the engine did, `extract-text score --out DIR` prints the report,
+and `--save FILE` writes it with every value masked so it can be shared. In
+R, `score_documents(DIR)` returns the same tallies as a tibble, one row per
+engine and field (checked, right, near, blank, wrong, and the randomly drawn
+documents alone), and its `save` argument writes the masked report.
 
 ### Running a grading round
 

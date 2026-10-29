@@ -133,15 +133,15 @@ pick <- sample(pdfs, 25)
 # --------------------------------------------------------------------------
 # scan_documents() reads every file in `pick` and returns one row per
 # document. engine = "deterministic" is rules only: no AI, no network.
-# review = TRUE also builds a page for checking the results by hand.
 #
-# It prints nothing while it runs. About 5 seconds a document when OCR is
-# needed, so a couple of minutes for 25.
+# A progress bar shows documents done, time elapsed, and an estimate of the
+# time left. About 5 seconds a document when OCR is needed, so a couple of
+# minutes for 25.
 #
 # Written to out_dir: extracted.csv (the table), extracted.jsonl (every
-# field's evidence), extracted.parquet, and review/ (the checking page).
-res <- scan_documents(pick, engine = "deterministic", out_dir = out_dir,
-                      review = TRUE)
+# field's evidence), and extracted.parquet. The first column of res, doc,
+# is each document's number on the review page in step 8 (#1, #2, ...).
+res <- scan_documents(pick, engine = "deterministic", out_dir = out_dir)
 
 # --------------------------------------------------------------------------
 # Step 7. Read the results
@@ -150,18 +150,15 @@ res <- scan_documents(pick, engine = "deterministic", out_dir = out_dir,
 # warning. text_source: pdf_text_layer means the PDF carried digital text;
 # pdf_ocr means tesseract had to read a picture of the page.
 #
-# The is.na() guard is needed because flags comes back as an all-NA column
-# when no document is flagged (a known quirk, to be fixed).
-#
 # This count table holds no names or addresses; it is safe to share.
 res %>%
-	mutate(found   = !is.na(defendant_street) & defendant_street != "",
-	       flagged = !is.na(flags) & flags != "") %>%
+	mutate(found   = defendant_street != "",
+	       flagged = flags != "") %>%
 	count(text_source, found, flagged)
 
 # The flags raised, and how often
 res %>%
-	filter(!is.na(flags), flags != "") %>%
+	filter(flags != "") %>%
 	separate_longer_delim(flags, ";") %>%
 	count(flags, sort = TRUE)
 
@@ -169,7 +166,7 @@ res %>%
 # that found the address. Note that defendant_unit repeats what is already
 # inside defendant_street; use street alone for the full street line.
 look <- res %>%
-	select(file, defendant_names, defendant_street, defendant_unit,
+	select(doc, defendant_names, defendant_street, defendant_unit,
 	       defendant_city, defendant_zip, defendant_anchor, flags)
 
 # In RStudio this opens the data viewer. In R at a terminal, View() needs
@@ -182,33 +179,46 @@ if (.Platform$GUI == "RStudio") View(look) else print(look, n = Inf, width = Inf
 # browseURL(file.path(out_dir, "extracted.csv"))
 
 # --------------------------------------------------------------------------
-# Step 8. Check the results by hand
+# Step 8. Check the results against the page images
 # --------------------------------------------------------------------------
-# The review page shows each page image beside what the engine read,
-# flagged documents first. Opened as a plain file it is read-only. To save
-# corrections it has to be served by the engine's own command, which runs in
-# a terminal (RStudio's Terminal tab works). `et` is that command's path.
-et <- file.path(dirname(reticulate::virtualenv_python("r-extracttext")), "extract-text")
+# The review page shows each document's first page beside what the engine
+# read, flagged documents first, numbered to match res$doc.
+#
+# To look only (nothing is saved):
+review_documents(res)
 
-# Paste the printed line into the Terminal tab. The page opens in your
-# browser; correct each wrong field (leave it blank when the document has
-# no address) and save. Corrections go to corrections.jsonl in out_dir.
-# Control-C in the terminal stops it.
-paste(shQuote(et), "review --out", shQuote(out_dir), "--serve")
+# To correct. The page is served from this computer only and every save is
+# written at once to corrections.jsonl in out_dir. On each document, change
+# only what the engine got wrong and save; when it got everything right,
+# save as it is. Leave a field blank when the document does not have it.
+# R waits while you work: press Esc in RStudio, or Ctrl-C at a terminal,
+# when finished. Running it again picks up where you left off.
+#
+# The page shows every flagged document, then a random draw of the rest, up
+# to 30 in all; n = Inf shows every document.
+review_documents(res, correct = TRUE)
 
 # --------------------------------------------------------------------------
 # Step 9. Score the engine against your corrections
 # --------------------------------------------------------------------------
-# How often the rules engine matched your corrections, field by field. The
-# saved report masks every value (letters become A/a, digits 9), so it can
-# be shared and brought back to a working session.
-system2(et, c("score", "--out", shQuote(out_dir), "--shapes", "--save",
-              shQuote(path.expand("~/offline/evictionresearch/extract-text/notes/2026-10-29_score_kc_walkthrough.txt"))))
+# One row per field: documents checked, right, near (nearly right, such as
+# a spelling difference), blank (the engine found nothing where the
+# document had a value), and wrong. Flagged documents are the hard ones and
+# come first on the page, so right / checked understates accuracy for the
+# whole scan; right_random / checked_random covers the randomly drawn
+# documents alone.
+#
+# save writes the full report with every value masked (letters become A/a,
+# digits 9), so it can be shared and brought back to a working session.
+score <- score_documents(res, save = path.expand(
+	"~/offline/evictionresearch/extract-text/notes/2026-10-29_score_kc_walkthrough.txt"))
+score
 
 # --------------------------------------------------------------------------
 # Next steps
 # --------------------------------------------------------------------------
-# 1. Bring back the step 7 count tables and the step 9 report (no values).
+# 1. Bring back the step 7 count tables and the step 9 table or saved
+#    report (counts and masked values only).
 # 2. Rule fixes are made and tested on the synthetic documents, then this
 #    run is repeated on the same 25 (same seed) to see what changed.
 # 3. A county running this on current filings should report the same two

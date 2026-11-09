@@ -113,8 +113,10 @@ def compare(truth: dict, reading: dict) -> dict:
         # any line, since the AI engine reads only the firm
         firm = reading.get("attorney_firm", "")
         if "attorneys" in reading:
-            found["attorneys"] = _names_wrong(
-                truth["attorneys"] or [], [*(reading["attorneys"] or []), *([firm] if firm else [])])
+            # the same line once: a solo attorney's name is the firm too
+            lines = list({_squash(n): n for n in [*(reading["attorneys"] or []),
+                                                  *([firm] if firm else [])]}.values())
+            found["attorneys"] = _names_wrong(truth["attorneys"] or [], lines)
         if "attorney_firm" in reading:
             found["attorney_firm"] = _firm_among(truth["attorneys"] or [], firm)
     elif "attorneys" in truth:

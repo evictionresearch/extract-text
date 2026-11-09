@@ -970,6 +970,26 @@ and Firefox, whose storage rules for pages opened from files differ from
 Chromium's; `GRADING.md` asks for Chrome, the engine tested, and tells
 graders not to use a private window.
 
+## Round 2's random answers, and the plaintiff and attorney rules (2026-11-03)
+
+April and Araina graded 130 of round 2's random 200 (50 shared). Before any rule work the committed engine (`9adf8cc`) was scored on all 130, counts only: the 2026-10-29 defendant rules held on documents they had never seen (defendants 79 to 84 right, street 95 to 96, nothing broken). The 130 were then split by a seeded draw (seed 20261103) into 65 for rule work and 65 held out. Masked shapes were read for the development half only; the held-out half was looked at in counts only.
+
+`python/scripts/rules_eval.py` is the before-and-after measurement #8 and #35 asked for. It re-reads every corrected document with the engine as it is, against the scan's saved reading or an earlier run (`--save-rows`, `--against`), and prints per field what a change fixed and broke. `--rows` keeps a held-out set out of the work. Loaded pages are cached in the scan folder, so a second run takes seconds.
+
+The changes, each from a shape on the development rows:
+
+- **Plaintiff.** The caption reader took each row above "Plaintiff," as its own plaintiff. Rows are now joined when the second is a company tail ("LLC,", "PARTNERS L.L.C.,") or the first ends on "OF", "THE", "AND", or "&". A row that is a whole company of its own ("SPECIMEN, LLC") stays a second plaintiff. OCR specks between the name and the label are skipped rather than ending the search or becoming a plaintiff. The court's "IN AND FOR" row is header. A description after a comma ("a public body corporate and politic") is cut. "&" inside one company's name no longer splits it. A "DBA" ends the name, which is GRADING.md's rule (the name only) and what the graders did; the test that expected the trade name kept now expects the owner alone.
+- **Attorney.** "ATTORNEY AT LAW" was taken as the firm on 11 of 34 development blocks. It is now a title: the line above it is the solo attorney's name, used as both attorney and office. The scorer counts a name that appears as attorney and firm once, since graders type each line once; on the committed engine this changes no count.
+- **Street.** "NO." after the street type is North (not before "#" or a digit, where it means number), a lone "§" after the type is "S", and a glued "PL.SW" is split, which also frees the unit after it.
+
+Results, against the committed engine, right answers:
+
+- Held out (65): plaintiff 20 to 36, attorneys 4 to 12 of 33, firm 17 to 25 of 33; every other field unchanged; nothing broken.
+- Development (65): plaintiff 22 to 39, attorneys 2 to 8, firm 17 to 25, street 45 to 47, unit 51 to 53; nothing broken.
+- Round 1 (213): plaintiff 33 to 54 (28 fixed, 7 broken), attorneys 25 to 34 (1 broken), firm 29 to 24 (5 broken), every address field unchanged. Each break was read in masked form and is a labeling difference: round 1's answers keep the DBA trade name or the description in the plaintiff, and give "ATTORNEY AT LAW" as the firm, where GRADING.md and round 2 do not.
+
+Open. The graders agree on the plaintiff in only 74 percent of shared documents and on the attorney box in 69 percent, so those answers are weaker ground than the address fields, and 22 shared documents are unsettled. Many attorney answers hold the firm alone where the engine also lists the attorneys from the signature on later pages, which graders do not see. One form family prints the owner as OCR debris before "DBA"; the engine now leaves its plaintiff blank instead of reading the trade name. A numbered street that lost its "th" in OCR is left alone, since the engine cannot tell it from a page that prints it that way.
+
 ## Observed engine differences
 
 Notes for whoever runs the AI-lane head-to-head. These are observations from

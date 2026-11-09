@@ -967,3 +967,11 @@ def test_a_correction_keeps_the_boxes_a_reviewer_drew(tmp_path):
     assert "boxes" not in build_correction(1, {"truth": truth}, rows, details, tmp_path)
     html = (tmp_path / "review" / "index.html").read_text()
     assert 'class="fixbox" hidden' in html and 'data-field="address"' in html
+
+
+def test_solo_attorney_name_and_firm_count_once():
+    from extract_text.score import compare
+
+    truth = {"plaintiff": "", "defendants": [], "attorneys": ["PAT Q. EXAMPLE"]}
+    reading = {"attorneys": ["Pat Q. Example"], "attorney_firm": "PAT Q. EXAMPLE"}
+    assert "attorneys" not in compare(truth, reading)

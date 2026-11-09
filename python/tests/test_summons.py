@@ -376,8 +376,9 @@ def test_kc_printed_layout(fixture):
     x = extract(str(FIXTURES / fixture))
     r = x.record
     assert r.case_number == "25-2-00008-3"          # courthouse code glued to the check digit
-    # two-row plaintiff with a DBA line, OCR debris before it, a tall stamp beside it
-    assert [p.name for p in r.plaintiffs] == ["EXAMPLE GREENS LLC DBA EXAMPLE GREENS"]
+    # two-row plaintiff with a DBA line, OCR debris before it, a tall stamp beside it;
+    # the plaintiff is the owner's name only (GRADING.md), never the trade name
+    assert [p.name for p in r.plaintiffs] == ["EXAMPLE GREENS LLC"]
     assert x.evidence["plaintiffs.0.name"].anchor == "caption_plaintiff"
     assert [p.name for p in r.defendants] == ["PAT Q. OCCUPANT", "LEE R. OCCUPANT"]
     assert r.defendant_address.unit == "BLDG ZZ Apt # 102"
@@ -415,3 +416,88 @@ def test_split_ordinals_rejoined(text, street):
     from extract_text.deterministic.summons import parse_address
 
     assert parse_address(text)["street"] == street
+
+
+@pytest.mark.parametrize("rows, want", [
+    # a company name wrapped onto a second row is one plaintiff
+    (["EXAMPLE MANAGEMENT GROUP", "LLC,"], ["EXAMPLE MANAGEMENT GROUP LLC"]),
+    (["EXAMPLE MANAGEMENT GROUP", "PARTNERS L.L.C.,"], ["EXAMPLE MANAGEMENT GROUP PARTNERS L.L.C."]),
+    (["EXAMPLE TOWER APARTMENTS,", "LLC,"], ["EXAMPLE TOWER APARTMENTS, LLC"]),
+    # a name broken after "OF", and the description after it cut
+    (["HOUSING AUTHORITY OF THE CITY OF", "SAMPLETON, WASHINGTON, a public body",
+      "corporate and politic,", "|}:"],
+     ["HOUSING AUTHORITY OF THE CITY OF SAMPLETON, WASHINGTON"]),
+    # OCR specks between the name and the label are skipped, not a plaintiff
+    (["EXAMPLE PROPERTIES, INC.,", "aa", "|}:"], ["EXAMPLE PROPERTIES, INC."]),
+    # a DBA: the owner only, never the trade name or its next row
+    (["EXAMPLE GREENS LLC", "DBA EXAMPLE GREENS APARTMENTS"], ["EXAMPLE GREENS LLC"]),
+    (["EXAMPLE HOLDINGS, LLC., D/B/A,", "EXAMPLE PARK APTS.,"], ["EXAMPLE HOLDINGS, LLC."]),
+    # "&" inside one company's name is not two plaintiffs
+    (["SAMPLE & SPECIMEN, LLC"], ["SAMPLE & SPECIMEN, LLC"]),
+    # two people, or two companies, still split
+    (["PAT EXAMPLE and LEE EXAMPLE"], ["PAT EXAMPLE", "LEE EXAMPLE"]),
+    (["EXAMPLE ONE LLC and EXAMPLE TWO LLC"], ["EXAMPLE ONE LLC", "EXAMPLE TWO LLC"]),
+    # a second row that is a whole company of its own is a second plaintiff
+    (["THE EXAMPLE GROUP", "SPECIMEN, LLC"], ["THE EXAMPLE GROUP", "SPECIMEN, LLC"]),
+    (["EXAMPLE MANAGEMENT GROUP", "LP, L.L.C.,"], ["EXAMPLE MANAGEMENT GROUP LP, L.L.C."]),
+    (["EXAMPLE MANAGEMENT GROUP", "NW, L.L.C.,"], ["EXAMPLE MANAGEMENT GROUP NW, L.L.C."]),
+    # two plaintiffs on two rows stay two when the first ends with a comma
+    (["PAT EXAMPLE,", "EXAMPLE APTS.,"], ["PAT EXAMPLE", "EXAMPLE APTS."]),
+])
+def test_plaintiff_rows(rows, want):
+    from extract_text.deterministic.summons import plaintiff_names_from_rows
+
+    assert plaintiff_names_from_rows(rows) == want
+
+
+@pytest.mark.parametrize("row, noise", [
+    ("IN AND FOR", True),
+    ("IN AND FOR THE COUNTY", True),
+    ("SUPERIOR COURT OF WASHINGTON", True),
+    ("KING COUNTY", True),
+    ("KING COUNTY HOUSING AUTHORITY,", False),   # a plaintiff, not the header
+    ("SAMPLETON, WASHINGTON, a public body", False),
+])
+def test_caption_noise(row, noise):
+    from extract_text.deterministic.summons import _CAPTION_NOISE_RE
+
+    assert bool(_CAPTION_NOISE_RE.search(row)) is noise
+
+
+def test_plaintiff_row_with_a_quote_speck():
+    from extract_text.deterministic.summons import plaintiff_names_from_rows
+
+    assert plaintiff_names_from_rows(["“aa SAMPLE & SPECIMEN, LLC."]) == ["SAMPLE & SPECIMEN, LLC."]
+
+
+def test_attorney_at_law_is_a_title_not_a_firm():
+    from extract_text.deterministic.summons import extract_attorney
+
+    block = ["PAT Q. EXAMPLE", "ATTORNEY AT LAW", "1234 SAMPLE AVE SUITE 2",
+             "SAMPLETON, WA 98100", "(206) 555-0100"]
+    words = [_w(1, 0.55, 0.80, 0.80 + i * 0.015, t) for i, t in enumerate(block)]
+    # one word per printed line is enough for the block; split for the parser
+    words = [w for i, t in enumerate(block)
+             for j, part in enumerate(t.split())
+             for w in [_w(1, 0.55 + j * 0.05, 0.59 + j * 0.05, 0.80 + i * 0.015, part)]]
+    lines = cluster_lines(words)
+    got = extract_attorney(lines, words)
+    assert got["attorney_firm"] == "PAT Q. EXAMPLE"
+    assert got["attorney_names"] == "PAT Q. EXAMPLE"
+
+
+@pytest.mark.parametrize("text, street, unit", [
+    ("1234 SAMPLE AVE NO. Apt # 12 SAMPLETON, WA 98100", "1234 SAMPLE AVE NO.", "Apt # 12"),
+    ("12345 1ST PL.SW # 12A SAMPLETON, WA 98100", "12345 1ST PL. SW", "# 12A"),
+    ("1234 SAMPLE AVE § #A123 SAMPLETON WA 98100", "1234 SAMPLE AVE S", "#A123"),
+    # "NO." before a number is "number", not North: read as before the rule
+    ("1234 SAMPLE AVE. NO. # 9 SAMPLETON, WA 98100", "1234 SAMPLE AVE", ""),
+    # unchanged: "NO." is not a direction where no street type comes before it
+    ("1234 MAIN ST SAMPLETON, WA 98100", "1234 MAIN ST", ""),
+])
+def test_after_suffix_repairs(text, street, unit):
+    from extract_text.pipeline import _street_without_unit
+
+    got = parse_address(text)
+    # the street column carries the unit on its end; a reading drops it
+    assert _street_without_unit(got["street"], got["unit"]) == street and got["unit"] == unit

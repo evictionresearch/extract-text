@@ -36,6 +36,7 @@ from collections import defaultdict
 from ..layout import cluster_lines, locate_text
 from ..parties import (
     _GROUP_TERM_RE,
+    _LEADING_JUNK_RE,
     _strip_group_terms,
     clean_party_name,
     drop_plaintiff_matches,
@@ -114,7 +115,7 @@ UNIT = (
 STREET_RE = re.compile(
     rf"\b(\d{{1,6}})\.?[\s-]+((?:{DIRECTION}\.?\s+)?[\w'\"’”.\-%°™]+(?:\s+[\w'\"’”.\-%°™]+){{0,4}}?"
     rf"\s+{STREET_SUFFIX}\.?(?:\s+(?:CT|COURT|PL|PLACE|CIR|CIRCLE)\.?)?"
-    rf"(?:\s+{DIRECTION}\.?(?!\w))?)((?:\s+|\s*,\s*){UNIT})?",
+    rf"(?:\s+(?:{DIRECTION}|NO\.(?!\s*[#\d]))\.?(?!\w))?)((?:\s+|\s*,\s*){UNIT})?",
     re.IGNORECASE,
 )
 # city, state zip — the state token is configurable per jurisdiction; the
@@ -133,6 +134,10 @@ FIRM_KEYWORDS = re.compile(
     re.IGNORECASE,
 )
 GENERIC_ROLE_RE = re.compile(r"^\s*Attorneys?\s+for\s+", re.IGNORECASE)
+# a solo attorney's title, printed under the name: not a firm. The masked
+# round-2 development rows (2026-11-03) had it as the firm on 11 of 34
+# attorney blocks, where the graders' box held the attorney's name
+AT_LAW_RE = re.compile(r"^\W*Attorneys?\s+at\s+Law\W*$", re.IGNORECASE)
 PROSE_WORDS_RE = re.compile(
     r"\b(landlord|notice|deadline|respond|lawsuit|tenancy|belongings|sheriff)\b",
     re.IGNORECASE,
@@ -358,6 +363,19 @@ def _join_split_ordinals(text: str) -> str:
     return _SPLIT_ORDINAL_RE.sub(join, text)
 
 
+# Two OCR shapes after a street type, from the masked round-2 development
+# rows (2026-11-03): a direction glued on ("PL.SW # 12"), which hid the
+# direction and the unit after it, and "S" read as a section sign ("AVE §").
+# "NO." after the type is North, and STREET_RE takes it there only, and not
+# before "#" or a digit, where it is "number" ("AVE. NO. # 9", round 1).
+_GLUED_DIRECTION_RE = re.compile(rf"\b({STREET_SUFFIX})\.({DIRECTION})(?!\w)", re.IGNORECASE)
+_SECTION_SIGN_RE = re.compile(r"(?<=\s)\u00a7(?=[\s,]|$)")
+
+
+def _repair_after_suffix(text: str) -> str:
+    return _SECTION_SIGN_RE.sub("S", _GLUED_DIRECTION_RE.sub(r"\1. \2", text))
+
+
 def parse_address(text):
     """Split a joined address string into components; returns None if no
     street pattern is present. Keeps the raw string alongside components."""
@@ -366,6 +384,7 @@ def parse_address(text):
     # legitimate address, so they collapse to a space; single periods (St.,
     # N.E., et. al.) are untouched.
     t = _join_split_ordinals(re.sub(r"\s+", " ", re.sub(r"\.{2,}", " ", text)).strip(" ,.;"))
+    t = _repair_after_suffix(t)
     repaired = False
     sm = _skip_rail_house_number(t, _first_street_match(t))
     t2, n_fix = repair_house_numbers(t)
@@ -715,12 +734,6 @@ def extract_defendant_caption(lines, pg=1):
 DEFENDANT_ANCHORS = (extract_defendant_block, extract_defendant_premises,
                      extract_defendant_stack, extract_defendant_caption)
 
-
-# lines that belong to the court header, never to a party name
-_HEADER_NOISE_RE = re.compile(
-    r"\b(COURT|COUNTY|STATE\s+OF|WASHINGTON|SUPERIOR|DISTRICT|JUSTICE|IN\s+THE)\b",
-    re.IGNORECASE,
-)
 # "Plaintiff(s)," is how the pre-printed King County form labels the cell
 _PLAINTIFF_LABEL_RE = re.compile(r"^Plaintiff(?:s|\(s\))?[,.]?(?:\s|$)", re.IGNORECASE)
 _VS_LINE_RE = re.compile(r"^-?vs?\.?,?-?(?:\s|$)", re.IGNORECASE)
@@ -787,15 +800,97 @@ def extract_plaintiff_caption(lines, pg=1):
             break
     if label_idx is None:
         return []
-    names = []
-    for cell in reversed(rows[max(0, label_idx - 3): label_idx]):
-        cell = clean_party_name(cell)
-        if not cell or _HEADER_NOISE_RE.search(cell) or not looks_like_name_line(cell):
+    above = []
+    for cell in reversed(rows[max(0, label_idx - PLAINTIFF_ROWS): label_idx]):
+        # the court's header ends the name; so does an address (a street, or
+        # digits). Not a city and state alone: "HOUSING AUTHORITY OF THE CITY
+        # OF SAMPLETON, WASHINGTON" wraps onto one. OCR debris does not end
+        # it either: plaintiff_names_from_rows skips it
+        if _CAPTION_NOISE_RE.search(cell) or STREET_RE.search(cell) \
+                or re.search(r"\d{3}", cell):
             break
-        for name in re.split(r"\s+(?:and|&)\s+", cell.strip(" ,;"), flags=re.IGNORECASE):
-            name = name.strip(" ,;")
-            if len(name) >= 2:
-                names.insert(0, name)
+        above.insert(0, cell)
+    return plaintiff_names_from_rows(above)
+
+
+# Plaintiff rows, from the masked caption rows of the round-2 random
+# development half (2026-11-03). A name wraps: "EXAMPLE MANAGEMENT GROUP" over
+# "LLC,", or "HOUSING AUTHORITY OF THE CITY OF" over "SAMPLETON, WASHINGTON, a
+# public body ...". OCR specks from the box rule sit between the name and the
+# label. The court's "IN AND FOR" row has no court word in it. And a "DBA"
+# names the trade name, which GRADING.md leaves out of the plaintiff box: the
+# graders kept the owner's name only.
+PLAINTIFF_ROWS = 5
+_ENTITY_WORD = (r"(?:L\.?\s?L\.?\s?C|L\.?\s?L\.?\s?P|P\.?\s?L\.?\s?L\.?\s?C|L\.?\s?P|INC|LTD"
+                r"|CORP(?:ORATION)?|CO(?:MPANY)?|LIMITED|PARTNERSHIP|ASSOCIATION|TRUST)\.?")
+_SUFFIX_ONLY_RE = re.compile(rf"^[\s,]*{_ENTITY_WORD}(?:[\s,]+{_ENTITY_WORD})*[\s,.;]*$",
+                             re.IGNORECASE)
+_ENDS_ENTITY_RE = re.compile(rf"(?:^|[\s,]){_ENTITY_WORD}[\s,.;]*$", re.IGNORECASE)
+_DANGLING_RE = re.compile(r"(?:\b(?:of|the|and|for)|&)[\s,]*$", re.IGNORECASE)
+_CAPTION_NOISE_RE = re.compile(
+    r"\b(?:COURT|SUPERIOR|DISTRICT|JUSTICE|STATE\s+OF|IN\s+THE|IN\s+AND\s+FOR"
+    r"|COUNTY\s+OF|THE\s+COUNTY)\b"
+    r"|^\W*(?:(?:OF|KING)\s+)?(?:COUNTY|WASHINGTON)\W*$",
+    re.IGNORECASE,
+)
+# ", a Washington limited liability company", ", a public body corporate":
+# a comma, then lowercase words. Not ", llc" or ", inc".
+_DESCRIPTION_RE = re.compile(
+    r",\s+(?:an?\s+)?(?!(?:llc|inc|lp|ltd|co|corp)\b)[a-z]{3,}\b.*$")
+# "SAMPLE, LLC" on a row of its own is a whole company, a second plaintiff,
+# not the tail of the row above (round 1, two documents)
+# ("LP, L.L.C." and "NW, L.L.C." are still a tail: the word before the comma
+# is a company word or too short to name a company)
+_OWN_COMPANY_RE = re.compile(
+    rf"(?:^|\s)(?!{_ENTITY_WORD},)[A-Za-z][\w'&-]{{2,}},\s*{_ENTITY_WORD}[\s,.;]*$", re.IGNORECASE)
+_DBA_ANYWHERE_RE = re.compile(r"(?:^|[\s,]+)(?:d/?b/?a|dba)\b.*$", re.IGNORECASE)
+
+
+def _letters(text: str) -> int:
+    return sum(ch.isalpha() for ch in text)
+
+
+def _split_plaintiffs(name: str) -> list[str]:
+    """'A and B' as two plaintiffs, unless the "and" is inside one company's
+    name ('SMITH & JONES, LLC'): split only when every piece, or none, ends
+    in a company word."""
+    pieces = [p.strip(" ,;") for p in re.split(r"\s+(?:and|&)\s+", name, flags=re.IGNORECASE)]
+    pieces = [p for p in pieces if len(p) >= 2]
+    if len(pieces) < 2:
+        return [name]
+    ends = [bool(_ENDS_ENTITY_RE.search(p)) for p in pieces]
+    return pieces if all(ends) or not any(ends) else [name]
+
+
+def plaintiff_names_from_rows(rows: list[str]) -> list[str]:
+    """Plaintiff names from the caption rows above the 'Plaintiff,' label,
+    top to bottom, the court header already cut away."""
+    merged: list[str] = []
+    for raw in rows:
+        row = _LEADING_JUNK_RE.sub("", raw.strip().lstrip("\u201c\u201d\u2018\u2019\"'`")).strip()
+        if _letters(row) < 3 and not _SUFFIX_ONLY_RE.match(row):
+            continue  # a speck of the box rule, or a stray bracket
+        if row[:1].islower():
+            continue  # the rest of a description: "corporate and politic,"
+        dba = _DBA_ANYWHERE_RE.search(row)
+        if dba:
+            row = row[: dba.start()].strip(" ,;")
+        if row and merged and (
+                _SUFFIX_ONLY_RE.match(row)
+                or _DANGLING_RE.search(merged[-1])
+                or (_ENDS_ENTITY_RE.search(row) and len(row.split()) <= 2
+                    and not _OWN_COMPANY_RE.search(row)
+                    and not merged[-1].rstrip().endswith(",")
+                    and not _ENDS_ENTITY_RE.search(merged[-1]))):
+            merged[-1] = f"{merged[-1].rstrip()} {row}"
+        elif row and _letters(row) >= 3:
+            merged.append(row)
+        if dba:
+            break  # what follows a DBA is the trade name, wrapped
+    names = []
+    for row in merged:
+        row = _DESCRIPTION_RE.sub("", row).strip(" ,;")
+        names += _split_plaintiffs(row)
     return finish_party_names(names)
 
 
@@ -839,6 +934,21 @@ def try_defendant(lines, pages):
 # ---------------------------------------------------------------------------
 # the attorney block
 # ---------------------------------------------------------------------------
+
+
+def _solo_attorney(zlines) -> str:
+    """The name printed above "ATTORNEY AT LAW" in a solo attorney's block,
+    which is the office's name as well as the attorney's; "" if none."""
+    for i, l in enumerate(zlines):
+        if not AT_LAW_RE.match(l.text.strip(" |")) or i == 0:
+            continue
+        name = re.sub(r"\s+", " ", zlines[i - 1].text).strip(" |,;_~-")
+        words = name.split()
+        if (2 <= len(words) <= 5 and not re.search(r"\d", name)
+                and sum(ch.isalpha() for ch in name) >= 5
+                and not STREET_RE.search(name) and not GENERIC_ROLE_RE.match(name)):
+            return name
+    return ""
 
 
 def extract_attorney(lines, words):
@@ -891,12 +1001,15 @@ def extract_attorney(lines, words):
         lt = re.sub(r"\s+", " ", l.text.strip(" |"))
         if not FIRM_KEYWORDS.search(lt) or STREET_RE.search(lt) or PHONE_RE.search(lt):
             continue
+        if AT_LAW_RE.match(lt):
+            continue
         if GENERIC_ROLE_RE.match(lt):
             fallback = fallback or lt
             continue
         firm = lt
         break
-    firm = firm or fallback
+    solo = _solo_attorney(zlines) if not firm else ""
+    firm = firm or solo or fallback
     parsed = parse_address(joined) or {}
     phone = PHONE_RE.search(joined)
     # names + bar numbers often sit outside the footer (signature block)
@@ -907,6 +1020,8 @@ def extract_attorney(lines, words):
         nm = ATTY_NAME_RE.search(ln.text)
         if nm:
             atty_names.append(re.sub(r"\s+", " ", nm.group(1)))
+    if solo and solo.casefold() not in {n.casefold() for n in atty_names}:
+        atty_names.insert(0, solo)
     return {
         "attorney_names": "; ".join(dict.fromkeys(atty_names))[:150],
         "attorney_firm": firm[:120],

@@ -163,6 +163,63 @@ score_documents <- function(out_dir, save = NULL) {
   out
 }
 
+#' The final table: one row per document, graded answers applied
+#'
+#' The end product of a run. Every document of the scan gets one row: case
+#' number, plaintiff, defendants, and the defendants' address. Wherever a
+#' person graded the document, on this scan's review page or on an earlier
+#' scan of the same document (the sample graded before the full run), the
+#' graded answer replaces the engine's reading. `source` says which one each
+#' row carries. The address comes as street (without the unit), unit, city,
+#' state, and ZIP, and as one line in USPS Publication 28 form
+#' (`defendant_address_std`), ready for a name and address cleaning step.
+#'
+#' A graded answer is matched to its document by full path and used only
+#' while the file is unchanged. Where a document was graded more than once,
+#' the latest save wins.
+#'
+#' The table holds names and addresses: save it with the court documents,
+#' never in a code repository.
+#'
+#' @param out_dir The scan's output folder, or the tibble returned by
+#'   [scan_documents()]: normally the full run.
+#' @param graded Other scans whose graded answers apply too, as output
+#'   folders or tibbles: normally the sample graded before the full run.
+#' @param save Optionally, a CSV file to write the table to.
+#' @return A tibble, one row per document: `doc`, `file`, `case_number`,
+#'   `plaintiff`, `defendant_names` (separated by "; "), `defendant_street`,
+#'   `defendant_unit`, `defendant_city`, `defendant_state`, `defendant_zip`,
+#'   `defendant_address_std`, `source` (`graded`, `engine`, or `unreadable`,
+#'   which keeps the engine's reading of a page a person could not read),
+#'   `flags`, and `text_source`.
+#' @export
+#' @examples
+#' \dontrun{
+#' sample50 <- scan_documents("summonses/", sample = 50, out_dir = "results/sample")
+#' review_documents(sample50, correct = TRUE, n = 50, draw = "random")
+#' all <- scan_documents("summonses/", out_dir = "results/all")
+#' review_documents(all, correct = TRUE, n = 50, draw = "random")
+#' cases <- case_table(all, graded = sample50, save = "results/case_table.csv")
+#' dplyr::count(cases, source)
+#' }
+case_table <- function(out_dir, graded = NULL, save = NULL) {
+  out_dir <- scan_folder(out_dir)
+  if (is.data.frame(graded)) graded <- list(graded)
+  graded <- as.list(vapply(as.list(graded), scan_folder, character(1)))
+  rows <- reticulate::import("extract_text.casetable")$case_table(
+    out_dir, graded = graded, save = if (!is.null(save)) path.expand(save)
+  )
+  cols <- reticulate::import("extract_text.casetable")$COLUMNS
+  if (!length(rows)) {
+    return(as_tibble(stats::setNames(rep(list(character()), length(cols)), cols)))
+  }
+  out <- lapply(cols, function(k) vapply(rows, function(r) as.character(r[[k]]), character(1)))
+  out <- as_tibble(stats::setNames(out, cols))
+  out$doc <- as.integer(out$doc)
+  out
+}
+
+
 # A scan folder from either a path or scan_documents() output
 scan_folder <- function(x) {
   if (is.data.frame(x)) x <- attr(x, "out_dir")

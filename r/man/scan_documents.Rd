@@ -10,6 +10,9 @@ scan_documents(
   out_dir = NULL,
   model = NULL,
   limit = 0,
+  sample = 0,
+  seed = 42,
+  exclude = NULL,
   review = FALSE,
   progress = interactive()
 )
@@ -27,6 +30,19 @@ temporary directory; the path used is attached to the result as the
 default (qwen3.5:9b).}
 
 \item{limit}{Process only the first \code{limit} documents (0 means all).}
+
+\item{sample}{Read only a random draw of this many documents from
+\code{paths} (0 means all). The draw is spread across the whole collection,
+not the first documents in folder order, so it is a fair sample to
+grade before a full run.}
+
+\item{seed}{The seed for \code{sample}: the same seed draws the same
+documents every time.}
+
+\item{exclude}{Earlier scans whose documents must not be drawn again:
+output folders, or tibbles returned by \code{scan_documents()}. Matched by
+path and by file content, so a copy of a document under another name
+is left out too.}
 
 \item{review}{Also build \code{review/index.html} in \code{out_dir}: page images
 beside extracted fields, flagged documents first, for human checking.}
@@ -67,5 +83,9 @@ results <- scan_documents("~/data/summonses/2026-07/", engine = "both",
                           review = TRUE)
 table(results$flags == "")
 dplyr::filter(results, flags != "")
+
+# a random 50 to grade before the full run
+sample50 <- scan_documents("~/data/summonses/", sample = 50, seed = 1,
+                           out_dir = "~/data/extractions/sample/")
 }
 }

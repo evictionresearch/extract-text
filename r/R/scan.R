@@ -3,7 +3,7 @@
 # Author: Tim Thomas
 # Created: 2026-08-18
 # Reviewer:
-# Updated: 2026-10-29
+# Updated: 2026-11-09
 # =============================================================================
 
 #' Extract a folder of court documents into a tibble
@@ -32,6 +32,16 @@
 #' @param model AI model tag, when the AI lane runs. `NULL` uses the package
 #'   default (qwen3.5:9b).
 #' @param limit Process only the first `limit` documents (0 means all).
+#' @param sample Read only a random draw of this many documents from
+#'   `paths` (0 means all). The draw is spread across the whole collection,
+#'   not the first documents in folder order, so it is a fair sample to
+#'   grade before a full run.
+#' @param seed The seed for `sample`: the same seed draws the same
+#'   documents every time.
+#' @param exclude Earlier scans whose documents must not be drawn again:
+#'   output folders, or tibbles returned by `scan_documents()`. Matched by
+#'   path and by file content, so a copy of a document under another name
+#'   is left out too.
 #' @param review Also build `review/index.html` in `out_dir`: page images
 #'   beside extracted fields, flagged documents first, for human checking.
 #' @param progress Show a progress bar while documents are read: documents
@@ -52,14 +62,21 @@
 #'                           review = TRUE)
 #' table(results$flags == "")
 #' dplyr::filter(results, flags != "")
+#'
+#' # a random 50 to grade before the full run
+#' sample50 <- scan_documents("~/data/summonses/", sample = 50, seed = 1,
+#'                            out_dir = "~/data/extractions/sample/")
 #' }
 scan_documents <- function(paths, engine = c("deterministic", "ai", "both"),
                            out_dir = NULL, model = NULL, limit = 0,
+                           sample = 0, seed = 42, exclude = NULL,
                            review = FALSE, progress = interactive()) {
   engine <- match.arg(engine)
   if (is.null(out_dir)) {
     out_dir <- file.path(tempdir(), paste0("extracttext_", format(Sys.time(), "%H%M%S")))
   }
+  if (is.data.frame(exclude)) exclude <- list(exclude)
+  exclude <- if (length(exclude)) as.list(vapply(exclude, scan_folder, character(1)))
   pl <- pipeline_module()
   pl$scan(
     as.list(path.expand(paths)),
@@ -67,6 +84,9 @@ scan_documents <- function(paths, engine = c("deterministic", "ai", "both"),
     out_dir = path.expand(out_dir),
     model = model,
     limit = as.integer(limit),
+    sample = as.integer(sample),
+    seed = as.integer(seed),
+    exclude = exclude,
     progress = FALSE,
     on_progress = if (isTRUE(progress)) progress_reporter(environment())
   )

@@ -8,10 +8,11 @@
 # This script is the quick start script for the extract-text package using the
 # rules engine only (no AI, no network). It installs the package, reads a
 # made-up summons, scans a random 50 of your own documents, has you grade
-# those 50 by hand, and only then scans the whole folder. The grading is not
-# optional: until it is done, how often the scan is right on your documents
-# is unknown (step 6 says why). Run it a line or a block at a time, not with
-# source(), because step 1 ends by restarting R.
+# those 50 by hand, scans the whole folder, has you grade a second random
+# 50 from it, and builds the final table of cases, names, and addresses. The
+# grading is not optional: until it is done, how often the scan is right on
+# your documents is unknown (step 6 says why). Run it a line or a block at a
+# time, not with source(), because step 1 ends by restarting R.
 #
 # Your documents, and every file this script writes from step 4 on, hold
 # tenants' names and addresses. Keep them wherever your organization keeps
@@ -107,26 +108,21 @@ glimpse(record_to_row(one))
 # as needed; step 6 explains how many is enough.
 #
 # docs_dir holds the court documents (PDF or TIFF, subfolders included).
-# out_dir receives the results: extracted.csv, extracted.jsonl (the
-# evidence behind every value), and the review page used in step 6.
+# results is where everything this script writes goes: the sample in
+# results/sample, the full run in results/all, and the final table.
 # Expect about 5 seconds a document when OCR is needed.
 # docs_dir <- "path/to/your/documents"
-# out_dir  <- "path/to/your/results/sample"
+# results  <- "path/to/your/results"
 docs_dir <- path.expand("~/data/evictionresearch/washington/court_images/King/2017")
-out_dir  <- "Downloads/grading_test"
+results  <- path.expand("~/data/evictionresearch/washington/development/extract_text_training/_walkthrough_2026-11-09")
 n_sample <- 50
 
-docs <- list.files(docs_dir, pattern = "\\.(pdf|tiff?)$", recursive = TRUE,
-                   full.names = TRUE, ignore.case = TRUE)
+sample_dir <- file.path(results, "sample")
+all_dir    <- file.path(results, "all")
 
-# How many documents the folder holds
-length(docs)
-
-# The same seed always draws the same documents
-set.seed(1)
-pick <- sample(docs, min(n_sample, length(docs)))
-
-res <- scan_documents(pick, engine = "deterministic", out_dir = out_dir)
+# seed = 1 draws the same documents every time you run it
+res <- scan_documents(docs_dir, engine = "deterministic", sample = n_sample,
+                      seed = 1, out_dir = sample_dir)
 
 # res is not ready to use yet. How often it is right on your documents is
 # unknown until you grade the sample in step 6.
@@ -155,14 +151,15 @@ View(select(res, doc, defendant_names, defendant_street, defendant_city,
 # summonses from 2017, the street was right about 85 percent of the time and
 # the plaintiff about 40 percent (October 2026). Grading a random 50 puts
 # the share right within about 10 points; grade 100 or more before
-# publishing counts or sending anything to people (manual section 11). The
-# engine does not learn from your corrections, but they show which fields
-# to trust and which rules need work.
+# publishing counts or sending anything to people (manual section 11).
+# Your corrections do not change the engine. They tell you which fields to
+# trust, and every document you grade carries your answer in the final
+# table (step 12).
 #
 # This opens a page in your browser with each
 # document beside what the engine read. Change only what is wrong, leave a
 # field blank when the document does not have it, and save. Each save goes
-# to corrections.jsonl in out_dir. Press Esc in RStudio (Ctrl-C at a
+# to corrections.jsonl in sample_dir. Press Esc in RStudio (Ctrl-C at a
 # terminal) when done; running it again picks up where you left off.
 review_documents(res, correct = TRUE, n = n_sample, draw = "random")
 
@@ -172,17 +169,75 @@ review_documents(res, correct = TRUE, n = n_sample, draw = "random")
 # One row per field: how many documents you checked, and how many the engine
 # got right, nearly right, left blank, or got wrong. right_random /
 # checked_random is the accuracy estimate for the whole folder.
+#
+# Decide here whether the fields you need are accurate enough to scan
+# everything. If they are not, check for a newer version of the package
+# (rerun step 1): rule fixes reach you through package updates, made by the
+# Eviction Research Network from its own graded documents. Changing the
+# rules yourself means editing the package's Python code
+# (python/src/extract_text/deterministic/); grading alone does not change
+# them.
 score_documents(res)
 
 # --------------------------------------------------------------------------
 # Step 8. Scan the whole folder
 # --------------------------------------------------------------------------
-# Only when step 7 shows the fields you need are accurate enough. If they
-# are not, manual section 16 covers changing the rules. The full scan goes
-# to its own folder so the sample and its corrections stay as they are.
-# At about 5 seconds a document, 4,000 documents take five or six hours.
-res_all <- scan_documents(docs_dir, engine = "deterministic",
-                          out_dir = "path/to/your/results/all")
+# The full run goes to its own folder, so the sample and its corrections
+# stay as they are. At about 5 seconds a document, 4,000 documents take five
+# or six hours; it needs no attention while it runs.
+res_all <- scan_documents(docs_dir, engine = "deterministic", out_dir = all_dir)
+
+# --------------------------------------------------------------------------
+# Step 9. Grade a second random sample, from the full run
+# --------------------------------------------------------------------------
+# The first sample told you whether to run everything. This one measures the
+# run that becomes your table, and it can catch kinds of documents the first
+# sample happened to miss. Grade it the same way as step 6. A document you
+# already graded may come up again; grade it again, and the later answer is
+# the one kept.
+review_documents(res_all, correct = TRUE, n = n_sample, draw = "random")
+
+# Optional: also fix every document the engine flagged, so the table
+# carries a person's answer wherever the engine was unsure.
+# review_documents(res_all, correct = TRUE, n = sum(res_all$flags != ""),
+#                  draw = "flagged")
+
+# --------------------------------------------------------------------------
+# Step 10. Score the full run
+# --------------------------------------------------------------------------
+# right_random / checked_random here is the accuracy of the full run, the
+# figure to report with the table.
+score_documents(res_all)
+
+# --------------------------------------------------------------------------
+# Step 11. Re-scan, only after the rules change
+# --------------------------------------------------------------------------
+# Grading does not change the rules engine: run it again on the same
+# documents and it gives the same answers. The rules change only when you
+# update the package (rerun step 1), which brings the fixes the Eviction
+# Research Network makes from its own graded documents, or when someone
+# edits the rules' code. Re-scan only then. Re-scanning the same documents
+# into the same folder keeps your corrections, and scoring again shows what
+# the change fixed or broke.
+# res_all <- scan_documents(docs_dir, engine = "deterministic", out_dir = all_dir)
+# score_documents(res_all)
+
+# --------------------------------------------------------------------------
+# Step 12. Build the final table
+# --------------------------------------------------------------------------
+# One row per document: case number, plaintiff, defendants, and the
+# defendants' address, with your graded answers (from both samples) in
+# place of the engine's wherever you gave one. source says which each row
+# carries. defendant_address_std is the address on one line in USPS form.
+# The table holds names and addresses; keep it with the court documents.
+cases <- case_table(res_all, graded = sample_dir,
+                    save = file.path(results, "case_table.csv"))
+
+# How many rows carry a graded answer, and how many the engine's reading
+count(cases, source)
+
+# The table is the input to the next stage of the pipeline: cleaning the
+# names and addresses.
 
 # --------------------------------------------------------------------------
 # Next

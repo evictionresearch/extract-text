@@ -975,3 +975,56 @@ def test_solo_attorney_name_and_firm_count_once():
     truth = {"plaintiff": "", "defendants": [], "attorneys": ["PAT Q. EXAMPLE"]}
     reading = {"attorneys": ["Pat Q. Example"], "attorney_firm": "PAT Q. EXAMPLE"}
     assert "attorneys" not in compare(truth, reading)
+
+
+@needs_system_tools
+def test_case_table_puts_graded_answers_in_place_of_the_engine(tmp_path):
+    import shutil
+
+    from extract_text.casetable import COLUMNS, case_table
+    from extract_text.corrections import build_correction
+    from extract_text.pipeline import read_scan
+
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    for name in ("synthetic_summons_efiled.pdf", "synthetic_summons_scanned.pdf",
+                 "synthetic_kc_printed.pdf"):
+        shutil.copy(FIXTURES / name, docs / name)
+
+    def grade(folder, row_no, truth):
+        rows, details = read_scan(folder)
+        c = build_correction(row_no, {"truth": truth}, rows, details, folder)
+        with open(folder / "corrections.jsonl", "a") as f:
+            f.write(json.dumps(c) + "\n")
+
+    # a sample graded before the full run, then the full run graded again
+    sample, full = tmp_path / "sample", tmp_path / "all"
+    scan([docs / "synthetic_summons_scanned.pdf"], out_dir=sample, progress=False)
+    grade(sample, 1, {"plaintiff": "EXAMPLE PROPERTY LLC", "defendants": ["JANE Q. TENANT"],
+                      "street": "1234 EXAMPLE AVE S", "unit": "APT 5", "city": "Seattle",
+                      "state": "WA", "zip": "98100"})
+    scan([docs], out_dir=full, progress=False)
+    rows, _ = read_scan(full)
+    efiled = next(i for i, r in enumerate(rows, 1) if r["file"] == "synthetic_summons_efiled.pdf")
+    grade(full, efiled, {"plaintiff": "", "defendants": [], "street": "", "unit": "",
+                         "city": "", "state": "", "zip": ""})
+
+    out = tmp_path / "case_table.csv"
+    table = case_table(full, graded=[sample], save=out)
+    by_file = {Path(r["file"]).name: r for r in table}
+    assert len(table) == 3 and [r["doc"] for r in table] == [1, 2, 3]
+    assert by_file["synthetic_summons_scanned.pdf"]["source"] == "graded"
+    assert by_file["synthetic_summons_scanned.pdf"]["defendant_names"] == "JANE Q. TENANT"
+    assert by_file["synthetic_summons_scanned.pdf"]["defendant_address_std"].startswith("1234 EXAMPLE AVE S")
+    assert by_file["synthetic_summons_efiled.pdf"]["source"] == "graded"
+    assert by_file["synthetic_summons_efiled.pdf"]["defendant_street"] == ""
+    assert by_file["synthetic_kc_printed.pdf"]["source"] == "engine"
+    assert by_file["synthetic_kc_printed.pdf"]["defendant_street"] != ""
+    with open(out, newline="") as f:
+        assert next(csv.reader(f)) == COLUMNS
+
+    # a file changed after grading loses its answer
+    (docs / "synthetic_summons_scanned.pdf").write_bytes(
+        (FIXTURES / "synthetic_summons_efiled.pdf").read_bytes())
+    again = {Path(r["file"]).name: r for r in case_table(full, graded=[sample])}
+    assert again["synthetic_summons_scanned.pdf"]["source"] == "engine"

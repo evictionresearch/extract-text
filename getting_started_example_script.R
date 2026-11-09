@@ -173,10 +173,9 @@ review_documents(res, correct = TRUE, n = n_sample, draw = "random")
 # Decide here whether the fields you need are accurate enough to scan
 # everything. If they are not, check for a newer version of the package
 # (rerun step 1): rule fixes reach you through package updates, made by the
-# Eviction Research Network from its own graded documents. Changing the
-# rules yourself means editing the package's Python code
-# (python/src/extract_text/deterministic/); grading alone does not change
-# them.
+# Eviction Research Network from its own graded documents. You can also
+# change the rules on your own copy of the code: docs/changing_rules.md
+# shows how, with a worked example. Grading alone does not change them.
 score_documents(res)
 
 # --------------------------------------------------------------------------
@@ -215,10 +214,10 @@ score_documents(res_all)
 # Grading does not change the rules engine: run it again on the same
 # documents and it gives the same answers. The rules change only when you
 # update the package (rerun step 1), which brings the fixes the Eviction
-# Research Network makes from its own graded documents, or when someone
-# edits the rules' code. Re-scan only then. Re-scanning the same documents
-# into the same folder keeps your corrections, and scoring again shows what
-# the change fixed or broke.
+# Research Network makes from its own graded documents, or when you change
+# them yourself (docs/changing_rules.md). Re-scan only then. Re-scanning
+# the same documents into the same folder keeps your corrections, and
+# scoring again shows what the change fixed or broke.
 # res_all <- scan_documents(docs_dir, engine = "deterministic", out_dir = all_dir)
 # score_documents(res_all)
 

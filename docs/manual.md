@@ -649,8 +649,9 @@ recommends follows from that.
    failures faster but understates accuracy. For a decision that matters,
    such as published counts or notices sent to people, check 100 or more.
 2. **If the engine falls short on the fields you need,** change the rules
-   (section 16), or ask the project for help (section 21). Scan the
-   same documents again into the same folder; the corrections stay, and
+   ([`changing_rules.md`](changing_rules.md)), or ask the project for help
+   (section 21). Scan the same documents again into the same folder; the
+   corrections stay, and
    `score` measures the new rules against them. That confirms the fix but
    flatters the engine, because the rules were changed with those documents
    in view.
@@ -1079,6 +1080,9 @@ generic case-number patterns still apply. Bar numbers are recognized by the
 WSBA label. Adapting these for another state is a contained, reviewable
 change, and the project welcomes such contributions as pull requests (see
 `CONTRIBUTING.md`; note the rule that examples must be synthetic).
+[`changing_rules.md`](changing_rules.md) walks through changing a rule on
+your own copy, measuring the change against your graded documents, and
+keeping it through package updates.
 
 **How to validate in a new place.** Do not trust transferred rules blind, and
 do not trust the AI lane blind either. Sample a few hundred documents, have

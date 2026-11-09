@@ -19,6 +19,15 @@ A third part, **Address Check** (`game/`), is a card game for phones that measur
 
 **First, on Mac and Windows alike, install poppler and tesseract.** extract-text cannot read a document without these two free programs: poppler opens PDFs, and tesseract reads scanned pages (OCR). Neither R nor pip installs them.
 
+Before you install:
+
+- **Check whether you already have them.** Run `which pdftoppm tesseract` in Terminal on a Mac or Linux, or `where.exe pdftoppm tesseract` in PowerShell on Windows. If both print a path, skip the commands below. On a Mac, `brew install` on a program you already have upgrades it and every Homebrew program that depends on it, which can mean gigabytes of downloads.
+- **English is the only language data extract-text uses.** Homebrew's tesseract includes English, so you do not need the `tesseract-lang` package it mentions.
+- **You need Python 3.10 or newer** on the computer (from [python.org](https://www.python.org/downloads/) if you have none), for R as well as Python, because the engine is written in Python.
+- **You need the internet only to install.** After that, extract-text runs with the network unplugged.
+- **The rules engine needs no AI setup.** `doctor` will report Ollama as missing, and that is fine. The AI engine is optional and needs about 16 GB of memory (manual section 3).
+- **On a work computer, installs may need IT.** If your computer blocks them, ask IT for poppler, tesseract, and Python.
+
 On a Mac, install [Homebrew](https://brew.sh) if you don't have it, then run in Terminal:
 
 ```bash
@@ -32,7 +41,7 @@ winget install oschwartz10612.Poppler
 winget install UB-Mannheim.TesseractOCR
 ```
 
-winget puts poppler on your PATH, but the tesseract installer does not. Add its folder (by default `C:\Program Files\Tesseract-OCR`) through Start, "Edit environment variables for your account", Path, Edit, New, and then restart R, RStudio, or the terminal. If your computer blocks installs, ask IT for these two programs. On Debian or Ubuntu, run `sudo apt install poppler-utils tesseract-ocr`. The `doctor` check below confirms that both were found.
+winget puts poppler on your PATH, but the tesseract installer does not. Add its folder (by default `C:\Program Files\Tesseract-OCR`) through Start, "Edit environment variables for your account", Path, Edit, New, and then restart R, RStudio, or the terminal. On Debian or Ubuntu, run `sudo apt install poppler-utils tesseract-ocr`. The `doctor` check below confirms that both were found.
 
 Python:
 
@@ -67,7 +76,7 @@ results <- scan_documents("documents/", engine = "both",
                           out_dir = "results/", review = TRUE)
 ```
 
-[`getting_started_example_script.R`](getting_started_example_script.R) takes these steps one at a time with the rules engine, on a made-up summons and then on your own documents, and ends by checking a random 50 by hand and scoring the engine.
+[`getting_started_example_script.R`](getting_started_example_script.R) takes these steps one at a time with the rules engine: a made-up summons, then a random 50 of your own documents, which you grade by hand and score, and then the whole folder.
 
 Command line, no programming:
 
@@ -76,6 +85,8 @@ extract-text scan documents/ --engine deterministic --out results/ --review
 ```
 
 Batch runs write `extracted.csv` (and `.parquet` when available), `extracted.jsonl` as the full audit trail, and a `review/index.html` page showing each flagged document's image beside what was extracted from it.
+
+**Grade a random 50 before you trust a run.** The rules were written and measured on Washington filings, and another court's forms, scan quality, or decade can make them misread a field without raising a flag. Accuracy also differs by field: on a random 50 King County summonses from 2017, the rules engine read the street right on about 85 percent and the plaintiff on about 40 percent (October 2026). So scan a random 50 of your documents first, grade them on the review page (`review_documents(res, correct = TRUE, n = 50, draw = "random")` in R), score the engine against your corrections (`score_documents(res)`), and scan the whole folder only when the fields you need are accurate enough. The getting-started script takes these steps in order. Fifty random documents put the share right within about 10 points; check 100 or more before publishing counts or sending anything to people. The engine does not learn from your corrections on its own, but they show which fields to trust and which rules need work. Manual section 11 has the full protocol.
 
 The manual, [`docs/manual.md`](docs/manual.md), is written for someone who uses R or Python and knows nothing about OCR or AI. It covers installation on every platform, each output column, the flags and how to review them, how the engines work, measured accuracy and its limits, and how to adapt the rules to another state.
 

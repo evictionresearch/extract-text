@@ -7,9 +7,11 @@
 #
 # This script is the quick start script for the extract-text package using the
 # rules engine only (no AI, no network). It installs the package, reads a
-# made-up summons, reads a folder of your own documents, and checks the
-# results by hand. Run it a line or a block at a time, not with source(),
-# because step 1 ends by restarting R.
+# made-up summons, scans a random 50 of your own documents, has you grade
+# those 50 by hand, and only then scans the whole folder. The grading is not
+# optional: until it is done, how often the scan is right on your documents
+# is unknown (step 6 says why). Run it a line or a block at a time, not with
+# source(), because step 1 ends by restarting R.
 #
 # Your documents, and every file this script writes from step 4 on, hold
 # tenants' names and addresses. Keep them wherever your organization keeps
@@ -22,6 +24,11 @@
 # extract-text cannot read a document without two free programs that R does
 # not install: poppler opens PDFs, and tesseract reads scanned pages (OCR).
 # Both Mac and Windows need them. Install them outside R, then open RStudio.
+#
+# Check first whether you have them: run `which pdftoppm tesseract` in
+# Terminal (Mac, Linux) or `where.exe pdftoppm tesseract` in PowerShell
+# (Windows). If both print a path, skip to step 1. On a Mac, brew install on
+# a program you already have upgrades it and everything that depends on it.
 #
 # Mac. Install Homebrew from https://brew.sh if you don't have it, then run
 # this in Terminal:
@@ -74,6 +81,10 @@ download.file(paste0("https://raw.githubusercontent.com/evictionresearch/",
                      "extract-text/main/python/tests/fixtures/",
                      "synthetic_summons_scanned.pdf"),
               f, mode = "wb")
+
+# Open the summons in your PDF viewer, to compare with what the engine reads
+browseURL(f)
+
 one <- extract_deterministic(f)
 
 # Expect 1234 EXAMPLE AVE S APT 5, Seattle, WA 98100
@@ -89,16 +100,34 @@ one$evidence$defendant_address
 glimpse(record_to_row(one))
 
 # --------------------------------------------------------------------------
-# Step 4. Read a folder of your own documents
+# Step 4. Scan a random 50 of your own documents
 # --------------------------------------------------------------------------
+# Start with a random sample rather than the whole folder: it takes minutes
+# instead of hours, and step 6 grades every document in it. Change n_sample
+# as needed; step 6 explains how many is enough.
+#
 # docs_dir holds the court documents (PDF or TIFF, subfolders included).
 # out_dir receives the results: extracted.csv, extracted.jsonl (the
 # evidence behind every value), and the review page used in step 6.
 # Expect about 5 seconds a document when OCR is needed.
 docs_dir <- "path/to/your/documents"
-out_dir  <- "path/to/your/results"
+out_dir  <- "path/to/your/results/sample"
+n_sample <- 50
 
-res <- scan_documents(docs_dir, engine = "deterministic", out_dir = out_dir)
+docs <- list.files(docs_dir, pattern = "\\.(pdf|tiff?)$", recursive = TRUE,
+                   full.names = TRUE, ignore.case = TRUE)
+
+# How many documents the folder holds
+length(docs)
+
+# The same seed always draws the same documents
+set.seed(1)
+pick <- sample(docs, min(n_sample, length(docs)))
+
+res <- scan_documents(pick, engine = "deterministic", out_dir = out_dir)
+
+# res is not ready to use yet. How often it is right on your documents is
+# unknown until you grade the sample in step 6.
 
 # --------------------------------------------------------------------------
 # Step 5. Look at the results
@@ -116,15 +145,24 @@ View(select(res, doc, defendant_names, defendant_street, defendant_city,
             defendant_zip, flags))
 
 # --------------------------------------------------------------------------
-# Step 6. Check a random 50 by hand
+# Step 6. Grade the sample by hand (required)
 # --------------------------------------------------------------------------
-# How accurate the engine is on your documents is unknown until a person
-# checks a random sample. This opens a page in your browser with each
+# The rules were written and measured on Washington filings. Another court's
+# forms, scan quality, or decade can make them misread a field without
+# raising a flag, and accuracy differs by field: on a random 50 King County
+# summonses from 2017, the street was right about 85 percent of the time and
+# the plaintiff about 40 percent (October 2026). Grading a random 50 puts
+# the share right within about 10 points; grade 100 or more before
+# publishing counts or sending anything to people (manual section 11). The
+# engine does not learn from your corrections, but they show which fields
+# to trust and which rules need work.
+#
+# This opens a page in your browser with each
 # document beside what the engine read. Change only what is wrong, leave a
 # field blank when the document does not have it, and save. Each save goes
 # to corrections.jsonl in out_dir. Press Esc in RStudio (Ctrl-C at a
 # terminal) when done; running it again picks up where you left off.
-review_documents(res, correct = TRUE, n = 50, draw = "random")
+review_documents(res, correct = TRUE, n = n_sample, draw = "random")
 
 # --------------------------------------------------------------------------
 # Step 7. Score the engine against your corrections
@@ -133,6 +171,16 @@ review_documents(res, correct = TRUE, n = 50, draw = "random")
 # got right, nearly right, left blank, or got wrong. right_random /
 # checked_random is the accuracy estimate for the whole folder.
 score_documents(res)
+
+# --------------------------------------------------------------------------
+# Step 8. Scan the whole folder
+# --------------------------------------------------------------------------
+# Only when step 7 shows the fields you need are accurate enough. If they
+# are not, manual section 16 covers changing the rules. The full scan goes
+# to its own folder so the sample and its corrections stay as they are.
+# At about 5 seconds a document, 4,000 documents take five or six hours.
+res_all <- scan_documents(docs_dir, engine = "deterministic",
+                          out_dir = "path/to/your/results/all")
 
 # --------------------------------------------------------------------------
 # Next

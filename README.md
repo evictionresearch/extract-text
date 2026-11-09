@@ -2,7 +2,7 @@
 
 extract-text is a court document reader (e-filed PDFs, scanned PDFs, and TIFF images) trained on eviction court records. It returns a table with one row per document. Each row holds the names of the plaintiffs and defendants, the address where the defendants were served, the plaintiff's attorney, the case number, and other details of the case. The [Eviction Research Network](https://evictionresearch.net) built it for housing research and policy work and validated it on more than a million pages of Washington State filings. It was designed to work on any court documents that follow American conventions.
 
-**Status.** Version 0.2.0 is under development. ERN is checking both engines against hand-labeled Washington filings, and command options, output fields, and the default AI model can still change between releases. Accuracy has been measured only on Washington documents, and the head-to-head test of the AI engine against the labeled sets is not finished. Versions below 1.0 promise no stable interface, so pin the version you build on.
+**Status.** extract-text is under development; [`CHANGELOG.md`](CHANGELOG.md) lists every release and what changed. ERN is checking both engines against hand-labeled Washington filings, and command options, output fields, and the default AI model can still change between releases. Accuracy has been measured only on Washington documents, and the head-to-head test of the AI engine against the labeled sets is not finished. Versions below 1.0 promise no stable interface, so pin the version you build on.
 
 The package has two engines that read documents, and you choose one or both on each run.
 

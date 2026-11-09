@@ -59,18 +59,18 @@ Most rules carry a comment saying why they exist, and many say what they must no
 
 ## 5. Change the rule, with a worked example
 
-Suppose the defendant names on your documents end in "UNKNOWN OCCUPANTS", and the engine keeps that as if it were a person. Open `parties.py`, find `_GROUP_TERM_RE`, and add one line after the "all occupants" line:
+Suppose the defendant names on your documents end in "OCCUPANTS OF THE PREMISES", and the engine keeps that as if it were a person. Open `parties.py`, find `_GROUP_TERM_RE`, and add one line after the "unknown occupants" line:
 
 ```
-      | all\s+(?:other\s+)?occupants?          # "all occupants"
-      | unknown\s+occupants?                   # "unknown occupants"
+      | unknown\s+occupants?                   # "unknown occupants" (2026-11-09)
+      | occupants\s+of\s+the\s+premises        # "occupants of the premises"
 ```
 
-`\s+` means one or more spaces, and `s?` an optional "s", so the line catches "UNKNOWN OCCUPANT" and "Unknown Occupants" alike (the list ignores capital letters). Reinstall (step 2), restart R, and try it on a made-up name:
+`\s+` means one or more spaces, so the line catches the phrase however the spaces fall, and the list ignores capital letters, so "Occupants of the Premises" is caught too. Reinstall (step 2), restart R, and try it on a made-up name:
 
 ```r
 p <- reticulate::import("extract_text.parties")
-reticulate::py_get_attr(p, "_strip_group_terms")("JANE Q. TENANT and UNKNOWN OCCUPANTS")
+reticulate::py_get_attr(p, "_strip_group_terms")("JANE Q. TENANT and OCCUPANTS OF THE PREMISES")
 ```
 
 The first value returned should be `JANE Q. TENANT`.
@@ -109,7 +109,7 @@ With git, save your change on a branch of its own, from inside the `extract-text
 
 ```bash
 git checkout -b local-rules
-git commit -am "Drop 'unknown occupants' from defendant names"
+git commit -am "Drop 'occupants of the premises' from defendant names"
 ```
 
 When the Eviction Research Network publishes an update, bring it into your copy and reinstall (step 2):

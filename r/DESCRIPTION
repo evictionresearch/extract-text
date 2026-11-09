@@ -1,6 +1,6 @@
 Package: extracttext
 Title: Court Record Text Extraction, Deterministic and AI Compared
-Version: 0.2.0
+Version: 0.3.0
 Authors@R: c(
     person("Cheng", "Ren", role = "aut"),
     person("Tim", "Thomas", , "timthomas@berkeley.edu", role = c("aut", "cre")),

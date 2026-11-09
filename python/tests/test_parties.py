@@ -18,6 +18,12 @@ def test_rules_names_drop_group_terms():
     assert _split_defendant_names("A ROE and B ROE, husband and wife; all other occupants") == [
         "A ROE", "B ROE"]
     assert _split_defendant_names("et al") == []
+    # seen on a King County summons in the 2026-11-09 walk-through
+    assert _split_defendant_names("JANE Q. TENANT and UNKNOWN OCCUPANTS; JON Q. TENANT") == [
+        "JANE Q. TENANT", "JON Q. TENANT"]
+    assert _split_defendant_names("JANE Q. TENANT, Unknown Occupant") == ["JANE Q. TENANT"]
+    # "unknown" alone is not a group term
+    assert _split_defendant_names("PAT UNKNOWN") == ["PAT UNKNOWN"]
 
 
 def test_defendant_that_is_the_plaintiff_is_dropped():

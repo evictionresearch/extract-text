@@ -111,10 +111,8 @@ glimpse(record_to_row(one))
 # results is where everything this script writes goes: the sample in
 # results/sample, the full run in results/all, and the final table.
 # Expect about 5 seconds a document when OCR is needed.
-# docs_dir <- "path/to/your/documents"
-# results  <- "path/to/your/results"
-docs_dir <- path.expand("~/data/evictionresearch/washington/court_images/King/2017")
-results  <- path.expand("~/data/evictionresearch/washington/development/extract_text_training/_walkthrough_2026-11-09")
+docs_dir <- "path/to/your/documents"
+results  <- "path/to/your/results"
 n_sample <- 50
 
 sample_dir <- file.path(results, "sample")

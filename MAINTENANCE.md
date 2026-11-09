@@ -990,6 +990,14 @@ Results, against the committed engine, right answers:
 
 Open. The graders agree on the plaintiff in only 74 percent of shared documents and on the attorney box in 69 percent, so those answers are weaker ground than the address fields, and 22 shared documents are unsettled. Many attorney answers hold the firm alone where the engine also lists the attorneys from the signature on later pages, which graders do not see. One form family prints the owner as OCR debris before "DBA"; the engine now leaves its plaintiff blank instead of reading the trade name. A numbered street that lost its "th" in OCR is left alone, since the engine cannot tell it from a page that prints it that way.
 
+## "Unknown occupants", the case table, and the first release (2026-11-09)
+
+A King County summons in the 2026-11-09 walk-through listed "UNKNOWN OCCUPANTS" among the defendants, and the engine kept it as a person. It is now one of the group terms in `parties.py`, dropped as "all other occupants" already was; a synthetic test covers it, and a surname "UNKNOWN" alone is kept. Measured with `rules_eval.py` on round 2's 130 graded random documents against the saved `9adf8cc` readings: defendants unchanged (41 of 65 development, 43 of 65 held out; none of the 130 carried the phrase as a defendant), and nothing broken on any field. Every other count matched the 2026-11-03 entry exactly, so nothing else in this day's work moved the rules engine.
+
+The same day added the end of a run to the package: `scan_documents()` in R passes through `sample`, `seed`, and `exclude`, and `case_table()` (R) with `extract_text.casetable` (Python) builds the final table, one row per document with graded answers in place of the engine's readings, matched to each document by full path and applied only while the file's sha256 is unchanged. The getting-started script now runs a sample, two rounds of grading, a full run, and that table, and `docs/changing_rules.md` covers changing a rule on a local copy. The schema had not been regenerated since the evidence boxes of 2026-10-29 and was.
+
+Version 0.3.0 is the first tagged release, with `CHANGELOG.md` started for it. The version string had read 0.2.0 since scaffolding, across copies with different code, so the first release bumps the minor version.
+
 ## Observed engine differences
 
 Notes for whoever runs the AI-lane head-to-head. These are observations from
@@ -1024,7 +1032,12 @@ spot runs, not measured rates; quantifying them is part of that milestone.
 6. Fixtures regenerated only if their script changed
    (`python3 python/scripts/make_synthetic_fixtures.py`), and the manual's
    example outputs re-checked against them.
-7. Tag, and note user-facing changes in the GitHub release.
+7. `CHANGELOG.md`: move everything under "Unreleased" into a new section
+   for the version, dated, and leave "Unreleased" empty. Between releases,
+   each user-facing change adds its line under "Unreleased" in the same
+   commit as the change.
+8. Tag as `vX.Y.Z` on the release commit, push the tag, and publish the
+   GitHub release with that version's changelog section as its notes.
 
 ## Regenerating things
 

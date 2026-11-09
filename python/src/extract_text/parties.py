@@ -25,6 +25,7 @@ _GROUP_TERM_RE = re.compile(
     (?:
         any\s+and\s+all\s+other[\w\s]*        # "any and all other residing..."
       | all\s+(?:other\s+)?occupants?          # "all occupants"
+      | unknown\s+occupants?                   # "unknown occupants" (2026-11-09)
       | all\s+others?                           # "all others"
       | husband\s+and\s+wife
       | (?:john|jane)\s*/\s*(?:john|jane)\s+does?   # "John/Jane Doe"

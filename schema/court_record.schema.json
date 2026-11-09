@@ -396,6 +396,35 @@
           "description": "For positional extraction, the named rule that produced the value, e.g. 'to_block', 'premises_prose', 'attorney_block'. This is the audit trail: every value records the rule that found it.",
           "title": "Anchor"
         },
+        "box": {
+          "anyOf": [
+            {
+              "maxItems": 4,
+              "minItems": 4,
+              "prefixItems": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Where on that page the value was read, as (x0, y0, x1, y1) fractions of the page width and height from the top left. Set by the deterministic engine when it read a file; the review page draws it over the page image.",
+          "title": "Box"
+        },
         "grounded": {
           "default": false,
           "description": "True when the quote was verified against the source: found verbatim in the text, or produced directly by a positional rule reading the page. A false value on an AI extraction means the quote could not be verified against the document.",

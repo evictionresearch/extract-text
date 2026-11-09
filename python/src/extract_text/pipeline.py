@@ -201,6 +201,7 @@ def flatten_extraction(x: Extraction) -> dict:
         "ocr_mean_conf": doc.ocr_mean_conf if doc and doc.ocr_mean_conf is not None else "",
         "method": x.method,
         "backend": x.backend,
+        "template": x.template or "",
         "flags": ";".join(x.flags),
     }
     return row
@@ -400,6 +401,7 @@ def scan(
     progress: bool = True,
     exclude=None,
     on_progress=None,
+    templates=None,
 ):
     """Extract every document under `inputs`. Returns the list of row dicts.
 
@@ -409,6 +411,12 @@ def scan(
     two names. With `sample`, the draw walks a seeded shuffle and skips
     those, so it differs from the draw the same seed gives without
     `exclude`.
+
+    `templates` is a folder of form templates (see `extract_text.templates`),
+    or a list of them; the approved ones are read before the rules on pages
+    that match, and the `template` column says which one each document
+    matched. A folder with no approved template raises, since a run that
+    silently used none would be mistaken for one that used them.
 
     `engine` is 'deterministic', 'ai', or 'both'. `prompt_format` picks the
     AI engine's prompt: 'lists' (the default) or 'v1', the original. When `write` is true (the
@@ -460,6 +468,14 @@ def scan(
         vision = LocalVisionBackend(model=model or DEFAULT_VISION_MODEL,
                                     prompt_format=prompt_format)
 
+    if templates:
+        from .templates import resolve_templates
+
+        templates = resolve_templates(templates)
+        if not templates:
+            raise ValueError("no approved form templates in the templates folder; "
+                             "approve one first (see extract_text.templates)")
+
     rows, details, n_err = [], [], 0
     bar = _Progress(len(files), enabled=progress, callback=on_progress)
     try:
@@ -471,7 +487,7 @@ def scan(
                 if engine in ("deterministic", "both"):
                     bar.status(i, "deterministic engine")
                     doc = load_document(path)
-                    det = extract_from_document(doc)
+                    det = extract_from_document(doc, templates=templates or None)
                     doc_text = doc.text
                 if vision is not None:
                     bar.status(i, "AI engine")
@@ -602,10 +618,21 @@ _BOX_FIELDS = (("case_number", "Case number", "case"), ("plaintiffs.", "Plaintif
                ("defendant_address", "Address", "address"))
 
 
+def page_image_path(rev, row_no: int, page: int = 1) -> Path:
+    """Where the review folder keeps the image of a document's page: numbered,
+    not named after the file, since same-named files would overwrite each
+    other and file names can carry case numbers. Page 1 keeps the name it
+    has always had."""
+    rev = Path(rev)
+    return rev / (f"doc_{row_no:04d}.png" if page == 1 else f"doc_{row_no:04d}_p{page}.png")
+
+
 def evidence_boxes(detail: dict) -> tuple[str, str]:
-    """Overlay boxes for page 1 of the review page, from the deterministic
-    engine's evidence, and a note when the address was read from a later
-    page. Scans made before evidence carried boxes give neither."""
+    """Overlay boxes for the review page, from the deterministic engine's
+    evidence, each on the page it was read from (those on later pages
+    hidden until that page is shown), and a note when the address was read
+    from a later page. Scans made before evidence carried boxes give
+    neither."""
     evidence = ((detail or {}).get("deterministic") or {}).get("evidence") or {}
     spans, shown = [], set()
     for prefix, label, cls in _BOX_FIELDS:
@@ -613,28 +640,30 @@ def evidence_boxes(detail: dict) -> tuple[str, str]:
             if key != prefix and not (prefix.endswith(".") and key.startswith(prefix)):
                 continue
             box = ev.get("box")
-            if ev.get("page") != 1 or not box:
+            page = ev.get("page")
+            if not page or not box:
                 continue
             x0, y0, x1, y1 = (float(v) for v in box)
             pad = 0.004
-            place = (max(0.0, x0 - pad), max(0.0, y0 - pad), min(1.0, x1 + pad), min(1.0, y1 + pad))
+            place = (page, max(0.0, x0 - pad), max(0.0, y0 - pad), min(1.0, x1 + pad), min(1.0, y1 + pad))
             if place in shown:
                 continue
             # the label goes on a field's first box only (several defendants)
             tag = f' data-label="{label}"' if not any(f"hl-{cls}" in sp for sp in spans) else ""
             shown.add(place)
             spans.append(
-                f'<span class="hl hl-{cls}"{tag} title="{label}" '
-                f'style="left:{place[0] * 100:.2f}%;top:{place[1] * 100:.2f}%;'
-                f'width:{(place[2] - place[0]) * 100:.2f}%;height:{(place[3] - place[1]) * 100:.2f}%"></span>')
+                f'<span class="hl hl-{cls}"{tag} title="{label}" data-page="{page}"{" hidden" if page != 1 else ""} '
+                f'style="left:{place[1] * 100:.2f}%;top:{place[2] * 100:.2f}%;'
+                f'width:{(place[3] - place[1]) * 100:.2f}%;height:{(place[4] - place[2]) * 100:.2f}%"></span>')
     addr = evidence.get("defendant_address") or {}
     note = (f'<p class="pagelinks">The address was read from page {addr["page"]}, '
-            f'not the page shown.</p>' if (addr.get("page") or 1) > 1 else "")
+            f'not page 1. <button type="button" class="gopage quiet" data-page="{addr["page"]}" hidden>'
+            f'Show page {addr["page"]}</button></p>' if (addr.get("page") or 1) > 1 else "")
     return "".join(spans), note
 
 
 def write_review(out_dir, n=30, seed=SAMPLE_SEED, flagged_first=True, graders=False,
-                 attorneys=0, order="worst", overlap=0, rows=None):
+                 attorneys=0, order="worst", overlap=0, rows=None, pages=1):
     """Build review/index.html from a finished scan directory: page-1 image
     beside the extracted fields, flagged documents first, then a seeded
     sample of the rest. This is where a person checks the machine's work.
@@ -642,6 +671,13 @@ def write_review(out_dir, n=30, seed=SAMPLE_SEED, flagged_first=True, graders=Fa
     Each document carries a correction form. Opened as a plain file the page
     is read-only; served by `extract-text review --serve` the form saves to
     `corrections.jsonl` in the scan directory (see corrections.py).
+
+    `pages` is how many pages of each document are rendered when the page
+    is built (1 by default). Served, the page renders any other page on
+    first request, so a reviewer can turn to the page a value is on and
+    draw there; opened as a plain file (the graders' page) only the
+    rendered pages can be shown, so build the graders' page with more when
+    the documents' later pages matter.
 
     `attorneys` puts the plaintiff attorney's box on that many documents,
     drawn at random from the whole scan with the same seed every time, so
@@ -759,12 +795,16 @@ def write_review(out_dir, n=30, seed=SAMPLE_SEED, flagged_first=True, graders=Fa
                      .replace('"', "&quot;"))
     for i, r in subset:
         src = Path(details[i - 1].get("file", ""))
-        # numbered, not named after the file: same-named files would
-        # overwrite each other, and file names can carry case numbers
-        img_name = f"doc_{i:04d}.png"
+        img_name = page_image_path(rev, i).name
+        try:
+            n_pages = max(1, int(r.get("n_pages") or 1))
+        except ValueError:
+            n_pages = 1
+        rendered = min(max(1, int(pages or 1)), n_pages)
         if src.exists():
             # rendered sharp enough to read when enlarged; shown small until clicked
-            render_page(src, page=1, dpi=150, out_path=rev / img_name)
+            for p in range(1, rendered + 1):
+                render_page(src, page=p, dpi=150, out_path=page_image_path(rev, i, p))
         both = bool(r.get("ai_backend"))
         both_parts = lambda *parts: ", ".join(x for x in parts if x)
         ai_col = (lambda v: f"<td>{esc(v)}</td>") if both else (lambda v: "")
@@ -795,14 +835,17 @@ def write_review(out_dir, n=30, seed=SAMPLE_SEED, flagged_first=True, graders=Fa
                       'Boxes show where the deterministic engine read each value</label></p>'
                       if boxes else "")
         cells.append(f"""
-<div class="doc" id="doc{i}" data-tier="{tiers.get(i, 0)}"{f' data-shared="{shared_at[i]}"' if i in shared_at else ''}>
+<div class="doc" id="doc{i}" data-tier="{tiers.get(i, 0)}"{f' data-shared="{shared_at[i]}"' if i in shared_at else ''} data-row="{i}" data-pages="{n_pages}" data-rendered="{rendered}">
   <div class="page">
-    <div class="shot"><img src="{img_name}" loading="lazy" alt="page 1 of document {i}"
+    <div class="shot" data-page="1"><img src="{img_name}" data-base="{img_name[:-4]}" loading="lazy" alt="page 1 of document {i}"
          title="Click to enlarge">{boxes}</div>
+    <p class="pager" hidden><button type="button" class="prev quiet" title="Previous page">&#9664;</button>
+      Page <span class="pno">1</span> of {n_pages} <button type="button" class="next quiet" title="Next page">&#9654;</button></p>
     {box_note}{box_legend}
-    <div class="fixbox" hidden>Wrong or missing box? Pick one, then drag across the page:
+    <div class="fixbox" hidden>Wrong or missing box? Pick a field, then drag across the page to draw one
+      (on any page; draw again for another). Drag a box to move it, a corner to reshape it, &#215; to delete it.
       <button type="button" data-field="plaintiff">Plaintiff</button><button type="button" data-field="defendants">Defendants</button><button type="button" data-field="address">Address</button><button type="button" data-field="attorney">Attorney</button><button type="button" data-field="case">Case number</button>
-      <button type="button" class="none" hidden>Not on this page</button></div>
+      <button type="button" class="none" hidden>Not in this document</button></div>
     <p class="pagelinks">Click the page to enlarge it.
       <a class="full" href="doc/{i}" target="_blank" hidden>Open the full document</a></p>
   </div>
@@ -879,8 +922,18 @@ def write_review(out_dir, n=30, seed=SAMPLE_SEED, flagged_first=True, graders=Fa
  .fixbox [data-field=plaintiff]{{--c:#7d3c98}} .fixbox [data-field=attorney]{{--c:#b9770e}}
  .fixbox [data-field=case]{{--c:#2e7d32}}
  .shot.drawing, .shot.drawing img{{cursor:crosshair}}
- .hl.edited{{border-style:dashed;border-width:3px}} .hl.ghost{{border-style:dotted}}
+ .hl.edited{{border-style:dashed;border-width:3px;pointer-events:auto;cursor:move}} .hl.ghost{{border-style:dotted}}
+ .shot.drawing .hl.edited{{pointer-events:none}}
+ .hl[hidden],.hl.replaced{{display:none !important}}
  .doc.nobox .hl.edited{{display:block}}
+ /* a placed box carries a delete mark and four corner handles */
+ .hl.edited .x{{position:absolute;right:-9px;top:-9px;width:16px;height:16px;line-height:14px;text-align:center;
+      font:700 13px/15px sans-serif;color:#fff;background:var(--c);border:1px solid #fff;border-radius:50%;cursor:pointer}}
+ .hl.edited .h{{position:absolute;width:9px;height:9px;background:var(--c);border:1px solid #fff;border-radius:2px}}
+ .hl.edited .h.nw{{left:-5px;top:-5px;cursor:nwse-resize}} .hl.edited .h.se{{right:-5px;bottom:-5px;cursor:nwse-resize}}
+ .hl.edited .h.ne{{right:-5px;top:-5px;cursor:nesw-resize}} .hl.edited .h.sw{{left:-5px;bottom:-5px;cursor:nesw-resize}}
+ .pager{{font-size:13px;color:#555;margin:.3rem 0;display:flex;gap:.4rem;align-items:center}}
+ .pager button{{padding:0 .5rem;font-size:11px}}
  .legend{{font-size:13px;color:#555;margin:.3rem 0 0}}
  .pagelinks{{font-size:13px;color:#555;margin:.3rem 0}}
  .doc{{scroll-margin-top:.5rem}}
@@ -983,8 +1036,8 @@ function fill(f, c) {{
     f.elements.attorneys.value = [f.elements.attorneys.value, c.truth.attorney_firm].filter(Boolean).join("\\n");
   f.dataset.usedAi = c.used_ai_fill ? "1" : "";
   f.querySelectorAll("textarea").forEach(grow);
-  // boxes saved with the answer are drawn again, dashed
-  if (c.boxes) for (const [k, v] of Object.entries(c.boxes)) setBox(f, k, v, true);
+  // boxes saved with the answer are drawn again, dashed, each on its page
+  if (c.boxes) setEdits(f, normalizeBoxes(c.boxes), true);
 }}
 function mark(f, c) {{
   f.classList.add("saved");
@@ -1031,9 +1084,49 @@ function tally() {{
 for (const box of document.querySelectorAll(".showboxes")) {{
   box.addEventListener("change", () => box.closest(".doc").classList.toggle("nobox", !box.checked));
 }}
-// redrawing a box: pick a field under the page, drag across the image; the
-// box goes with the answer when it is saved. Shown wherever answers can be
-// saved (served, or the graders' page keeping them in the browser)
+// the pages of a document: page 1 is rendered when the page is built; served,
+// any other page is rendered by the server on first request; opened as a
+// file, only the pages rendered at build time can be shown
+const SERVED = location.protocol.startsWith("http");
+function curPage(card) {{ return Number(card.querySelector(".shot").dataset.page || 1); }}
+function showPage(card, p) {{
+  const shot = card.querySelector(".shot"), img = shot.querySelector("img");
+  const n = Number(card.dataset.pages || 1), rendered = Number(card.dataset.rendered || 1);
+  p = Math.max(1, Math.min(n, p));
+  shot.dataset.page = p;
+  const base = img.dataset.base;
+  const src = p === 1 ? base + ".png" : SERVED ? "page/" + card.dataset.row + "/" + p : base + "_p" + p + ".png";
+  if (img.dataset.src !== src) {{ img.src = src; img.dataset.src = src; }}
+  img.alt = "page " + p + " of document " + card.dataset.row;
+  for (const s of shot.querySelectorAll(".hl")) s.hidden = Number(s.dataset.page || 1) !== p;
+  const pager = card.querySelector(".pager");
+  if (pager) {{
+    pager.querySelector(".pno").textContent = p;
+    pager.querySelector(".prev").disabled = p <= 1;
+    pager.querySelector(".next").disabled = p >= n || (!SERVED && p >= rendered);
+  }}
+}}
+for (const card of document.querySelectorAll(".doc")) {{
+  const n = Number(card.dataset.pages || 1), rendered = Number(card.dataset.rendered || 1);
+  const pageable = n > 1 && (SERVED || rendered > 1);
+  const pager = card.querySelector(".pager");
+  if (pager) {{
+    pager.hidden = !pageable;
+    pager.querySelector(".prev").addEventListener("click", () => showPage(card, curPage(card) - 1));
+    pager.querySelector(".next").addEventListener("click", () => showPage(card, curPage(card) + 1));
+  }}
+  for (const b of card.querySelectorAll(".gopage")) {{
+    b.hidden = !pageable;
+    b.addEventListener("click", () => showPage(card, Number(b.dataset.page)));
+  }}
+}}
+
+// placing boxes: pick a field under the page, drag across the image to draw
+// one on the page shown; drag a placed box to move it, its corners to reshape
+// it, its cross to delete it; draw again for another box of the same field.
+// The boxes go with the answer when it is saved, each with its page. Shown
+// wherever answers can be saved (served, or the graders' page keeping them
+// in the browser)
 const BOXLABEL = {{plaintiff: "Plaintiff", defendants: "Defendants", address: "Address",
                   attorney: "Attorney", case: "Case number"}};
 function placeBox(s, b) {{
@@ -1048,27 +1141,54 @@ function boxSpan(field, b, extra) {{
   placeBox(s, b);
   return s;
 }}
-function setBox(f, field, box, quiet) {{
+// the reviewer's boxes: {{field: [{{page, box}}, ...] | null}}; an answer saved
+// before 2026-11-10 holds one bare box per field, on page 1
+function normalizeBoxes(saved) {{
+  const out = {{}};
+  for (const [k, v] of Object.entries(saved || {{}})) {{
+    if (!(k in BOXLABEL)) continue;
+    if (v === null) out[k] = null;
+    else if (Array.isArray(v) && v.length === 4 && typeof v[0] === "number") out[k] = [{{page: 1, box: v}}];
+    else if (Array.isArray(v)) out[k] = v.filter(b => b && Array.isArray(b.box)).map(b => ({{page: Number(b.page) || 1, box: b.box}}));
+  }}
+  return out;
+}}
+function getEdits(f) {{ return JSON.parse(f.dataset.boxes || "{{}}"); }}
+function renderEdits(f) {{
   const card = f.closest(".doc"), shot = card && card.querySelector(".shot");
-  if (!shot || !(field in BOXLABEL)) return;
-  shot.querySelectorAll(".hl-" + field).forEach(s => s.remove());
-  if (box) shot.appendChild(boxSpan(field, box, "edited"));
-  const edits = JSON.parse(f.dataset.boxes || "{{}}");
-  edits[field] = box;
+  if (!shot) return;
+  shot.querySelectorAll(".hl.edited").forEach(s => s.remove());
+  for (const [field, list] of Object.entries(getEdits(f))) {{
+    // the engine's own boxes for a field the reviewer has placed or removed give way
+    shot.querySelectorAll(".hl-" + field + ":not(.edited)").forEach(s => s.classList.add("replaced"));
+    if (!list) continue;
+    list.forEach((item, idx) => {{
+      const s = boxSpan(field, item.box, "edited");
+      if (idx) delete s.dataset.label;
+      s.dataset.field = field; s.dataset.idx = idx; s.dataset.page = item.page;
+      s.innerHTML = '<b class="x" title="Delete this box">\\u00d7</b>'
+        + ["nw", "ne", "sw", "se"].map(c => '<i class="h ' + c + '"></i>').join("");
+      shot.appendChild(s);
+    }});
+  }}
+  showPage(card, curPage(card));
+}}
+function setEdits(f, edits, quiet) {{
   f.dataset.boxes = JSON.stringify(edits);
+  renderEdits(f);
   if (!quiet) {{
     f.dataset.dirty = "1";
-    setStatus(f, f.classList.contains("saved") ? "Box changed since saved; press Save again"
-                                               : "Box changed; press Save to keep it", "");
+    setStatus(f, f.classList.contains("saved") ? "Boxes changed since saved; press Save again"
+                                               : "Boxes changed; press Save to keep them", "");
   }}
 }}
-const CANSAVE = LOCAL || location.protocol.startsWith("http");
+const CANSAVE = LOCAL || SERVED;
 for (const bar of document.querySelectorAll(".fixbox")) {{
   const card = bar.closest(".doc"), shot = card.querySelector(".shot");
   const f = card.querySelector("form.fix");
   if (!CANSAVE || !shot || !f) continue;
   bar.hidden = false;
-  let armed = null, start = null, ghost = null, drew = false;
+  let armed = null, drag = null, drew = false;
   const arm = field => {{
     armed = field;
     bar.querySelectorAll("button[data-field]").forEach(b => b.classList.toggle("armed", b.dataset.field === field));
@@ -1078,7 +1198,9 @@ for (const bar of document.querySelectorAll(".fixbox")) {{
   bar.addEventListener("click", e => {{
     const b = e.target.closest("button");
     if (!b) return;
-    if (b.classList.contains("none")) {{ setBox(f, armed, null, false); arm(null); return; }}
+    if (b.classList.contains("none")) {{
+      const edits = getEdits(f); edits[armed] = null; setEdits(f, edits, false); arm(null); return;
+    }}
     arm(armed === b.dataset.field ? null : b.dataset.field);
   }});
   const at = e => {{
@@ -1087,21 +1209,65 @@ for (const bar of document.querySelectorAll(".fixbox")) {{
             Math.min(1, Math.max(0, (e.clientY - r.top) / r.height))];
   }};
   const span = (a, b) => [Math.min(a[0], b[0]), Math.min(a[1], b[1]), Math.max(a[0], b[0]), Math.max(a[1], b[1])];
+  const clamp = v => Math.min(1, Math.max(0, v));
+  // where a drag has taken the box so far
+  const shaped = (d, p) => {{
+    if (d.kind === "draw") return span(d.start, p);
+    const dx = p[0] - d.start[0], dy = p[1] - d.start[1], b = d.orig.slice();
+    if (d.kind === "move") {{
+      const w = b[2] - b[0], h = b[3] - b[1];
+      const x0 = Math.min(Math.max(0, b[0] + dx), 1 - w), y0 = Math.min(Math.max(0, b[1] + dy), 1 - h);
+      return [x0, y0, x0 + w, y0 + h];
+    }}
+    if (d.corner.includes("w")) b[0] += dx; else b[2] += dx;
+    if (d.corner.includes("n")) b[1] += dy; else b[3] += dy;
+    return span([clamp(b[0]), clamp(b[1])], [clamp(b[2]), clamp(b[3])]);
+  }};
   shot.addEventListener("pointerdown", e => {{
-    if (!armed || e.button !== 0) return;
+    if (e.button !== 0) return;
+    const box = e.target.closest(".hl.edited");
+    if (box && !armed) {{
+      const field = box.dataset.field, idx = Number(box.dataset.idx), edits = getEdits(f);
+      e.preventDefault();
+      if (e.target.closest(".x")) {{
+        edits[field].splice(idx, 1);
+        if (!edits[field].length) edits[field] = null;
+        setEdits(f, edits, false);
+        return;
+      }}
+      const h = e.target.closest(".h");
+      drag = {{kind: h ? "resize" : "move", corner: h ? h.className.split(" ")[1] : null,
+              field, idx, start: at(e), orig: edits[field][idx].box.slice(), span: box}};
+      try {{ shot.setPointerCapture(e.pointerId); }} catch (err) {{}}
+      return;
+    }}
+    if (!armed) return;
     e.preventDefault();
-    start = at(e);
-    ghost = boxSpan(armed, [...start, ...start], "ghost");
-    shot.appendChild(ghost);
+    const start = at(e);
+    drag = {{kind: "draw", field: armed, start, span: boxSpan(armed, [...start, ...start], "ghost")}};
+    drag.span.dataset.page = shot.dataset.page;
+    shot.appendChild(drag.span);
     try {{ shot.setPointerCapture(e.pointerId); }} catch (err) {{}}
   }});
-  shot.addEventListener("pointermove", e => {{ if (start) placeBox(ghost, span(start, at(e))); }});
+  shot.addEventListener("pointermove", e => {{ if (drag) placeBox(drag.span, shaped(drag, at(e))); }});
   shot.addEventListener("pointerup", e => {{
-    if (!start) return;
-    const b = span(start, at(e));
-    ghost.remove(); start = null; drew = true;
-    if (b[2] - b[0] > 0.005 && b[3] - b[1] > 0.003) setBox(f, armed, b.map(v => Math.round(v * 10000) / 10000), false);
-    arm(null);
+    if (!drag) return;
+    const d = drag, b = shaped(d, at(e)).map(v => Math.round(v * 10000) / 10000);
+    drag = null; drew = true;
+    const big = b[2] - b[0] > 0.005 && b[3] - b[1] > 0.003;
+    if (d.kind === "draw") {{
+      d.span.remove();
+      if (big) {{
+        const edits = getEdits(f), list = Array.isArray(edits[d.field]) ? edits[d.field] : [];
+        edits[d.field] = [...list, {{page: curPage(card), box: b}}];
+        setEdits(f, edits, false);
+      }}
+      arm(null);
+    }} else if (big) {{
+      const edits = getEdits(f);
+      edits[d.field][d.idx].box = b;
+      setEdits(f, edits, false);
+    }} else renderEdits(f);
   }});
   // the click that ends a drawing must not also enlarge the page
   shot.addEventListener("click", e => {{ if (drew) {{ drew = false; e.stopPropagation(); }} }}, true);
@@ -1348,7 +1514,7 @@ for (const f of forms) {{
       reviewer: GRADERS ? grader.name.value.trim() : "",
       reviewer_email: GRADERS ? grader.email.value.trim() : "",
       settled: SETTLE,
-      boxes: JSON.parse(f.dataset.boxes || "{{}}"),
+      boxes: getEdits(f),
     }};
     if (GRADERS && !body.reviewer) {{
       setStatus(f, "Not saved: put your name at the top of the page first", "err");

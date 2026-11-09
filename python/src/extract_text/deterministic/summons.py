@@ -910,9 +910,14 @@ def extract_plaintiff(lines, pg=1):
     return [], ""
 
 
-def try_defendant(lines, pages):
+def try_defendant(lines, pages, first=()):
     """Run the anchor ladder over the given pages; first hit wins but all
     candidates are kept for the audit trail.
+
+    `first` holds anchors tried before the ladder on every page: a form
+    template's address region (`templates.Match.defendant_anchor`), tagged
+    `template:<name>`. A template that reads nothing on a page simply
+    leaves the ladder to run as it always has.
 
     The page scan stops early only once a COMPLETE candidate (city or ZIP
     present) exists. An incomplete page-1 fragment used to end the scan and
@@ -922,7 +927,7 @@ def try_defendant(lines, pages):
     and still win when nothing complete ever appears."""
     candidates = []
     for pg in pages:
-        for fn in DEFENDANT_ANCHORS:
+        for fn in (*first, *DEFENDANT_ANCHORS):
             parsed, anchor = fn(lines, pg)
             if parsed:
                 candidates.append((f"{anchor}@p{pg}" if pg != 1 else anchor, parsed, pg))
@@ -994,6 +999,13 @@ def extract_attorney(lines, words):
     if not best or best_score < 3:
         return None
     page, zlines, joined = best
+    return attorney_fields(zlines, lines, page)
+
+
+def attorney_fields(zlines, lines, page):
+    """The attorney block's fields from the lines chosen as the block, by
+    `extract_attorney` or by a form template's attorney region."""
+    joined = " ".join(l.text for l in zlines)
     text = " | ".join(l.text for l in zlines)
     # firm line: shortest keyword line that isn't a street/phone/role line
     firm, fallback = "", ""
@@ -1038,12 +1050,14 @@ def extract_attorney(lines, words):
     }
 
 
-def extract_case_number(lines, expected=None):
+def extract_case_number(lines, expected=None, prefer_text=None):
     """WA-format case number from page 1; `expected` (e.g. from a folder or
     docket list) enables the mismatch check without ever overriding what the
-    document itself says."""
+    document itself says. `prefer_text`, a form template's case region, is
+    searched first; the whole page is the fallback."""
     p1_text = " ".join(l.text for l in lines if l.page == 1)
-    m = WA_CASE_NO_RE.search(p1_text)
+    m = WA_CASE_NO_RE.search(prefer_text) if prefer_text else None
+    m = m or WA_CASE_NO_RE.search(p1_text)
     doc_case = f"{m.group(1)}-2-{m.group(2)}-{m.group(3)}" if m else ""
     match = (doc_case == expected) if (doc_case and expected) else None
     return doc_case, match
@@ -1108,13 +1122,19 @@ def _place_evidence(doc, evidence, defendant):
         ev.box = box or locate_text(lines, ev.quote, ev.page, tight=True)
 
 
-def extract_summons_fields(doc, expected_case_number=None):
+def extract_summons_fields(doc, expected_case_number=None, templates=None):
     """Run the full positional pass over a loaded Document.
 
     Returns (fields, evidence, flags) where `fields` is a dict holding
     `case_number`, `defendants` (list[Party]), `defendant_address`
-    (Address or None), `attorney` (Attorney or None), plus the raw
-    candidate list for the audit trail.
+    (Address or None), `attorney` (Attorney or None), `template` (the name
+    of the form template the page matched, or None), plus the raw candidate
+    list for the audit trail.
+
+    `templates` is a folder of approved form templates or a list of them
+    (`extract_text.templates`). When page 1 matches one, each field is read
+    from the template's region first and tagged `template:<name>`; a region
+    that yields nothing leaves that field to the rules below.
     """
     from .patterns import BUSINESS_MARKERS  # shared with the text rules
 
@@ -1122,7 +1142,21 @@ def extract_summons_fields(doc, expected_case_number=None):
     evidence: dict[str, Evidence] = {}
     flags: list[str] = []
 
-    candidates = try_defendant(lines, doc.pages_read)
+    matched = None
+    if templates:
+        from ..templates import match_page
+
+        matched = match_page(lines, templates)
+        # a template's regions can sit on a page the default read skips (the
+        # address on page 3 of a four-page bundle): read those pages now
+        if matched and matched.pages_needed() - set(doc.pages_read):
+            from .. import documents
+
+            documents.load_pages(doc, matched.pages_needed())
+            lines, words = doc.lines, doc.words
+    first = (matched.defendant_anchor(),) if matched else ()
+
+    candidates = try_defendant(lines, doc.pages_read, first=first)
     # belt-and-suspenders: a "defendant" whose name line LEADS with a
     # plaintiff-side role label is the wrong-address failure — reject rather
     # than emit. Only the head of the names field is tested; role words deep
@@ -1144,7 +1178,7 @@ def extract_summons_fields(doc, expected_case_number=None):
     def_anchor = candidates[0][0] if candidates else ""
     def_page = candidates[0][2] if candidates else None
 
-    attorney_raw = extract_attorney(lines, words) or {}
+    attorney_raw = (matched.attorney(lines) if matched else None) or extract_attorney(lines, words) or {}
 
     # The classic wrong-address failure is the chosen "defendant" address
     # being the plaintiff attorney's. When that collision fires and another
@@ -1169,7 +1203,8 @@ def extract_summons_fields(doc, expected_case_number=None):
             if not _collides(p.get("street", ""), att_street):
                 defendant, def_anchor, def_page = dict(p), a, pg
                 break
-    doc_case, case_match = extract_case_number(lines, expected_case_number)
+    doc_case, case_match = extract_case_number(
+        lines, expected_case_number, prefer_text=matched.case_text(lines) if matched else None)
 
     # ---- flags, ported logic ----
     if not words:
@@ -1203,7 +1238,9 @@ def extract_summons_fields(doc, expected_case_number=None):
 
     # ---- assemble schema objects + evidence ----
     plaintiffs: list[Party] = []
-    plaintiff_names, plaintiff_anchor = extract_plaintiff(lines)
+    plaintiff_names, plaintiff_anchor = matched.plaintiff(lines) if matched else ([], "")
+    if not plaintiff_names:
+        plaintiff_names, plaintiff_anchor = extract_plaintiff(lines)
     for k, name in enumerate(plaintiff_names):
         plaintiffs.append(Party(
             name=name, role="plaintiff",
@@ -1260,7 +1297,8 @@ def extract_summons_fields(doc, expected_case_number=None):
         )
         evidence["attorney"] = Evidence(
             quote=attorney_raw.get("attorney_zone_text", ""), grounded=True,
-            anchor="attorney_block", page=attorney_raw.get("attorney_page"),
+            anchor=attorney_raw.get("attorney_anchor", "attorney_block"),
+            page=attorney_raw.get("attorney_page"),
         )
 
     if doc_case:
@@ -1280,5 +1318,6 @@ def extract_summons_fields(doc, expected_case_number=None):
             {"anchor": a, **{k: v for k, v in p.items()}} for a, p, _ in candidates
         ],
         "pro_se": pro_se,
+        "template": matched.template.name if matched else None,
     }
     return fields, evidence, flags

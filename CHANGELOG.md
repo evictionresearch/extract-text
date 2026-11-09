@@ -4,7 +4,8 @@ Every user-facing change to extract-text is recorded here, newest first. A chang
 
 ## Unreleased
 
-Nothing yet.
+- The review page turns pages: a document's other pages are rendered on first request when the page is served (`--pages N` renders more when building the graders' page), the engine's boxes appear on the page each value came from, and a reviewer can draw a box on any page, move it, reshape it at the corners, delete it, or add another for the same field. Boxes are saved with their page (`{"page": N, "box": [...]}`); answers saved before this read as page-1 boxes.
+- Form templates: the engine can learn where a printed form puts each field, on any page, from the boxes drawn (and confirmed) while grading, with no change to the code; the rules still do the reading inside each region. `learn_templates()`, `review_templates()`, `approve_template()`, and `list_templates()` in R, `extract-text templates` at a terminal, and a `templates` argument to `scan_documents()`, `extract-text scan`, and `rules_eval.py`. A template is one readable JSON file per form holding the form's printed words with positions and a region per field, no names or addresses; nothing learned is used until a person approves it. Matched pages show the form in a new `template` column and `template:<name>` in `defendant_anchor`. Guide: "Teaching the engine a form, without code" in `docs/changing_rules.md`.
 
 ## 0.3.0 (2026-11-09)
 

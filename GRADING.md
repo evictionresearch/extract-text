@@ -92,6 +92,18 @@ The **Note** box is for anything unusual: a name spelled two ways, a
 second address, an address on the next page, a block you are unsure of.
 Notes are read, and they shape the rules for the next round.
 
+Coloured boxes on the page image show where the engine read each value.
+When one is wrong or missing, you can draw the right one: pick the field
+under the image (Plaintiff, Defendants, Address, Attorney, Case number) and
+drag across the page where the value is printed. A box you drew can be
+dragged to move it, reshaped by its corners, or deleted with its cross, and
+you can draw a second one for the same field (the attorney block repeats
+on every page). If the page has more than one page image, the arrows under
+it turn the pages, and a box can go on any of them. These boxes are what
+the engine learns a form's layout from, so they are worth drawing when the
+engine looked in the wrong place; a wrong value in the right place needs
+no box.
+
 After a batch, press **Grade another batch** or close the tab. Each Save
 is kept in that browser on that computer, and reopening `index.html` there
 shows your work. Use the same browser every time, and do not clear its

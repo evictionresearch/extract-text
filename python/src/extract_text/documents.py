@@ -303,11 +303,41 @@ def load_document(path, pages=None) -> Document:
     return doc
 
 
-def load_fallback_pages(doc: Document) -> list[int]:
-    """Read interior pages 3..9 into the document (combined summons+complaint
-    bundles can bury the service block there). Returns the pages added."""
-    extra = [p for p in range(3, min(doc.n_pages, FALLBACK_MAX_PAGE) + 1)
-             if p not in doc.pages_read]
+def cached_document(src, cache_dir) -> Document:
+    """The loaded document, from `cache_dir` when the file is unchanged, so a
+    second pass over graded documents skips the OCR. The cache holds the
+    page text, so it lives beside the scan, in governed storage (the
+    `_rules_eval_cache` folder `scripts/rules_eval.py` and the template
+    learner share). Interior pages read by the engine's fallback are not
+    cached."""
+    import copy
+    import hashlib
+    import pickle
+
+    from .corrections import _sha256
+
+    src, cache = Path(src), Path(cache_dir)
+    key = hashlib.sha256(str(src.resolve()).encode()).hexdigest()[:24]
+    sha = _sha256(src)
+    hit = cache / f"{key}.pkl"
+    if hit.exists():
+        with open(hit, "rb") as f:
+            saved_sha, doc = pickle.load(f)
+        if saved_sha == sha:
+            return doc
+    doc = load_document(src)
+    cache.mkdir(parents=True, exist_ok=True)
+    with open(hit, "wb") as f:
+        pickle.dump((sha, copy.deepcopy(doc)), f)
+    return doc
+
+
+def load_pages(doc: Document, pages) -> list[int]:
+    """Read more pages into the document, those of `pages` that exist and
+    were not read yet. Returns the pages added. A form template whose
+    regions sit on a page the default read skips (the address on page 3 of
+    a four-page bundle) asks for them this way."""
+    extra = sorted({int(p) for p in pages if 1 <= int(p) <= doc.n_pages and int(p) not in doc.pages_read})
     if not extra:
         return []
     with tempfile.TemporaryDirectory(prefix="extract_text_") as td:
@@ -315,3 +345,9 @@ def load_fallback_pages(doc: Document) -> list[int]:
     doc.extend(more)
     doc.pages_read += extra
     return extra
+
+
+def load_fallback_pages(doc: Document) -> list[int]:
+    """Read interior pages 3..9 into the document (combined summons+complaint
+    bundles can bury the service block there). Returns the pages added."""
+    return load_pages(doc, range(3, min(doc.n_pages, FALLBACK_MAX_PAGE) + 1))

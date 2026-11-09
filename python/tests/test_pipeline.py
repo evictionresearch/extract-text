@@ -382,6 +382,45 @@ def test_score_reports_counts_and_masked_shapes_only(tmp_path):
     assert "EXAMPLE" not in repr(table)
 
 
+@needs_system_tools
+def test_the_server_renders_any_page_on_request(tmp_path):
+    import importlib.util
+    import urllib.error
+    import urllib.request
+
+    from extract_text.corrections import make_review_server
+
+    spec = importlib.util.spec_from_file_location(
+        "make_synthetic_fixtures", Path(__file__).resolve().parents[1] / "scripts" / "make_synthetic_fixtures.py")
+    fx = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(fx)
+    three = tmp_path / "three.pdf"
+    three.write_bytes(fx.build_text_pdf_pages([fx.ITEMS, fx.KC_EFILED_ITEMS, fx.KC_PRINTED_ITEMS]))
+    scan([three], out_dir=tmp_path, progress=False)
+    html = write_review(tmp_path, n=5).read_text()
+    assert 'data-pages="3" data-rendered="1"' in html and 'class="pager"' in html
+    # built with two pages rendered, the second is a file beside the first
+    write_review(tmp_path, n=5, pages=2)
+    assert (tmp_path / "review" / "doc_0001_p2.png").exists()
+    assert not (tmp_path / "review" / "doc_0001_p3.png").exists()
+
+    server = make_review_server(tmp_path, port=0)
+    base = f"http://127.0.0.1:{server.server_address[1]}"
+    import threading
+    t = threading.Thread(target=server.serve_forever, daemon=True)
+    t.start()
+    try:
+        with urllib.request.urlopen(f"{base}/page/1/3") as r:
+            assert r.headers["Content-Type"] == "image/png" and len(r.read()) > 1000
+        assert (tmp_path / "review" / "doc_0001_p3.png").exists()
+        for bad in ("1/4", "1/0", "2/1", "x/1"):
+            with pytest.raises(urllib.error.HTTPError):
+                urllib.request.urlopen(f"{base}/page/{bad}")
+    finally:
+        server.shutdown()
+        server.server_close()
+
+
 def test_serve_review_quiet_reports_its_address_and_closes(tmp_path, capsys):
     from extract_text.corrections import serve_review
 
@@ -958,12 +997,16 @@ def test_a_correction_keeps_the_boxes_a_reviewer_drew(tmp_path):
     truth = {"plaintiff": "EXAMPLE GREENS LLC", "defendants": ["PAT EXAMPLE"],
              "street": "1234 SAMPLE AVE NE", "unit": "", "city": "Sampleton",
              "state": "WA", "zip": "98100"}
-    boxes = {"address": [0.1, 0.5, 0.4, 0.56123456], "case": None,
-             "attorney": [0.5, 0.5, 0.4, 0.6],          # x0 > x1: dropped
+    boxes = {"address": [0.1, 0.5, 0.4, 0.56123456],   # a bare box, as saved before 2026-11-10
+             "case": None,
+             "attorney": [{"page": 3, "box": [0.5, 0.7, 0.9, 0.8]},     # on a later page
+                          {"page": 1, "box": [0.5, 0.5, 0.4, 0.6]},     # x0 > x1: dropped
+                          {"page": 0, "box": [0.5, 0.7, 0.9, 0.8]}],    # no page 0: dropped
              "plaintiff": ["a", 1, 2, 3],                # not numbers: dropped
              "elsewhere": [0.1, 0.1, 0.2, 0.2]}          # not a field: dropped
     c = build_correction(1, {"truth": truth, "boxes": boxes}, rows, details, tmp_path)
-    assert c["boxes"] == {"address": [0.1, 0.5, 0.4, 0.5612], "case": None}
+    assert c["boxes"] == {"address": [{"page": 1, "box": [0.1, 0.5, 0.4, 0.5612]}], "case": None,
+                          "attorney": [{"page": 3, "box": [0.5, 0.7, 0.9, 0.8]}]}
     assert "boxes" not in build_correction(1, {"truth": truth}, rows, details, tmp_path)
     html = (tmp_path / "review" / "index.html").read_text()
     assert 'class="fixbox" hidden' in html and 'data-field="address"' in html

@@ -13,6 +13,7 @@ scan_documents(
   sample = 0,
   seed = 42,
   exclude = NULL,
+  templates = NULL,
   review = FALSE,
   progress = interactive()
 )
@@ -43,6 +44,12 @@ documents every time.}
 output folders, or tibbles returned by \code{scan_documents()}. Matched by
 path and by file content, so a copy of a document under another name
 is left out too.}
+
+\item{templates}{A folder of form templates (see \code{\link[=learn_templates]{learn_templates()}}).
+The approved ones are read before the engine's rules on pages that
+match one, and the \code{template} column says which each document matched.
+A folder with no approved template is an error, so a run that used none
+is never mistaken for one that did.}
 
 \item{review}{Also build \code{review/index.html} in \code{out_dir}: page images
 beside extracted fields, flagged documents first, for human checking.}

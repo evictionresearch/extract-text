@@ -10,6 +10,10 @@ Five subcommands cover the whole workflow:
     extract-text score --out RESULTS        score the engines against the corrections
     extract-text agree --out RESULTS FILE   how often graders agree, and merging their answers
     extract-text import --out RESULTS FILE  answers downloaded from the graders' page, as corrections
+    extract-text templates learn --out RESULTS   form templates from the graded documents' boxes
+    extract-text templates review --templates DIR --out RESULTS   a page to check them on
+    extract-text templates approve NAME --templates DIR           let the engine use one
+    extract-text scan DIR --out RESULTS --templates DIR           read with the approved templates
     extract-text cases DIR --out RESULTS    roll case folders up to their outcomes
 
 Run any of them with -h for the options. The library behind this is
@@ -36,8 +40,9 @@ def cmd_doctor(args):
 def cmd_extract(args):
     from . import extract
 
+    kwargs = {"templates": args.templates} if args.templates else {}
     result = extract(args.file, engine=args.engine, model=args.model,
-                     prompt_format=args.prompt)
+                     prompt_format=args.prompt, **kwargs)
     if args.engine == "both":
         payload = {
             "deterministic": result.deterministic.model_dump(mode="json"),
@@ -67,11 +72,18 @@ def cmd_scan(args):
         recursive=not args.no_recursive,
         parquet=(True if args.parquet else None),
         exclude=args.exclude,
+        templates=args.templates,
     )
     flagged = sum(1 for r in rows if r.get("flags"))
     found = sum(1 for r in rows if r.get("defendant_street"))
     print(f"\n{len(rows)} documents scanned, {found} with a defendant street "
           f"address, {flagged} flagged for review.", file=sys.stderr)
+    if args.templates:
+        from collections import Counter
+
+        by_form = Counter(r.get("template") or "(no template)" for r in rows)
+        print("Form templates: " + ", ".join(f"{name} {n}" for name, n in by_form.most_common()),
+              file=sys.stderr)
     print(f"Results in {args.out}/extracted.csv (and extracted.jsonl).",
           file=sys.stderr)
     if args.review:
@@ -103,21 +115,23 @@ def _row_list(value):
 def cmd_review(args):
     from .pipeline import write_review
 
+    pages = args.pages
     if args.rows and args.graders:
         page = write_review(args.out, seed=args.seed, graders=True, attorneys=args.attorneys,
-                            order=args.order, overlap=args.overlap, rows=args.rows)
+                            order=args.order, overlap=args.overlap, rows=args.rows, pages=pages)
     elif args.rows:
         # the settling page adds the attorney box wherever a grader answered
         # it; asking on every card saved an unread box as "no attorney"
-        page = write_review(args.out, seed=args.seed, attorneys=args.attorneys, rows=args.rows)
+        page = write_review(args.out, seed=args.seed, attorneys=args.attorneys, rows=args.rows,
+                            pages=pages)
     elif args.graders:
         page = write_review(args.out, seed=args.seed, graders=True, attorneys=args.attorneys,
-                            order=args.order, overlap=args.overlap)
+                            order=args.order, overlap=args.overlap, pages=pages)
     elif args.random:
         page = write_review(args.out, n=args.random, seed=args.seed, flagged_first=False,
-                            attorneys=args.attorneys)
+                            attorneys=args.attorneys, pages=pages)
     else:
-        page = write_review(args.out, n=args.n, seed=args.seed, attorneys=args.attorneys)
+        page = write_review(args.out, n=args.n, seed=args.seed, attorneys=args.attorneys, pages=pages)
     if args.serve:
         from .corrections import serve_review
 
@@ -207,6 +221,44 @@ def cmd_check_addresses(args):
     return 0
 
 
+def cmd_templates(args):
+    from .templates import (
+        DEFAULT_DIR,
+        approve_template,
+        learn_templates,
+        load_templates,
+        write_templates_review,
+    )
+
+    if args.what == "learn":
+        written, text = learn_templates(args.out, args.templates, min_pages=args.min_pages,
+                                        rows=args.rows, name=args.name)
+        print(text)
+        if written:
+            tdir = args.templates or str(Path(args.out) / DEFAULT_DIR)
+            page = write_templates_review(tdir, args.out)
+            print(f"Review page: {page}", file=sys.stderr)
+        return 0
+    if args.what == "review":
+        page = write_templates_review(args.templates, args.out)
+        print(f"Review page: {page}", file=sys.stderr)
+        return 0
+    if args.what == "approve":
+        path = approve_template(args.name, args.templates, approved=not args.withdraw)
+        print(f"{'Withdrawn' if args.withdraw else 'Approved'}: {path}", file=sys.stderr)
+        return 0
+    if args.what == "list":
+        found = load_templates(args.templates, approved_only=False)
+        if not found:
+            print(f"No templates in {args.templates}")
+        for t in found:
+            regions = ", ".join(k for k in t.regions)
+            print(f"{t.name:<20}{'approved' if t.approved else 'not approved':<14}"
+                  f"{t.pages:>3} pages  {len(t.fingerprint):>4} words  regions: {regions or 'none'}")
+        return 0
+    return 2
+
+
 def cmd_cases(args):
     from .casefile import report, scan_cases
 
@@ -245,6 +297,8 @@ def main(argv=None):
     a.add_argument("--model", default=None, help="AI model tag (default qwen3.5:9b)")
     a.add_argument("--prompt", choices=("lists", "v1"), default="lists",
                    help="AI engine prompt: lists (default) or v1, the original")
+    a.add_argument("--templates", default=None, metavar="DIR",
+                   help="a folder of approved form templates, read first on pages that match")
     a.set_defaults(fn=cmd_extract)
 
     a = sub.add_parser("scan", help="extract a folder of documents into a table")
@@ -269,6 +323,9 @@ def main(argv=None):
     a.add_argument("--review", action="store_true",
                    help="also build the review page")
     a.add_argument("--review-n", type=int, default=30)
+    a.add_argument("--templates", default=None, metavar="DIR",
+                   help="a folder of approved form templates (extract-text templates), "
+                        "read first on pages that match one")
     a.set_defaults(fn=cmd_scan)
 
     a = sub.add_parser("review", help="build the human review page from a scan")
@@ -295,6 +352,11 @@ def main(argv=None):
     a.add_argument("--attorneys", type=_count_or_all, default=0, metavar="N",
                    help="also ask for the plaintiff's attorney on N documents drawn at "
                         "random (the same documents for every grader of a folder), or 'all'")
+    a.add_argument("--pages", type=int, default=1, metavar="N",
+                   help="render the first N pages of each document when building the page "
+                        "(default 1). Served, every other page is rendered when a reviewer "
+                        "turns to it; opened as a file (the graders' page) only rendered "
+                        "pages can be shown")
     a.add_argument("--serve", action="store_true",
                    help="open the page with correction saving on (this computer only)")
     a.add_argument("--port", type=int, default=8765)
@@ -344,6 +406,31 @@ def main(argv=None):
     a.add_argument("--min-similarity", type=float, default=0.8,
                    help="how alike a listed street must be to be suggested (0 to 1)")
     a.set_defaults(fn=cmd_check_addresses)
+
+    a = sub.add_parser("templates", help="form templates: where a form prints each field, "
+                                         "learned from graded documents' boxes, no code")
+    what = a.add_subparsers(dest="what", required=True)
+    b = what.add_parser("learn", help="learn templates from a scan's graded documents")
+    b.add_argument("--out", required=True, help="the scan folder with corrections.jsonl")
+    b.add_argument("--templates", default=None, metavar="DIR",
+                   help="where to write them (default: templates/ inside the scan folder)")
+    b.add_argument("--min-pages", type=int, default=5, metavar="N",
+                   help="pages a form needs before a template is written (default 5)")
+    b.add_argument("--rows", type=_row_list, default=None, metavar="N,N,...",
+                   help="learn from these graded documents only")
+    b.add_argument("--name", default=None,
+                   help="with --rows: treat them as one form and give its template this name")
+    b = what.add_parser("review", help="build the page that shows each template over a page")
+    b.add_argument("--templates", required=True, metavar="DIR")
+    b.add_argument("--out", default=None, help="the scan folder they were learned from, "
+                                                "to show a learned page under the regions")
+    b = what.add_parser("approve", help="let the engine use a template")
+    b.add_argument("name", help="the template's name (its file name without .json)")
+    b.add_argument("--templates", required=True, metavar="DIR")
+    b.add_argument("--withdraw", action="store_true", help="take the approval back")
+    b = what.add_parser("list", help="the templates in a folder and their status")
+    b.add_argument("--templates", required=True, metavar="DIR")
+    a.set_defaults(fn=cmd_templates)
 
     a = sub.add_parser("cases", help="roll case folders up to their outcomes")
     a.add_argument("inputs", nargs="+", help="directories of case folders")

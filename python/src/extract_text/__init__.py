@@ -76,14 +76,16 @@ def _is_path(source) -> bool:
     return "\n" not in source and len(source) < 4096 and os.path.exists(source)
 
 
-def extract_deterministic(source, expected_case_number=None) -> Extraction:
+def extract_deterministic(source, expected_case_number=None, templates=None) -> Extraction:
     """Extract a court record using rules alone. No network, no model.
 
     `source` is document text or a path to a PDF, TIFF, PNG, or JPEG. The
     original file is always the better input: page positions switch on the
-    address and attorney geometry and the OCR-quality flags.
+    address and attorney geometry and the OCR-quality flags. `templates` is
+    a folder of approved form templates (see `extract_text.templates`),
+    read first on pages that match one.
     """
-    return _extract_deterministic(source, expected_case_number)
+    return _extract_deterministic(source, expected_case_number, templates)
 
 
 def extract_ai(source, backend: str = "local", **kwargs) -> Extraction:

@@ -6,6 +6,7 @@ change fixed and what it broke.
     python -I scripts/rules_eval.py --out SCAN_DIR --save-rows RUN.tsv
     python -I scripts/rules_eval.py --out SCAN_DIR --against RUN.tsv
     python -I scripts/rules_eval.py --out SCAN_DIR --rows 1-60,75 --shapes
+    python -I scripts/rules_eval.py --out SCAN_DIR --templates TEMPLATE_DIR
 
 The baseline is the engine's reading saved in the scan (the engine as it
 was the day the scan ran), or, with `--against`, the per-document results
@@ -25,15 +26,16 @@ each wrong value in masked form (letters A/a, digits 9), the way
 `--rows` limits the run to some rows of one scan, for keeping a held-out
 set out of rule work: develop with `--shapes` on the development rows only
 and look at the held-out rows' counts, never their shapes.
+
+`--templates DIR` reads with the approved form templates in DIR first, so
+what templates fix and break is measured the same way as a rule change; the
+report also counts how many documents matched each template.
 """
 
 from __future__ import annotations
 
 import argparse
-import copy
 import csv
-import hashlib
-import pickle
 import sys
 import time
 from collections import Counter, defaultdict
@@ -41,9 +43,10 @@ from pathlib import Path
 
 from extract_text.corrections import _sha256, load_corrections
 from extract_text.deterministic import extract_from_document
-from extract_text.documents import load_document
+from extract_text.documents import cached_document
 from extract_text.pipeline import flatten_extraction, machine_reading, read_scan
 from extract_text.score import FIELDS, compare, mask
+from extract_text.templates import load_templates
 
 CACHE_NAME = "_rules_eval_cache"
 
@@ -55,23 +58,6 @@ def parse_rows(spec: str) -> set[int]:
         lo, _, hi = part.partition("-")
         rows.update(range(int(lo), int(hi or lo) + 1))
     return rows
-
-
-def cached_document(src: Path, cache: Path):
-    """The loaded document, from the cache when the file is unchanged."""
-    key = hashlib.sha256(str(src.resolve()).encode()).hexdigest()[:24]
-    sha = _sha256(src)
-    hit = cache / f"{key}.pkl"
-    if hit.exists():
-        with open(hit, "rb") as f:
-            saved_sha, doc = pickle.load(f)
-        if saved_sha == sha:
-            return doc
-    doc = load_document(src)
-    cache.mkdir(parents=True, exist_ok=True)
-    with open(hit, "wb") as f:
-        pickle.dump((sha, copy.deepcopy(doc)), f)
-    return doc
 
 
 def scored_fields(truth: dict, reading: dict) -> list[str]:
@@ -86,9 +72,10 @@ def scored_fields(truth: dict, reading: dict) -> list[str]:
     return fields
 
 
-def evaluate(out_dir: Path, rows_wanted: set[int] | None):
+def evaluate(out_dir: Path, rows_wanted: set[int] | None, templates=None, matched=None):
     """Per document and field: the kind of wrong at the baseline (the scan)
-    and now (None when right), with the masked values of what is wrong now."""
+    and now (None when right), with the masked values of what is wrong now.
+    `matched`, a Counter, collects which template each document matched."""
     latest = load_corrections(out_dir)
     rows, details = read_scan(out_dir)
     cache = out_dir / CACHE_NAME
@@ -108,7 +95,10 @@ def evaluate(out_dir: Path, rows_wanted: set[int] | None):
             continue
         try:
             doc = cached_document(src, cache)
-            now = machine_reading(flatten_extraction(extract_from_document(doc)))
+            x = extract_from_document(doc, templates=templates)
+            now = machine_reading(flatten_extraction(x))
+            if matched is not None:
+                matched[x.template or "(no template)"] += 1
         except Exception as exc:  # one unreadable file must not stop the run
             skipped[f"error: {type(exc).__name__}"] += 1
             continue
@@ -198,15 +188,21 @@ def main(argv=None) -> int:
     p.add_argument("--shapes", action="store_true",
                    help="also print what is wrong now in masked form")
     p.add_argument("--save", type=Path, default=None, help="also write the report here")
+    p.add_argument("--templates", type=Path, default=None, metavar="DIR",
+                   help="read with the approved form templates in DIR first")
     args = p.parse_args(argv)
     if args.rows and len(args.out) > 1:
         p.error("--rows needs a single --out")
 
     started = time.time()
     wanted = parse_rows(args.rows) if args.rows else None
+    templates = load_templates(args.templates) if args.templates else None
+    if args.templates and not templates:
+        p.error(f"no approved templates in {args.templates}")
+    matched = Counter() if templates else None
     results, skipped = [], Counter()
     for out in args.out:
-        r, s = evaluate(out, wanted)
+        r, s = evaluate(out, wanted, templates, matched)
         results += r
         skipped += s
 
@@ -222,6 +218,9 @@ def main(argv=None) -> int:
         results, baseline = kept, f"the run saved in {args.against.name}"
 
     text = report(results, skipped, baseline, args.shapes)
+    if matched is not None:
+        text += "\n\nform templates (documents matched)\n" + "\n".join(
+            f"  {name:<24}{n:>5}" for name, n in matched.most_common())
     print(text)
     # wall time, for planning re-runs
     print(f"{time.time() - started:.0f} s", file=sys.stderr)

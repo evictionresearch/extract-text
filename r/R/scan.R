@@ -3,7 +3,7 @@
 # Author: Tim Thomas
 # Created: 2026-08-18
 # Reviewer:
-# Updated: 2026-11-09
+# Updated: 2026-11-09 (templates)
 # =============================================================================
 
 #' Extract a folder of court documents into a tibble
@@ -42,6 +42,11 @@
 #'   output folders, or tibbles returned by `scan_documents()`. Matched by
 #'   path and by file content, so a copy of a document under another name
 #'   is left out too.
+#' @param templates A folder of form templates (see [learn_templates()]).
+#'   The approved ones are read before the engine's rules on pages that
+#'   match one, and the `template` column says which each document matched.
+#'   A folder with no approved template is an error, so a run that used none
+#'   is never mistaken for one that did.
 #' @param review Also build `review/index.html` in `out_dir`: page images
 #'   beside extracted fields, flagged documents first, for human checking.
 #' @param progress Show a progress bar while documents are read: documents
@@ -70,7 +75,8 @@
 scan_documents <- function(paths, engine = c("deterministic", "ai", "both"),
                            out_dir = NULL, model = NULL, limit = 0,
                            sample = 0, seed = 42, exclude = NULL,
-                           review = FALSE, progress = interactive()) {
+                           templates = NULL, review = FALSE,
+                           progress = interactive()) {
   engine <- match.arg(engine)
   if (is.null(out_dir)) {
     out_dir <- file.path(tempdir(), paste0("extracttext_", format(Sys.time(), "%H%M%S")))
@@ -87,6 +93,7 @@ scan_documents <- function(paths, engine = c("deterministic", "ai", "both"),
     sample = as.integer(sample),
     seed = as.integer(seed),
     exclude = exclude,
+    templates = if (!is.null(templates)) path.expand(templates),
     progress = FALSE,
     on_progress = if (isTRUE(progress)) progress_reporter(environment())
   )
@@ -108,6 +115,10 @@ scan_documents <- function(paths, engine = c("deterministic", "ai", "both"),
   # the order of extracted.csv
   out <- tibble::add_column(out, doc = seq_len(nrow(out)), .before = 1)
   attr(out, "out_dir") <- out_dir
+  if (!is.null(templates) && "template" %in% names(out) && isTRUE(progress)) {
+    matched <- sum(nzchar(out$template))
+    cli::cli_inform(c("i" = "{matched} of {nrow(out)} document{?s} matched a form template."))
+  }
   if (isTRUE(progress) && !file.exists(file.path(out_dir, "corrections.jsonl"))) {
     cli::cli_inform(c(
       "i" = "How accurate this is on your documents is unknown until a person checks a random batch.",

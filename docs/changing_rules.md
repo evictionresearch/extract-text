@@ -2,6 +2,8 @@
 
 The deterministic engine reads documents with written rules, which are Python code inside the package. Grading never changes them. A person does, and this guide shows how to do that on your own copy of the package, in nine steps: get the code, run the engine from it, find what to fix, find the rule, change it, measure the change against your graded documents, use it, keep it through package updates, and share it if you want to.
 
+There is also a way to improve the engine's reading of your own documents with no code at all: a form template, learned from the boxes drawn while grading. The last chapter, "Teaching the engine a form, without code", covers it. Try that first when the engine misses the same field on documents that share a printed form. It changes where the engine looks, not how it reads: the rules in this guide still do the reading inside each box. When the rules themselves need to change, work with the Eviction Research Network (section 9) or follow the steps below on your own copy.
+
 Most fixes are a line or two in a regular expression (a text pattern). You need to be comfortable reading and editing short patterns; no other Python is needed for most changes. The commands below are R, from the same session you use for the getting-started script.
 
 ## Before you start
@@ -101,7 +103,7 @@ Keep a change that fixes documents there and breaks none. A change that breaks a
 
 ## 7. Use it
 
-Re-scan the same documents into the same folder (getting-started step 11). Your graded answers are kept, `score_documents()` shows the new accuracy, and `case_table()` builds the table from the new readings.
+Re-scan the same documents into the same folder (getting-started step 12). Your graded answers are kept, `score_documents()` shows the new accuracy, and `case_table()` builds the table from the new readings.
 
 ## 8. Keep your changes through package updates
 
@@ -126,6 +128,77 @@ Where the update changed the same lines you did, git stops and asks you to choos
 A fix that would help others is welcome as a pull request on GitHub; `CONTRIBUTING.md` covers how. Its one rule without exceptions applies: every example and test uses made-up values.
 
 Do not attach documents, extracted values, corrections, or score reports from your records to an issue or pull request, even masked ones, because GitHub is public. If you want the Eviction Research Network to look at results from your records, ask first: that needs a data agreement between your organization and UC Berkeley before anything is sent.
+
+## Teaching the engine a form, without code
+
+The rules above are general: they look for a "TO:" label, a street line over a city line, an attorney block at the bottom right. A court's own form can defeat them, printing the tenant's address under a label the rules do not know, in a column where they do not look, or on a page they do not read. A form template fixes that for one form at a time, with no code: it records where that form prints each field, and the engine looks there first on every document it recognizes as that form.
+
+Hold on to what a template does and does not do. It tells the engine where to look. The rules still do the reading inside each box: they split the names from the street, find the city and ZIP, and drop the words a form prints around them. So a template fixes the engine looking in the wrong place, which is most of what goes wrong on an unfamiliar form, and it does not fix a rule that misreads what it finds (a street type it does not know, a unit written a new way) or a scan OCR got wrong. For those, the rules need to change, and there are two ways: work with the Eviction Research Network, which measures and publishes rule changes for every user (section 9 says how to ask, and that nothing from your records is sent), or change the rules on your own copy by the steps above.
+
+A template is learned from grading. On the review page, every value the engine read has a box on the page image. Where a box is wrong or missing, and the page can save (served with `correct = TRUE`, or the graders' page), pick the field under the page and drag across the image where the value really is, on whichever page it is printed; the box is saved with your answer. A box can be moved, reshaped at its corners, deleted, or joined by another for the same field, which matters for the attorney block, printed in the footer of every page, and for an address on page 3 of a bundle. Where you left a field as the engine read it, the engine's own box counts as confirmed by you. Both kinds of box teach the template.
+
+### What a template is
+
+One readable JSON file per form, in a `templates` folder beside the scan (or a folder you name), with two parts:
+
+- a **fingerprint**: the words the form itself prints, with their positions on the page. A word qualifies when it is on nearly every graded page of the form at the same place. Names, addresses, and case numbers differ from page to page, so they never qualify, and anything inside a field's region is left out as well. The fingerprint is how a new page is recognized: enough of its words found where they belong, allowing for the shift a scanner adds to a whole page.
+- **regions** per field (plaintiff, defendants, address, attorney, case number), each on a page: the union of the boxes for that field on that page across the graded documents, as fractions of the page width and height from the top left, so scan resolution does not matter, with the count of boxes it came from. A field can have a region on more than one page (the attorney block on pages 1 and 2; an address on page 3), and the engine reads those pages for a matching document even when its ordinary pass would skip them. A box far from the others is left out as a slip of the mouse, and the file says so.
+
+The file holds those words and coordinates and the row numbers it was learned from. It holds no value from any document, which is what lets a county share a template back to the Eviction Research Network; look at the file before sharing it all the same, and ask first, as section 9 says.
+
+### Learn, look, approve, use
+
+In R, from the scan you graded (here `res_all`, the full run):
+
+```r
+learn_templates(res_all)
+```
+
+This reads every graded document that has a box on page 1 again (the text is cached beside the scan), groups the pages by printed form, and writes one template per form that has at least five graded pages, as `form-1.json`, `form-2.json`, and so on in `results/all/templates/`. The report says how many graded documents had a labeled position, how they grouped, and for each region how many drawn and confirmed boxes it came from. A form on fewer than five pages is named in the report and gets no template; grade more of its pages, or lower `min_pages` if you accept a thinner template. Ten to twenty pages per form is the figure from the method this follows (Cheng Ren's dissertation, where a layout model is trained per form); the review page says when a template has fewer than ten.
+
+```r
+review_templates(res_all)
+```
+
+This opens a page showing each template's regions drawn over one of the pages it was learned from, with the printed words that identify the form as small dots. Check two things: that each region sits over the part of the form where that field is printed, and that no dot sits on a name or an address. The page renders a document's first page, so its folder stays with the scan.
+
+```r
+approve_template("form-1", res_all)
+```
+
+Nothing learned is used until a person approves it. Approval writes your login name and the date into the file; `approve_template("form-1", res_all, approved = FALSE)` takes it back. Then re-scan with the folder:
+
+```r
+res_all <- scan_documents(docs_dir, out_dir = all_dir,
+                          templates = file.path(all_dir, "templates"))
+table(res_all$template)
+score_documents(res_all)
+```
+
+The `template` column names the form each document matched (blank for none), and `defendant_anchor` reads `template:form-1` wherever the address came from the template's region (`template:form-1@p3` when the region is on page 3). On a document that matches, each field is read from its regions first, in page order; a region that is empty on that document, or holds nothing that parses as that field, leaves the field to the ordinary rules, so a template can only add readings, never remove the rules' own. A document that matches no template is read exactly as before. A folder with no approved template is an error rather than a silent no-op, so a run that used none is never mistaken for one that did.
+
+### Measuring what a template did
+
+`rules_eval.py` (step 6) takes `--templates`:
+
+```r
+system2(py, c("-I", eval_script, "--out", all_dir, "--templates", file.path(all_dir, "templates")))
+```
+
+The report counts, field by field, what the templates fixed and broke against your graded answers, and how many documents matched each template. The same rule as for a rule change applies: measure on documents the template was not learned from (the second graded sample, or `--rows` for the rows you held out), and keep a template that fixes documents there and breaks none.
+
+### When it does not help
+
+- **The form is not recognized.** `table(res_all$template)` shows few or no matches for a form you know is common. Scans of the same form from different years or firms can shift or re-set the printed text; grade and box more pages of it and learn again, or lower `match_threshold` in the file (the share of fingerprint words a page must show, 0.6 by default) a little at a time, measuring each change.
+- **A region is too narrow.** A region is the union of the boxes it was learned from, so a value longer than any of them (a fourth defendant where every graded page had two) can fall outside it. Grade and box a page that has the longer value, and learn again.
+- **The value is on a page nobody boxed.** The engine reads the pages that have regions. If the address of some documents sits on page 3 and no graded document was boxed there, turn to page 3 on the review page, draw the box, and learn again; the template then carries a page-3 region beside the page-1 one.
+- **The right place is read wrong.** The region is where the value is, and the reading is still wrong or blank: a rule, not a position, is the problem. Say so to the Eviction Research Network with the masked shapes from `score_documents(res, save = ...)`, or change the rule on your own copy (steps 1 to 8).
+- **Two forms were grouped as one, or one as two.** The grouping uses the words two pages share at the same positions. `learn_templates(res_all, rows = c(...), name = "county-summons-2017")` learns one template from exactly the documents you name.
+- **The same words fall in a region on every page** (a form that prints a fixed line inside the address block). They are left out of the fingerprint by design, since the region is where values live, and the rules that parse the region ignore printed labels at its head.
+
+### Where templates live
+
+In the user's results folder, never in a code repository. A template holds no personal values, but the `review` folder beside it holds page images, which do. The deterministic engine stays deterministic with templates: the same page with the same templates always gives the same answer, and no model is involved.
 
 ## Running the package's own tests (optional)
 

@@ -89,12 +89,17 @@ def _text_service_block(text: str):
     return None
 
 
-def extract_from_document(doc, expected_case_number: str | None = None) -> Extraction:
-    """Full deterministic extraction from an already loaded Document."""
+def extract_from_document(doc, expected_case_number: str | None = None,
+                          templates=None) -> Extraction:
+    """Full deterministic extraction from an already loaded Document.
+
+    `templates` is a folder of approved form templates, or a list of them,
+    read before the engine's own rules on pages that match one (see
+    `extract_text.templates`)."""
     from .. import documents
     from ..schema import DocumentInfo
 
-    fields, evidence, flags = extract_summons_fields(doc, expected_case_number)
+    fields, evidence, flags = extract_summons_fields(doc, expected_case_number, templates)
     # fallback: combined summons+complaint bundles can bury the service
     # block or premises language on interior pages. The interior pass also
     # runs when the primary pages produced only a SUSPECT answer — one that
@@ -113,7 +118,7 @@ def extract_from_document(doc, expected_case_number: str | None = None) -> Extra
     if doc.n_pages > 2 and _suspect(flags, first_addr):
         added = documents.load_fallback_pages(doc)
         if added:
-            f2, e2, fl2 = extract_summons_fields(doc, expected_case_number)
+            f2, e2, fl2 = extract_summons_fields(doc, expected_case_number, templates)
             if f2["defendant_address"] is not None and (
                     first_addr is None or not _suspect(fl2, f2["defendant_address"])):
                 fields, evidence, flags = f2, e2, fl2
@@ -128,6 +133,7 @@ def extract_from_document(doc, expected_case_number: str | None = None) -> Extra
         backend="rules",
         evidence=merged_evidence,
         flags=flags,
+        template=fields.get("template"),
         document=DocumentInfo(
             file=os.path.basename(str(doc.path)),
             n_pages=doc.n_pages,
@@ -137,12 +143,13 @@ def extract_from_document(doc, expected_case_number: str | None = None) -> Extra
     )
 
 
-def extract_from_file(path, expected_case_number: str | None = None) -> Extraction:
+def extract_from_file(path, expected_case_number: str | None = None,
+                      templates=None) -> Extraction:
     """Full deterministic extraction from a PDF, TIFF, or image file."""
     from .. import documents
 
     doc = documents.load_document(path)
-    return extract_from_document(doc, expected_case_number)
+    return extract_from_document(doc, expected_case_number, templates)
 
 
 def _merge(base: Extraction, fields: dict) -> CourtRecord:
@@ -174,18 +181,21 @@ def _merge(base: Extraction, fields: dict) -> CourtRecord:
     return record
 
 
-def extract(source: str | os.PathLike, expected_case_number: str | None = None) -> Extraction:
+def extract(source: str | os.PathLike, expected_case_number: str | None = None,
+            templates=None) -> Extraction:
     """Extract a court record using rules alone. No network, no model.
 
     `source` is either document text (a string containing newlines or that
     does not name an existing file) or a path to a PDF, TIFF, PNG, or JPEG.
     Working from the file is always better: page positions enable the
-    address and attorney rules and the OCR-quality flags.
+    address and attorney rules and the OCR-quality flags. `templates`, a
+    folder of approved form templates, applies to files only, since a
+    template is positions on a page.
     """
     if not isinstance(source, str) or (
         "\n" not in source and len(source) < 4096 and os.path.exists(source)
     ):
-        return extract_from_file(source, expected_case_number)
+        return extract_from_file(source, expected_case_number, templates)
 
     base = extract_from_text(source)
     parsed = _text_service_block(source)

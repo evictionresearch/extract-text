@@ -462,6 +462,7 @@ drift apart.
 | `text_source` | How the text was obtained. `pdf_text_layer` means digital text, no OCR involved. `pdf_ocr`, `tiff_ocr`, and `image_ocr` mean OCR read the page images |
 | `ocr_mean_conf` | OCR's own confidence in what it read, 0 to 100, only when OCR ran. Low values usually mean a poor scan |
 | `method`, `backend` | Which engine produced the row's main columns, and exactly which rules or model |
+| `template` | The form template the document was recognized as, when the scan was given a templates folder (`docs/changing_rules.md`, "Teaching the engine a form, without code"); empty otherwise. Fields read from the template's regions show `template:<name>` in `defendant_anchor` |
 | `flags` | Review flags, semicolon separated. Empty means every check passed |
 
 One thing to watch in the address columns. The `unit` column repeats
@@ -570,7 +571,11 @@ that you started from the AI's reading, because a field accepted unchanged
 is easier to agree with than to find, and that tilts a score of the AI
 engine in its own favor.
 
-Colored boxes on the page image show where the deterministic engine read each value: plaintiff, defendants, address, attorney, and case number. A box in the wrong place (around the attorney's office instead of the tenant's address, say) shows the error at a glance; a value with no box could not be placed on the page, and a note says when the address came from a later page. A checkbox under the page hides the boxes. They appear on scans made with this version or later. When a box is wrong or missing, and the page can save answers (served, or the graders' page), pick the field under the page and drag across the image to draw it where the value really is; "Not on this page" removes it. The box is saved with the answer, dashed, as fractions of page 1 from the top left, and comes back when the page is opened again. Boxes drawn this way are the labeled positions that form templates will be learned from.
+Colored boxes on the page image show where the deterministic engine read each value: plaintiff, defendants, address, attorney, and case number. A box in the wrong place (around the attorney's office instead of the tenant's address, say) shows the error at a glance; a value with no box could not be placed on the page. A checkbox under the page hides the boxes. They appear on scans made with this version or later.
+
+A document with several pages has arrows under the image that turn them, and a value the engine read from a later page is boxed on that page, with a note and a button that jumps to it. Served (`correct = TRUE` in R, `--serve` at a terminal), any page is rendered the first time it is turned to; a page opened as a plain file can show only the pages rendered when it was built, one by default (`--pages N`, or `pages = N` in R, for more).
+
+When a box is wrong or missing, and the page can save answers (served, or the graders' page), pick the field under the page and drag across the image to draw a box where the value really is, on whichever page it is printed. A drawn box can be dragged to move it, reshaped by its corners, deleted with its cross, or joined by another box for the same field: the attorney's block repeats in every page's footer, and a long caption can list the defendants in two places. "Not in this document" records that the field is not there. The boxes are saved with the answer, dashed, each as fractions of its page from the top left, and come back when the page is opened again. Boxes drawn this way are what form templates are learned from: where a form the rules misread prints each field, so the engine can look there first on every document of that form, with no change to the code. `learn_templates()` in R, or `extract-text templates learn`, builds them from a graded scan; the chapter "Teaching the engine a form, without code" in `docs/changing_rules.md` is the guide.
 
 Click a page image to enlarge it, and click again to shrink it. Enlarged,
 the page takes most of the window and the comparison and form stay to its

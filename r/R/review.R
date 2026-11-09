@@ -3,7 +3,7 @@
 # Author: Tim Thomas
 # Created: 2026-10-29
 # Reviewer:
-# Updated: 2026-10-29
+# Updated: 2026-11-10
 # =============================================================================
 
 #' Check a scan's readings against the page images
@@ -24,7 +24,13 @@
 #'
 #' On a correction form, change only what the engine got wrong and save;
 #' when it got everything right, save as it is. Leave a field blank when the
-#' document does not have it.
+#' document does not have it. Coloured boxes on the page image show where
+#' the engine read each value; where one is wrong or missing, pick the field
+#' under the image and drag across the page where the value really is, on
+#' whichever page it is printed (the arrows under the image turn the
+#' pages). A box can be moved, reshaped at its corners, deleted, or joined
+#' by another for the same field. The boxes are saved with the answer and
+#' are what [learn_templates()] learns from.
 #'
 #' @param out_dir The scan's output folder, or the tibble returned by
 #'   [scan_documents()].
@@ -38,6 +44,10 @@
 #'   ones. `"random"` draws all `n` at random, flagged or not, so the share
 #'   right is a fair estimate for the whole scan: the calibration batch to
 #'   correct before trusting a run (50 is a sensible minimum).
+#' @param pages How many pages of each document to render when the page is
+#'   built (default 1). With `correct = TRUE` the page is served, and any
+#'   other page is rendered the moment you turn to it, so the default is
+#'   enough; a page opened to look only can show only the rendered pages.
 #' @param rebuild Rebuild the page even when one exists. The page is built
 #'   on first use and kept, since building it renders an image of every
 #'   document shown.
@@ -56,15 +66,16 @@
 #' score_documents(res)
 #' }
 review_documents <- function(out_dir, correct = FALSE, n = 30,
-                             draw = c("flagged", "random"), rebuild = FALSE,
-                             open = interactive()) {
+                             draw = c("flagged", "random"), pages = 1,
+                             rebuild = FALSE, open = interactive()) {
   out_dir <- scan_folder(out_dir)
   page <- file.path(out_dir, "review", "index.html")
-  if (rebuild || !missing(n) || !missing(draw) || !file.exists(page)) {
+  if (rebuild || !missing(n) || !missing(draw) || !missing(pages) || !file.exists(page)) {
     draw <- match.arg(draw)
     n <- if (is.infinite(n)) .Machine$integer.max else as.integer(n)
     cli::cli_progress_step("Building the review page")
-    pipeline_module()$write_review(out_dir, n = n, flagged_first = draw == "flagged")
+    pipeline_module()$write_review(out_dir, n = n, flagged_first = draw == "flagged",
+                                   pages = as.integer(pages))
     cli::cli_progress_done()
   }
 

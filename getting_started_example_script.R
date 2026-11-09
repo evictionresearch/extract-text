@@ -111,8 +111,8 @@ glimpse(record_to_row(one))
 # results is where everything this script writes goes: the sample in
 # results/sample, the full run in results/all, and the final table.
 # Expect about 5 seconds a document when OCR is needed.
-docs_dir <- "path/to/your/documents"
-results  <- "path/to/your/results"
+# docs_dir <- "path/to/your/documents"
+# results  <- "path/to/your/results"
 n_sample <- 50
 
 sample_dir <- file.path(results, "sample")
@@ -152,7 +152,7 @@ View(select(res, doc, defendant_names, defendant_street, defendant_city,
 # publishing counts or sending anything to people (manual section 11).
 # Your corrections do not change the engine. They tell you which fields to
 # trust, and every document you grade carries your answer in the final
-# table (step 12).
+# table (step 13).
 #
 # This opens a page in your browser with each
 # document beside what the engine read. Change only what is wrong, leave a
@@ -207,20 +207,54 @@ review_documents(res_all, correct = TRUE, n = n_sample, draw = "random")
 score_documents(res_all)
 
 # --------------------------------------------------------------------------
-# Step 11. Re-scan, only after the rules change
+# Step 11. Teach the engine your forms (optional, no code)
+# --------------------------------------------------------------------------
+# Your graded documents can improve how the engine reads your own forms,
+# with no change to any code. Where the engine's box on the review page was
+# wrong or missing, you drew one (pick the field under the page, drag across
+# the image, on whichever page the value is printed; a box can be moved,
+# reshaped, deleted, or joined by another). learn_templates() groups the
+# graded documents by printed form and writes, for each form with enough of
+# them, a template: the form's printed words, which identify it, and a
+# region of a page per field. It holds no names or addresses. Look at each
+# template over a page it was learned from, approve the ones whose regions
+# sit where the form prints those fields, and re-scan with the templates
+# folder: the engine then looks there first on every document of that form,
+# tagged "template:<name>" in defendant_anchor, and uses its own rules
+# everywhere else. Nothing learned is used until you approve it.
+#
+# A template changes where the engine looks, not how it reads: the rules
+# still do the reading inside each box. When a value is in the right box and
+# still read wrong, a rule needs to change. Work with the Eviction Research
+# Network on that (nothing from your records is sent; masked shapes from
+# score_documents(res, save = ...) are enough), or change the rule on your
+# own copy by docs/changing_rules.md. Ten to twenty graded documents per
+# form is the figure the method comes from; the review page says when a
+# template is thinner. The guide is "Teaching the engine a form, without
+# code", the last chapter of docs/changing_rules.md.
+# learn_templates(res_all)                      # writes results/all/templates/
+# review_templates(res_all)                     # look, then approve the right ones
+# approve_template("form-1", res_all)
+# res_all <- scan_documents(docs_dir, engine = "deterministic", out_dir = all_dir,
+#                           templates = file.path(all_dir, "templates"))
+# score_documents(res_all)                      # what the templates fixed and broke
+
+# --------------------------------------------------------------------------
+# Step 12. Re-scan, only after the rules change
 # --------------------------------------------------------------------------
 # Grading does not change the rules engine: run it again on the same
 # documents and it gives the same answers. The rules change only when you
 # update the package (rerun step 1), which brings the fixes the Eviction
 # Research Network makes from its own graded documents, or when you change
-# them yourself (docs/changing_rules.md). Re-scan only then. Re-scanning
+# them yourself (docs/changing_rules.md), or when you approve a form
+# template (step 11). Re-scan only then. Re-scanning
 # the same documents into the same folder keeps your corrections, and
 # scoring again shows what the change fixed or broke.
 # res_all <- scan_documents(docs_dir, engine = "deterministic", out_dir = all_dir)
 # score_documents(res_all)
 
 # --------------------------------------------------------------------------
-# Step 12. Build the final table
+# Step 13. Build the final table
 # --------------------------------------------------------------------------
 # One row per document: case number, plaintiff, defendants, and the
 # defendants' address, with your graded answers (from both samples) in

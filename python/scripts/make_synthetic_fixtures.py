@@ -225,22 +225,42 @@ def _esc(s: str) -> str:
 
 
 def build_text_pdf(items) -> bytes:
-    ops = ["BT"]
-    for x, y_top, size, text in items:
-        y = PAGE_H - y_top - size  # PDF origin is bottom-left
-        ops.append(f"/F1 {size} Tf 1 0 0 1 {x} {y} Tm ({_esc(text)}) Tj")
-    ops.append("ET")
-    stream = "\n".join(ops).encode("latin-1")
+    """A one-page PDF with a text layer, from (x, y_top, size, text) items."""
+    return build_text_pdf_pages([items])
 
+
+def build_text_pdf_pages(pages) -> bytes:
+    """A PDF with a text layer, one page per item list, for documents whose
+    fields sit on a later page (a summons-and-complaint bundle)."""
+    streams = []
+    for items in pages:
+        ops = ["BT"]
+        for x, y_top, size, text in items:
+            y = PAGE_H - y_top - size  # PDF origin is bottom-left
+            ops.append(f"/F1 {size} Tf 1 0 0 1 {x} {y} Tm ({_esc(text)}) Tj")
+        ops.append("ET")
+        streams.append("\n".join(ops).encode("latin-1"))
+
+    # objects, in the order the one-page fixtures have always had (so they
+    # regenerate byte for byte): 1 catalog, 2 pages, 3 the first page,
+    # 4 the font, 5 its stream, then a page and a stream for each later page
+    n = len(streams)
+    page_obj = lambda k: 3 if k == 0 else 4 + 2 * k
+    stream_obj = lambda k: 5 if k == 0 else 5 + 2 * k
+    kids = " ".join(f"{page_obj(k)} 0 R" for k in range(n))
+    page = lambda k: (f"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 {PAGE_W} {PAGE_H}] "
+                      f"/Resources << /Font << /F1 4 0 R >> >> /Contents {stream_obj(k)} 0 R >>").encode()
+    stream = lambda k: (b"<< /Length " + str(len(streams[k])).encode() + b" >>\nstream\n"
+                        + streams[k] + b"\nendstream")
     objects = [
         b"<< /Type /Catalog /Pages 2 0 R >>",
-        b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
-        (f"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 {PAGE_W} {PAGE_H}] "
-         "/Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>").encode(),
+        f"<< /Type /Pages /Kids [{kids}] /Count {n} >>".encode(),
+        page(0),
         b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
-        b"<< /Length " + str(len(stream)).encode() + b" >>\nstream\n"
-        + stream + b"\nendstream",
+        stream(0),
     ]
+    for k in range(1, n):
+        objects += [page(k), stream(k)]
 
     out = bytearray(b"%PDF-1.4\n")
     offsets = []

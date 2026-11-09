@@ -41,7 +41,7 @@ import threading
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-from .pipeline import ai_reading, machine_reading, read_scan
+from .pipeline import ai_reading, machine_reading, page_image_path, read_scan
 
 TRUTH_FIELDS = ("plaintiff", "street", "unit", "city", "state", "zip")
 # the plaintiff attorney's block, added 2026-10-07; older answers lack it
@@ -143,27 +143,71 @@ def _name_list(given: dict, key: str) -> list:
 
 
 BOX_FIELDS = ("plaintiff", "defendants", "address", "attorney", "case")
+# boxes a field may carry: an attorney block repeats on every page's footer,
+# a long caption lists defendants over two columns; more than this is a slip
+MAX_BOXES = 8
+
+
+def _box4(box):
+    try:
+        x0, y0, x1, y1 = (float(v) for v in box)
+    except (TypeError, ValueError):
+        return None
+    if 0 <= x0 < x1 <= 1 and 0 <= y0 < y1 <= 1:
+        return [round(v, 4) for v in (x0, y0, x1, y1)]
+    return None
 
 
 def _boxes(given) -> dict:
-    """The boxes a reviewer drew or moved on the page image, checked: one per
-    field, as (x0, y0, x1, y1) fractions of page 1 from the top left, or None
-    for "not on this page". Anything malformed is dropped, not guessed at."""
+    """The boxes a reviewer drew or moved on the page images, checked: for
+    each field a list of {"page": N, "box": [x0, y0, x1, y1]}, the box as
+    fractions of that page from the top left, or None for "not in this
+    document". A bare box (answers saved before 2026-11-10) is one box on
+    page 1. Anything malformed is dropped, not guessed at."""
     out = {}
     if not isinstance(given, dict):
         return out
-    for field, box in given.items():
+    for field, value in given.items():
         if field not in BOX_FIELDS:
             continue
-        if box is None:
+        if value is None:
             out[field] = None
             continue
-        try:
-            x0, y0, x1, y1 = (float(v) for v in box)
-        except (TypeError, ValueError):
+        items = value
+        if (isinstance(value, (list, tuple)) and len(value) == 4
+                and not any(isinstance(v, (dict, list, tuple)) for v in value)):
+            items = [{"page": 1, "box": value}]
+        if not isinstance(items, (list, tuple)):
             continue
-        if 0 <= x0 < x1 <= 1 and 0 <= y0 < y1 <= 1:
-            out[field] = [round(v, 4) for v in (x0, y0, x1, y1)]
+        boxes = []
+        for item in items[:MAX_BOXES]:
+            if isinstance(item, (list, tuple)):
+                item = {"page": 1, "box": item}
+            if not isinstance(item, dict):
+                continue
+            try:
+                page = int(item.get("page", 1))
+            except (TypeError, ValueError):
+                continue
+            box = _box4(item.get("box"))
+            if box is not None and page >= 1:
+                boxes.append({"page": page, "box": box})
+        if boxes:
+            out[field] = boxes
+    return out
+
+
+def box_list(value) -> list:
+    """A saved field's boxes as [(page, box), ...], whichever form they were
+    saved in; an empty list for None or anything else."""
+    if not value:
+        return []
+    if isinstance(value, (list, tuple)) and len(value) == 4 and not isinstance(value[0], (dict, list, tuple)):
+        value = [{"page": 1, "box": value}]
+    out = []
+    for item in value:
+        if isinstance(item, dict) and _box4(item.get("box")) is not None:
+            out.append((int(item.get("page", 1)), [float(v) for v in item["box"]]))
     return out
 
 
@@ -226,8 +270,9 @@ def build_correction(row_no: int, body: dict, rows: list, details: list,
         # saved on the settling page, where graders disagreed; that page
         # shows such a document as done and every other one as still open
         **({"settled": True} if body.get("settled") else {}),
-        # where on page 1 the reviewer says a value is, for the fields whose
-        # box they redrew; the engine's own boxes are in the scan's evidence
+        # where on the pages the reviewer says a value is, for the fields
+        # whose boxes they drew, moved, or removed; the engine's own boxes
+        # are in the scan's evidence
         **({"boxes": boxes} if (boxes := _boxes(body.get("boxes"))) else {}),
     }
 
@@ -337,16 +382,21 @@ def write_corrections_csv(out_dir) -> Path:
 
 
 def make_review_server(out_dir, port=8765):
-    """A server for the review folder, plus /api/corrections for saving and
-    /doc/N for opening document N in full.
+    """A server for the review folder, plus /api/corrections for saving,
+    /doc/N for opening document N in full, and /page/N/P for an image of
+    page P of document N, rendered on first request and kept in the review
+    folder, so a reviewer can look at and draw on any page.
 
     Bound to 127.0.0.1, so nothing is reachable from another machine. It
     serves the review folder (page images and the page) and the scanned
     documents by row number, never the scan tables beside them."""
+    from .documents import render_page
+
     out = Path(out_dir)
     rev = out / "review"
     rows, details = read_scan(out)
     lock = threading.Lock()
+    render_lock = threading.Lock()
 
     class Handler(SimpleHTTPRequestHandler):
         def __init__(self, *args, **kwargs):
@@ -389,7 +439,36 @@ def make_review_server(out_dir, port=8765):
                                         for k, v in every.items()})
             if path.startswith("/doc/"):
                 return self._document(path[len("/doc/"):])
+            if path.startswith("/page/"):
+                return self._page_image(path[len("/page/"):])
             return super().do_GET()
+
+        def _page_image(self, spec):
+            # page P of document N as a PNG, rendered the first time it is
+            # asked for; looked up by row number, never by path
+            number, _, page = spec.partition("/")
+            if not (number.isdigit() and page.isdigit()) or not 1 <= int(number) <= len(rows):
+                return self._refuse(404, "no such document")
+            n, p = int(number), int(page)
+            try:
+                n_pages = int(rows[n - 1].get("n_pages") or 1)
+            except ValueError:
+                n_pages = 1
+            if not 1 <= p <= n_pages:
+                return self._refuse(404, "no such page")
+            png = page_image_path(rev, n, p)
+            with render_lock:
+                if not png.is_file():
+                    src = Path(details[n - 1].get("file", ""))
+                    if not src.is_file() or render_page(src, page=p, dpi=150, out_path=png) is None:
+                        return self._refuse(404, "page not available")
+            data = png.read_bytes()
+            self.send_response(200)
+            self.send_header("Content-Type", "image/png")
+            self.send_header("Cache-Control", "no-store")
+            self.send_header("Content-Length", str(len(data)))
+            self.end_headers()
+            self.wfile.write(data)
 
         def _document(self, number):
             # the original file, all pages, for the browser's own viewer.

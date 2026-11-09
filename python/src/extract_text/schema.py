@@ -235,6 +235,15 @@ class Extraction(BaseModel):
         ),
     )
     document: DocumentInfo | None = None
+    template: str | None = Field(
+        default=None,
+        description=(
+            "The form template the deterministic engine recognized the page "
+            "as (see extract_text.templates), or null when none matched or "
+            "none were given. Fields read from the template's regions carry "
+            "the anchor 'template:<name>' in their evidence."
+        ),
+    )
 
     def ungrounded_fields(self) -> list[str]:
         """Field paths whose evidence was not found in the source text."""

@@ -110,8 +110,10 @@ glimpse(record_to_row(one))
 # out_dir receives the results: extracted.csv, extracted.jsonl (the
 # evidence behind every value), and the review page used in step 6.
 # Expect about 5 seconds a document when OCR is needed.
-docs_dir <- "path/to/your/documents"
-out_dir  <- "path/to/your/results/sample"
+# docs_dir <- "path/to/your/documents"
+# out_dir  <- "path/to/your/results/sample"
+docs_dir <- path.expand("~/data/evictionresearch/washington/court_images/King/2017")
+out_dir  <- "Downloads/grading_test"
 n_sample <- 50
 
 docs <- list.files(docs_dir, pattern = "\\.(pdf|tiff?)$", recursive = TRUE,

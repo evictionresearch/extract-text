@@ -48,6 +48,23 @@
 #   sudo apt install poppler-utils tesseract-ocr
 #
 # extracttext_doctor() in step 2 confirms that R can find both.
+#
+# The engine is written in Python, so the computer also needs Python 3.10
+# or newer, and git, which the install in step 1 downloads the engine with.
+# The Python that comes with a Mac is older than 3.10. Step 1 checks for
+# both before it installs anything. If either is missing:
+#
+# Mac, in Terminal (Homebrew installs git with itself):
+#   brew install python
+#
+# Windows, in PowerShell:
+#   winget install Python.Python.3.12
+#   winget install Git.Git
+#
+# Linux (Debian or Ubuntu):
+#   sudo apt install python3 python3-venv git
+#
+# Then restart RStudio.
 
 # --------------------------------------------------------------------------
 # Step 1. Install extract-text
@@ -55,13 +72,26 @@
 # install_github() fetches the R package. extracttext_install() then builds
 # the Python engine the package runs on, once per computer.
 # install.packages(c("remotes", "dplyr")) # if you don't have them yet
-# remove.packages("extracttext") # if you have an older version installed
+remove.packages("extracttext") # if you have an older version installed
 remotes::install_github("evictionresearch/extract-text", subdir = "r")
 library(extracttext)
+
+# The Python the engine will be built on, 3.10 or newer. NULL means R found
+# none: install Python as "Before you start" says, restart RStudio, and run
+# this line again before going on.
+reticulate::virtualenv_starter(">=3.10")
+
+# The path to git. An empty "" means git is missing; install it the same way.
+Sys.which("git")
+
 extracttext_install()
 
+# Should print TRUE. FALSE means the install above stopped early; its last
+# lines of output say why.
+reticulate::virtualenv_exists("r-extracttext")
+
 # Restart R so the package finds the engine: Session > Restart R in RStudio
-# (Cmd/Ctrl + Shift + 0), or quit and reopen R.
+# (Cmd/Ctrl + Shift + 0), or quit and reopen R. Step 2 fails without this.
 
 # --------------------------------------------------------------------------
 # Step 2. Check your setup
@@ -70,8 +100,22 @@ extracttext_install()
 # AI section reports Ollama as missing unless you set it up; the rules
 # engine does not need it.
 library(extracttext)
-library(dplyr)
+library(dplyr) # install.packages("dplyr")
+
+# Point R at the engine's own Python environment. Without this line, R picks
+# up any other Python project it finds first (a ".venv" folder in your
+# working directory, for one) and reports the engine as not installed. Run
+# it at the start of every R session, before any other extract-text function.
+reticulate::use_virtualenv("r-extracttext", required = TRUE)
+
 extracttext_doctor()
+
+# If it still says "The Python engine is not installed yet", restart R and
+# run this step again from the top. If the message stays, step 1's install
+# failed, most often because Python was missing or older than 3.10. Remove
+# the half-built environment, then go back to step 1's Python check and run
+# from there:
+# reticulate::virtualenv_remove("r-extracttext")
 
 # --------------------------------------------------------------------------
 # Step 3. Read one example document
@@ -118,8 +162,8 @@ glimpse(record_to_row(one))
 # results is where everything this script writes goes: the sample in
 # results/sample, the full run in results/all, and the final table.
 # Expect about 5 seconds a document when OCR is needed.
-docs_dir <- "path/to/your/documents"
-results  <- "path/to/your/results"
+docs_dir <- "/Users/buffalo/data/evictionresearch/washington/court_images/King/2017"
+results  <- "/Users/buffalo/data/evictionresearch/washington/ern_extract_text"
 n_sample <- 50
 
 sample_dir <- file.path(results, "sample")

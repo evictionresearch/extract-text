@@ -111,16 +111,16 @@ glimpse(record_to_row(one))
 # results is where everything this script writes goes: the sample in
 # results/sample, the full run in results/all, and the final table.
 # Expect about 5 seconds a document when OCR is needed.
-# docs_dir <- "path/to/your/documents"
-# results  <- "path/to/your/results"
+docs_dir <- "path/to/your/documents"
+results  <- "path/to/your/results"
 n_sample <- 50
 
-sample_dir <- file.path(results, "sample")
+sample_dir <- path.expand("~/data/evictionresearch/washington/court_images/King/2017")
 all_dir    <- file.path(results, "all")
 
 # seed = 1 draws the same documents every time you run it
 res <- scan_documents(docs_dir, engine = "deterministic", sample = n_sample,
-                      seed = 1, out_dir = sample_dir)
+                      seed = 3, out_dir = sample_dir)
 
 # res is not ready to use yet. How often it is right on your documents is
 # unknown until you grade the sample in step 6.
@@ -191,8 +191,9 @@ res_all <- scan_documents(docs_dir, engine = "deterministic", out_dir = all_dir)
 # run that becomes your table, and it can catch kinds of documents the first
 # sample happened to miss. Grade it the same way as step 6. A document you
 # already graded may come up again; grade it again, and the later answer is
-# the one kept.
-review_documents(res_all, correct = TRUE, n = n_sample, draw = "random")
+# the one kept. The draw is seeded, so building the page again shows the
+# same documents; give seed another value for a fresh draw.
+review_documents(res_all, correct = TRUE, n = n_sample, draw = "random", seed = 1)
 
 # Optional: also fix every document the engine flagged, so the table
 # carries a person's answer wherever the engine was unsure.
@@ -219,11 +220,11 @@ score_documents(res_all)
 # region of a page per field. It holds no names or addresses. Look at each
 # template over a page it was learned from, approve the ones whose regions
 # sit where the form prints those fields, and re-scan with the templates
-# folder: the engine then looks there first on every document of that form,
+# folder. The engine then looks there first on every document of that form,
 # tagged "template:<name>" in defendant_anchor, and uses its own rules
 # everywhere else. Nothing learned is used until you approve it.
 #
-# A template changes where the engine looks, not how it reads: the rules
+# A template changes where the engine looks, not how it reads. The rules
 # still do the reading inside each box. When a value is in the right box and
 # still read wrong, a rule needs to change. Work with the Eviction Research
 # Network on that (nothing from your records is sent; masked shapes from

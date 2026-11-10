@@ -315,30 +315,74 @@ def import_answers(out_dir, path) -> tuple[Path, int]:
     return dest, len(built)
 
 
-def load_corrections(out_dir) -> dict:
-    """The latest saved correction for each row, keyed by row number."""
+def scan_files(out_dir):
+    """The scan's documents by row, from extracted.jsonl; None when the
+    folder holds no scan."""
+    path = Path(out_dir) / "extracted.jsonl"
+    if not path.exists():
+        return None
+    files = []
+    with open(path) as f:
+        for line in f:
+            if line.strip():
+                files.append(str(Path(json.loads(line).get("file", ""))))
+    return files
+
+
+def belongs(c: dict, files) -> bool:
+    """Whether a saved answer is for the document now at its row.
+
+    An answer is keyed by row number, and a folder re-scanned with a
+    different draw puts a different document at that row; the answer would
+    then be shown, scored, and learned from against the wrong document (it
+    was, on 2026-11-09). Each answer records the document's path, so one
+    whose path is not the row's is left out everywhere. An answer with no
+    path, or a folder with no scan, is taken on trust."""
+    if files is None or not c.get("file"):
+        return True
+    row = c.get("row")
+    return isinstance(row, int) and 1 <= row <= len(files) and str(Path(c["file"])) == files[row - 1]
+
+
+def _read_answers(out_dir):
     path = Path(out_dir) / "corrections.jsonl"
-    latest = {}
     if path.exists():
         with open(path) as f:
             for line in f:
                 if line.strip():
-                    c = json.loads(line)
-                    latest[c["row"]] = c
+                    yield json.loads(line)
+
+
+def load_corrections(out_dir, for_scan: bool = True) -> dict:
+    """The latest saved correction for each row, keyed by row number. With
+    `for_scan` (the default) only answers for the documents now in the scan
+    (see `belongs`); without it, every answer the file holds."""
+    latest = {}
+    for c in _read_answers(out_dir):
+        latest[c["row"]] = c
+    if for_scan:
+        files = scan_files(out_dir)
+        latest = {row: c for row, c in latest.items() if belongs(c, files)}
     return latest
+
+
+def stale_corrections(out_dir) -> int:
+    """How many rows' latest answers are for documents no longer at that
+    row of the scan: kept in corrections.jsonl, shown and scored nowhere."""
+    files = scan_files(out_dir)
+    latest = load_corrections(out_dir, for_scan=False)
+    return sum(1 for c in latest.values() if not belongs(c, files))
 
 
 def load_answers(out_dir) -> dict:
     """Every grader's latest answer for each row: {row: {reviewer: correction}}.
-    Unlike load_corrections, a second grader does not replace the first."""
-    path = Path(out_dir) / "corrections.jsonl"
+    Unlike load_corrections, a second grader does not replace the first.
+    Answers for documents no longer at their row are left out, as above."""
+    files = scan_files(out_dir)
     answers = {}
-    if path.exists():
-        with open(path) as f:
-            for line in f:
-                if line.strip():
-                    c = json.loads(line)
-                    answers.setdefault(c["row"], {})[c.get("reviewer", "")] = c
+    for c in _read_answers(out_dir):
+        if belongs(c, files):
+            answers.setdefault(c["row"], {})[c.get("reviewer", "")] = c
     return answers
 
 

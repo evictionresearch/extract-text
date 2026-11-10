@@ -957,7 +957,7 @@ def test_evidence_carries_boxes_and_the_review_page_draws_them(tmp_path):
 
     scan([FIXTURES / "synthetic_kc_efiled.pdf"], out_dir=tmp_path, progress=False)
     html = write_review(tmp_path, n=5).read_text()
-    assert 'class="hl hl-address" data-label="Address"' in html
+    assert 'class="hl hl-address" title="Address" data-field="address"' in html
     assert "Boxes show where the deterministic engine read each value" in html
 
     # a scan from before boxes, and an address read from a later page
@@ -1071,3 +1071,44 @@ def test_case_table_puts_graded_answers_in_place_of_the_engine(tmp_path):
         (FIXTURES / "synthetic_summons_efiled.pdf").read_bytes())
     again = {Path(r["file"]).name: r for r in case_table(full, graded=[sample])}
     assert again["synthetic_summons_scanned.pdf"]["source"] == "engine"
+
+
+@needs_system_tools
+def test_answers_for_documents_no_longer_at_their_row_are_left_out(tmp_path, capsys):
+    """A folder scanned again with a different draw puts other documents at
+    the same rows; the earlier answers must not be shown, scored, or learned
+    from against them (seen on a real folder, 2026-11-09)."""
+    from extract_text.corrections import (
+        build_correction,
+        load_answers,
+        load_corrections,
+        stale_corrections,
+    )
+    from extract_text.pipeline import read_scan
+    from extract_text.score import score
+
+    scan([FIXTURES / "synthetic_summons_efiled.pdf", FIXTURES / "synthetic_kc_printed.pdf"],
+         out_dir=tmp_path, progress=False)
+    rows, details = read_scan(tmp_path)
+    truth = {"plaintiff": "EXAMPLE PROPERTY LLC", "defendants": ["JANE Q. TENANT", "JON Q. TENANT"],
+             "street": "1234 EXAMPLE AVE S", "unit": "APT 5", "city": "Seattle", "state": "WA", "zip": "98100"}
+    c = build_correction(1, {"truth": truth, "boxes": {"address": [0.1, 0.5, 0.4, 0.56]}}, rows, details, tmp_path)
+    with open(tmp_path / "corrections.jsonl", "a") as f:
+        f.write(json.dumps(c) + "\n")
+    assert list(load_corrections(tmp_path)) == [1] and stale_corrections(tmp_path) == 0
+
+    # the same folder, scanned again: another document is row 1 now
+    scan([FIXTURES / "synthetic_kc_efiled.pdf"], out_dir=tmp_path, progress=False)
+    assert "1 earlier answer" in capsys.readouterr().err
+    assert load_corrections(tmp_path) == {} and load_answers(tmp_path) == {}
+    assert list(load_corrections(tmp_path, for_scan=False)) == [1]   # kept in the file
+    assert stale_corrections(tmp_path) == 1
+    assert score(tmp_path)["deterministic"]["plaintiff"]["checked"] == 0 if "deterministic" in score(tmp_path) else True
+    html = write_review(tmp_path, n=5).read_text()
+    assert 'id="stale">1 earlier answer saved in this folder' in html
+
+    # scanned back with the original documents, the answer applies again
+    scan([FIXTURES / "synthetic_summons_efiled.pdf", FIXTURES / "synthetic_kc_printed.pdf"],
+         out_dir=tmp_path, progress=False)
+    assert list(load_corrections(tmp_path)) == [1] and stale_corrections(tmp_path) == 0
+    assert 'id="stale"' not in write_review(tmp_path, n=5).read_text()

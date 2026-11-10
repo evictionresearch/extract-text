@@ -9,6 +9,7 @@ review_documents(
   correct = FALSE,
   n = 30,
   draw = c("flagged", "random"),
+  seed = 42,
   pages = 1,
   rebuild = FALSE,
   open = interactive()
@@ -30,6 +31,10 @@ pessimistic accuracy figure, because flagged documents are the hard
 ones. \code{"random"} draws all \code{n} at random, flagged or not, so the share
 right is a fair estimate for the whole scan: the calibration batch to
 correct before trusting a run (50 is a sensible minimum).}
+
+\item{seed}{The seed of the random draw. The same seed shows the same
+documents every time the page is built, so a page can be rebuilt
+without changing what is on it; give another seed for a fresh draw.}
 
 \item{pages}{How many pages of each document to render when the page is
 built (default 1). With \code{correct = TRUE} the page is served, and any
@@ -69,9 +74,11 @@ document does not have it. Coloured boxes on the page image show where
 the engine read each value; where one is wrong or missing, pick the field
 under the image and drag across the page where the value really is, on
 whichever page it is printed (the arrows under the image turn the
-pages). A box can be moved, reshaped at its corners, deleted, or joined
-by another for the same field. The boxes are saved with the answer and
-are what \code{\link[=learn_templates]{learn_templates()}} learns from.
+pages). Any box, the engine's included, can be moved, reshaped at its
+corners, or deleted, and joined by another for the same field. The boxes
+are saved with the answer and are what \code{\link[=learn_templates]{learn_templates()}} learns from.
+There is no need to turn every page: grade from page 1, and turn to a
+later page only for a value that is wrong or missing there.
 }
 \examples{
 \dontrun{

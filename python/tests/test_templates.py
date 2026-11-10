@@ -22,6 +22,7 @@ import pytest
 from extract_text.documents import have
 from extract_text.layout import Line, Word
 from extract_text.templates import (
+    Match,
     Region,
     Template,
     _edit1,
@@ -625,3 +626,31 @@ def test_a_template_file_from_before_pages_still_loads():
     assert [(r.page, r.drawn) for r in t.regions["address"]] == [(1, 5)]
     assert t.to_json()["regions"]["address"] == [{"page": 1, "box": [0.6, 0.4, 0.9, 0.46],
                                                   "drawn": 5, "confirmed": 0, "dropped": 0}]
+
+
+def test_defendants_boxed_in_the_caption_and_the_service_block_are_read_once():
+    """A reviewer boxes every place the form names the defendants; the
+    template reads both regions and each defendant is listed once."""
+    from extract_text.deterministic.summons import _split_defendant_names
+
+    assert _split_defendant_names("JANE Q. TENANT and JON Q. TENANT; Jane Q Tenant; JON Q. TENANT") \
+        == ["JANE Q. TENANT", "JON Q. TENANT"]
+    # a box over the whole caption cell brings the labels along; they are not parties
+    assert _split_defendant_names("vs.; JANE Q. TENANT,; and ALL OTHER OCCUPANTS,; Defendant(s).; Defendants.") \
+        == ["JANE Q. TENANT"]
+
+    rows = [(0.17, 0.15, "EXAMPLE", "PROPERTY", "LLC,"), (0.20, 0.3, "Plaintiff,"), (0.24, 0.15, "v."),
+            (0.28, 0.15, "JANE", "Q.", "TENANT", "and", "JON", "Q.", "TENANT,"),
+            (0.31, 0.15, "and", "ALL", "OTHER", "OCCUPANTS,"), (0.34, 0.3, "Defendants."),
+            (0.46, 0.15, "TO:", "JANE", "Q.", "TENANT", "and", "JON", "Q.", "TENANT,"),
+            (0.49, 0.15, "1234", "EXAMPLE", "AVE", "S", "APT", "5"), (0.52, 0.15, "SEATTLE,", "WA", "98100")]
+    lines = _lines(_words(rows))
+    t = Template("form-1", [], {
+        "address": [Region([0.1, 0.45, 0.9, 0.54])],
+        "defendants": [Region([0.1, 0.45, 0.9, 0.48]), Region([0.1, 0.23, 0.9, 0.36])]}, approved=True)
+    parsed, tag = Match(t, (0.0, 0.0), 1.0).defendant_anchor()(lines, 1)
+    assert tag == "template:form-1"
+    assert parsed["street"] == "1234 EXAMPLE AVE S APT 5"
+    # the caption region is read first (it is higher on the page), then the
+    # service block; the names come out once each after splitting
+    assert _split_defendant_names(parsed["defendant_names"]) == ["JANE Q. TENANT", "JON Q. TENANT"]

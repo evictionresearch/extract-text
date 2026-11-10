@@ -501,3 +501,24 @@ def test_after_suffix_repairs(text, street, unit):
     got = parse_address(text)
     # the street column carries the unit on its end; a reading drops it
     assert _street_without_unit(got["street"], got["unit"]) == street and got["unit"] == unit
+
+
+def test_plaintiff_description_goes_whatever_its_capitals():
+    """The caption's ", a Washington limited liability company" is dropped
+    with the state's name capitalized, and with no comma before the
+    article; a company word on the row's end stays."""
+    from extract_text.deterministic.summons import plaintiff_names_from_rows
+
+    assert plaintiff_names_from_rows(["EXAMPLE PROPERTY LLC, a Washington limited liability company,"]) \
+        == ["EXAMPLE PROPERTY LLC"]
+    assert plaintiff_names_from_rows(["EXAMPLE PROPERTY, INC a Washington corporation,"]) \
+        == ["EXAMPLE PROPERTY, INC"]
+    assert plaintiff_names_from_rows(["EXAMPLE PROPERTY, INC., a Washington corporation,"]) \
+        == ["EXAMPLE PROPERTY, INC."]
+    assert plaintiff_names_from_rows(["EXAMPLE PROPERTY LLC,", "a Washington limited liability company,"]) \
+        == ["EXAMPLE PROPERTY LLC"]
+    assert plaintiff_names_from_rows(["HOUSING AUTHORITY OF THE CITY OF", "SAMPLETON, WASHINGTON, a public body corporate"]) \
+        == ["HOUSING AUTHORITY OF THE CITY OF SAMPLETON, WASHINGTON"]
+    # not a description: a second plaintiff, or a name that ends in a company word
+    assert plaintiff_names_from_rows(["EXAMPLE PROPERTY LLC and SAMPLE HOLDINGS LLC,"]) \
+        == ["EXAMPLE PROPERTY LLC", "SAMPLE HOLDINGS LLC"]

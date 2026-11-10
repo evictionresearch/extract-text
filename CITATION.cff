@@ -16,7 +16,7 @@ authors:
     affiliation: "University of California, Berkeley"
 repository-code: "https://github.com/evictionresearch/extract-text"
 license: AGPL-3.0-or-later
-version: 0.3.0
+version: 0.4.0
 keywords:
   - eviction
   - court records

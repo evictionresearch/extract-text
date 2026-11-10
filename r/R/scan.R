@@ -115,6 +115,14 @@ scan_documents <- function(paths, engine = c("deterministic", "ai", "both"),
   # the order of extracted.csv
   out <- tibble::add_column(out, doc = seq_len(nrow(out)), .before = 1)
   attr(out, "out_dir") <- out_dir
+  stale <- reticulate::import("extract_text.corrections")$stale_corrections(out_dir)
+  if (stale > 0) {
+    cli::cli_warn(c(
+      "{stale} earlier answer{?s} in {.file {out_dir}} belong{?s/} to documents that are no longer at the same rows of this scan.",
+      "i" = "The folder was scanned again with a different draw. Those answers stay in {.file corrections.jsonl} and are not shown, scored, or learned from.",
+      " " = "To keep a graded sample whole, scan a fresh draw into a new folder."
+    ))
+  }
   if (!is.null(templates) && "template" %in% names(out) && isTRUE(progress)) {
     matched <- sum(nzchar(out$template))
     cli::cli_inform(c("i" = "{matched} of {nrow(out)} document{?s} matched a form template."))

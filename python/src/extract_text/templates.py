@@ -687,16 +687,24 @@ class Match:
         return cluster_lines(words) if words else []
 
     def _names_from_region(self, lines, page):
-        """Defendant names from a defendants region on `page`, or on page 1
-        when that page has none; [] when the template has no such region."""
+        """Defendant names from the defendants regions on `page`, or on page
+        1 when that page has none, top to bottom; [] when the template has
+        no such region. A form names the defendants in the caption and
+        again in the service block, and a reviewer may box both: every
+        region is read, and a name read twice is kept once downstream."""
         from .deterministic import summons as S
 
         regions = self.regions("defendants", page) or self.regions("defendants", 1)
         names = []
-        for region in regions:
+        for region in sorted(regions, key=lambda r: (r.page, r.box[1])):
             for ln in self.region_lines(lines, region):
                 clean = S.OCCUPANT_NOISE_RE.sub("", ln.text).strip(" ,;")
-                if clean and S.looks_like_name_line(clean) and not S.BUILDING_LINE_RE.search(clean):
+                # a box over the whole caption cell brings the "vs." and
+                # "Defendant(s)." labels and the court's header along
+                if (not clean or S._VS_LINE_RE.match(clean) or S._PLAINTIFF_LABEL_RE.match(clean)
+                        or S._CAPTION_NOISE_RE.search(clean)):
+                    continue
+                if S.looks_like_name_line(clean) and not S.BUILDING_LINE_RE.search(clean):
                     names.append(clean)
         return names
 

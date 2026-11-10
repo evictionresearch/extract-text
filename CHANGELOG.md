@@ -4,8 +4,14 @@ Every user-facing change to extract-text is recorded here, newest first. A chang
 
 ## Unreleased
 
-- The review page turns pages: a document's other pages are rendered on first request when the page is served (`--pages N` renders more when building the graders' page), the engine's boxes appear on the page each value came from, and a reviewer can draw a box on any page, move it, reshape it at the corners, delete it, or add another for the same field. Boxes are saved with their page (`{"page": N, "box": [...]}`); answers saved before this read as page-1 boxes.
-- Form templates: the engine can learn where a printed form puts each field, on any page, from the boxes drawn (and confirmed) while grading, with no change to the code; the rules still do the reading inside each region. `learn_templates()`, `review_templates()`, `approve_template()`, and `list_templates()` in R, `extract-text templates` at a terminal, and a `templates` argument to `scan_documents()`, `extract-text scan`, and `rules_eval.py`. A template is one readable JSON file per form holding the form's printed words with positions and a region per field, no names or addresses; nothing learned is used until a person approves it. Matched pages show the form in a new `template` column and `template:<name>` in `defendant_anchor`. Guide: "Teaching the engine a form, without code" in `docs/changing_rules.md`.
+Nothing yet.
+
+## 0.4.0 (2026-11-09)
+
+- The plaintiff's caption description is dropped when the state's name is capitalized (", a Washington limited liability company") and when no comma precedes it ("INC a Washington corporation"); before, the name kept the description.
+- The review page turns pages. A document's other pages are rendered on first request when the page is served, and `--pages N` renders more when building the graders' page. The engine's boxes appear on the page each value came from, and a reviewer can move any box, reshape it at the corners, or delete it, the engine's own included, draw a box on any page, and add another for the same field. Boxes are saved with their page (`{"page": N, "box": [...]}`), and answers saved before this read as page-1 boxes.
+- A saved answer applies only to the document it was given for. A folder scanned again with a different draw puts other documents at the same row numbers; the earlier answers stay in `corrections.jsonl` but are no longer shown, scored, or learned from, and the scan, the review page, and `scan_documents()` say how many.
+- Form templates. The engine can learn where a printed form puts each field, on any page, from the boxes drawn and confirmed while grading, with no change to the code. The rules still do the reading inside each region. `learn_templates()`, `review_templates()`, `approve_template()`, and `list_templates()` in R, `extract-text templates` at a terminal, and a `templates` argument to `scan_documents()`, `extract-text scan`, and `rules_eval.py`. A template is one readable JSON file per form holding the form's printed words with positions and regions per field, no names or addresses. Nothing learned is used until a person approves it. Matched documents show the form in a new `template` column and `template:<name>` in `defendant_anchor`. The guide is "Teaching the engine a form, without code" in `docs/changing_rules.md`.
 
 ## 0.3.0 (2026-11-09)
 
@@ -60,12 +66,12 @@ The first tagged release. It collects everything built since the package began o
 In R, give the version tag to both install steps, so the R package and the engine match:
 
 ```r
-remotes::install_github("evictionresearch/extract-text@v0.3.0", subdir = "r")
-extracttext::extracttext_install(ref = "v0.3.0")
+remotes::install_github("evictionresearch/extract-text@v0.4.0", subdir = "r")
+extracttext::extracttext_install(ref = "v0.4.0")
 ```
 
 In Python:
 
 ```bash
-pip install "extract-text @ git+https://github.com/evictionresearch/extract-text@v0.3.0#subdirectory=python"
+pip install "extract-text @ git+https://github.com/evictionresearch/extract-text@v0.4.0#subdirectory=python"
 ```

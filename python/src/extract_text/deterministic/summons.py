@@ -37,6 +37,7 @@ from ..layout import cluster_lines, locate_text
 from ..parties import (
     _GROUP_TERM_RE,
     _LEADING_JUNK_RE,
+    _party_key,
     _strip_group_terms,
     clean_party_name,
     drop_plaintiff_matches,
@@ -834,9 +835,16 @@ _CAPTION_NOISE_RE = re.compile(
     re.IGNORECASE,
 )
 # ", a Washington limited liability company", ", a public body corporate":
-# a comma, then lowercase words. Not ", llc" or ", inc".
+# a comma, then an article and lowercase words, the state's name allowed
+# after the article (it was not until 2026-11-09, when a graded King County
+# caption kept "a Washington limited liability company" as part of the
+# name). Not ", llc" or ", inc".
 _DESCRIPTION_RE = re.compile(
-    r",\s+(?:an?\s+)?(?!(?:llc|inc|lp|ltd|co|corp)\b)[a-z]{3,}\b.*$")
+    r",\s+(?:an?\s+)?(?!(?:llc|inc|lp|ltd|co|corp)\b)(?:[A-Z][a-z]+\s+)?[a-z]{3,}\b.*$")
+# the same description with no comma before the article ("INC a Washington
+# corporation"): what follows the company word goes
+_DESCRIPTION_AFTER_ENTITY_RE = re.compile(
+    rf"({_ENTITY_WORD}),?\s+an?\s+(?:[A-Z][a-z]+\s+)?[a-z]{{3,}}\b.*$", re.IGNORECASE)
 # "SAMPLE, LLC" on a row of its own is a whole company, a second plaintiff,
 # not the tail of the row above (round 1, two documents)
 # ("LP, L.L.C." and "NW, L.L.C." are still a tail: the word before the comma
@@ -889,7 +897,7 @@ def plaintiff_names_from_rows(rows: list[str]) -> list[str]:
             break  # what follows a DBA is the trade name, wrapped
     names = []
     for row in merged:
-        row = _DESCRIPTION_RE.sub("", row).strip(" ,;")
+        row = _DESCRIPTION_AFTER_ENTITY_RE.sub(r"\1", _DESCRIPTION_RE.sub("", row)).strip(" ,;")
         names += _split_plaintiffs(row)
     return finish_party_names(names)
 
@@ -1093,7 +1101,17 @@ def _split_defendant_names(joined: str) -> list[str]:
             name = clean_party_name(_strip_group_terms(name.strip(" ,;"))[0])
             if len(name) >= 2 and not _GROUP_TERM_RE.fullmatch(" " + name):
                 names += split_listed_names(name)
-    return finish_party_names(names, defendants=True)
+    # a defendant named twice (in the caption and again in the service
+    # block, when a template reads both) is one defendant: the first
+    # spelling is kept, compared without punctuation, case, or entity words
+    seen, once = set(), []
+    for name in finish_party_names(names, defendants=True):
+        key = _party_key(name)
+        if key in seen:
+            continue
+        seen.add(key)
+        once.append(name)
+    return once
 
 
 def _place_evidence(doc, evidence, defendant):

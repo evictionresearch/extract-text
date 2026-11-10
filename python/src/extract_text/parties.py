@@ -163,11 +163,17 @@ def plausible_party_name(name: str) -> bool:
 _LABEL_COLON_RE = re.compile(r"^[A-Z]{2,4}\s*:")
 
 
+# a caption's role label, which a box drawn over the whole defendants cell
+# brings along with the names: never a party
+_ROLE_LABEL_RE = re.compile(
+    r"^\W*(?:plaintiff|defendant|respondent|petitioner)s?(?:\s*\(s\))?\W*$", re.IGNORECASE)
+
+
 def plausible_defendant_name(name: str) -> bool:
     """plausible_party_name, plus the debris that reaches the defendant list
     only. A plaintiff can carry a number ("1500 EXAMPLE APARTMENTS LLC"); a
     tenant's name cannot."""
-    if not plausible_party_name(name):
+    if not plausible_party_name(name) or _ROLE_LABEL_RE.match(name):
         return False
     words = name.split()
     if len(words) == 1 and (name.count(")") > name.count("(") or "&" in name):

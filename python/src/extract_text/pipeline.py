@@ -523,7 +523,12 @@ def scan(
 
 
 def write_outputs(rows, details, out_dir, parquet=None):
-    """Write extracted.csv, extracted.jsonl, and optionally parquet."""
+    """Write extracted.csv, extracted.jsonl, and optionally parquet.
+
+    A folder scanned again with a different draw keeps its earlier answers
+    in corrections.jsonl, but the documents at their rows have changed; such
+    answers are left out of the review page, the scores, and the templates,
+    and the number is said here so the scan is not mistaken for a graded one."""
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
 
@@ -563,6 +568,15 @@ def write_outputs(rows, details, out_dir, parquet=None):
                 raise RuntimeError(
                     "Parquet output needs pyarrow: pip install 'extract-text[parquet]'"
                 )
+    from .corrections import stale_corrections
+
+    stale = stale_corrections(out)
+    if stale:
+        print(f"Note: {stale} earlier answer{'s' if stale != 1 else ''} in {out} belong to documents that "
+              "are no longer at the same rows of this scan (the folder was scanned again with a "
+              "different draw). They stay in corrections.jsonl and are not shown, scored, or "
+              "learned from. Scan a fresh draw into a new folder to keep the graded one whole.",
+              file=sys.stderr)
     return out
 
 
@@ -648,11 +662,10 @@ def evidence_boxes(detail: dict) -> tuple[str, str]:
             place = (page, max(0.0, x0 - pad), max(0.0, y0 - pad), min(1.0, x1 + pad), min(1.0, y1 + pad))
             if place in shown:
                 continue
-            # the label goes on a field's first box only (several defendants)
-            tag = f' data-label="{label}"' if not any(f"hl-{cls}" in sp for sp in spans) else ""
             shown.add(place)
             spans.append(
-                f'<span class="hl hl-{cls}"{tag} title="{label}" data-page="{page}"{" hidden" if page != 1 else ""} '
+                f'<span class="hl hl-{cls}" title="{label}" data-field="{cls}" data-page="{page}" '
+                f'data-box="{x0:.4f},{y0:.4f},{x1:.4f},{y1:.4f}"{" hidden" if page != 1 else ""} '
                 f'style="left:{place[1] * 100:.2f}%;top:{place[2] * 100:.2f}%;'
                 f'width:{(place[3] - place[1]) * 100:.2f}%;height:{(place[4] - place[2]) * 100:.2f}%"></span>')
     addr = evidence.get("defendant_address") or {}
@@ -790,6 +803,9 @@ def write_review(out_dir, n=30, seed=SAMPLE_SEED, flagged_first=True, graders=Fa
                             for field, c in sorted(totals.items(), key=lambda fc: -sum(fc[1].values())))
                 + ".</p>")
 
+    from .corrections import stale_corrections
+
+    stale = stale_corrections(out)
     cells = []
     esc = lambda s: ((s or "").replace("&", "&amp;").replace("<", "&lt;")
                      .replace('"', "&quot;"))
@@ -842,8 +858,8 @@ def write_review(out_dir, n=30, seed=SAMPLE_SEED, flagged_first=True, graders=Fa
     <p class="pager" hidden><button type="button" class="prev quiet" title="Previous page">&#9664;</button>
       Page <span class="pno">1</span> of {n_pages} <button type="button" class="next quiet" title="Next page">&#9654;</button></p>
     {box_note}{box_legend}
-    <div class="fixbox" hidden>Wrong or missing box? Pick a field, then drag across the page to draw one
-      (on any page; draw again for another). Drag a box to move it, a corner to reshape it, &#215; to delete it.
+    <div class="fixbox" hidden>Hover a box to see its field. Drag it to move it, a corner to reshape it, &#215; to delete it.
+      Missing one? Pick the field, then drag across the page to draw it (on any page; draw again for another).
       <button type="button" data-field="plaintiff">Plaintiff</button><button type="button" data-field="defendants">Defendants</button><button type="button" data-field="address">Address</button><button type="button" data-field="attorney">Attorney</button><button type="button" data-field="case">Case number</button>
       <button type="button" class="none" hidden>Not in this document</button></div>
     <p class="pagelinks">Click the page to enlarge it.
@@ -893,7 +909,7 @@ def write_review(out_dir, n=30, seed=SAMPLE_SEED, flagged_first=True, graders=Fa
       border:1px solid #c5d2e3;padding:.6rem .8rem;margin:.4rem 0}}
  #grader label{{font-size:14px;color:#333}} #grader input,#grader select{{display:block;font:inherit;padding:.25rem .35rem}}
  #gnote{{align-self:center;color:#2e4a6b}}
- #banner{{background:#fff3cd;border:1px solid #e0c870;padding:.6rem;margin:.5rem 0}}
+ #banner,#stale{{background:#fff3cd;border:1px solid #e0c870;padding:.6rem;margin:.5rem 0}}
  #keep{{background:#eef7ee;border:1px solid #b9dbb9;padding:.2rem .8rem .6rem;margin:.4rem 0}}
  #keep p{{margin:.4rem 0;max-width:60rem}} #keep label{{font-size:14px;color:#333}}
  #knote.warn{{color:#a02020;font-weight:600}}
@@ -906,11 +922,10 @@ def write_review(out_dir, n=30, seed=SAMPLE_SEED, flagged_first=True, graders=Fa
  .fields{{align-self:flex-start}}
  .page img{{width:100%;height:auto;border:1px solid #ccc;cursor:zoom-in;display:block}}
  .shot{{position:relative}}
- .hl{{position:absolute;border:2px solid var(--c);border-radius:2px;pointer-events:none;
-      box-sizing:border-box;background:color-mix(in srgb, var(--c) 8%, transparent)}}
- .hl[data-label]::after{{content:attr(data-label);position:absolute;left:-2px;bottom:100%;
-      font:600 10px/1.3 sans-serif;color:#fff;background:var(--c);padding:0 3px;
-      border-radius:2px 2px 0 0;white-space:nowrap}}
+ /* a thin outline, so the words inside stay readable; the field's name is
+    the box's hover title, and the coloured buttons under the page are the key */
+ .hl{{position:absolute;border:1px solid var(--c);border-radius:2px;pointer-events:none;
+      box-sizing:border-box;background:color-mix(in srgb, var(--c) 4%, transparent)}}
  .hl-address{{--c:#1f6feb}} .hl-defendants{{--c:#c0392b}} .hl-plaintiff{{--c:#7d3c98}}
  .hl-attorney{{--c:#b9770e}} .hl-case{{--c:#2e7d32}}
  .doc.nobox .hl{{display:none}}
@@ -922,17 +937,24 @@ def write_review(out_dir, n=30, seed=SAMPLE_SEED, flagged_first=True, graders=Fa
  .fixbox [data-field=plaintiff]{{--c:#7d3c98}} .fixbox [data-field=attorney]{{--c:#b9770e}}
  .fixbox [data-field=case]{{--c:#2e7d32}}
  .shot.drawing, .shot.drawing img{{cursor:crosshair}}
- .hl.edited{{border-style:dashed;border-width:3px;pointer-events:auto;cursor:move}} .hl.ghost{{border-style:dotted}}
- .shot.drawing .hl.edited{{pointer-events:none}}
+ .hl.edited{{border-style:dashed;border-width:1.5px}} .hl.ghost{{border-style:dotted}}
+ /* the engine's boxes (live) and the reviewer's (edited) can both be dragged */
+ .hl.live,.hl.edited{{pointer-events:auto;cursor:move}}
+ .shot.drawing .hl.live,.shot.drawing .hl.edited{{pointer-events:none}}
  .hl[hidden],.hl.replaced{{display:none !important}}
  .doc.nobox .hl.edited{{display:block}}
- /* a placed box carries a delete mark and four corner handles */
- .hl.edited .x{{position:absolute;right:-9px;top:-9px;width:16px;height:16px;line-height:14px;text-align:center;
-      font:700 13px/15px sans-serif;color:#fff;background:var(--c);border:1px solid #fff;border-radius:50%;cursor:pointer}}
- .hl.edited .h{{position:absolute;width:9px;height:9px;background:var(--c);border:1px solid #fff;border-radius:2px}}
- .hl.edited .h.nw{{left:-5px;top:-5px;cursor:nwse-resize}} .hl.edited .h.se{{right:-5px;bottom:-5px;cursor:nwse-resize}}
- .hl.edited .h.ne{{right:-5px;top:-5px;cursor:nesw-resize}} .hl.edited .h.sw{{left:-5px;bottom:-5px;cursor:nesw-resize}}
+ /* a box carries a small delete mark and four small corner handles */
+ /* the cross sits above the top-right corner, clear of that corner's handle */
+ .hl .x{{position:absolute;right:-7px;top:-20px;width:12px;height:12px;text-align:center;
+      font:700 10px/11px sans-serif;color:#fff;background:var(--c);border:1px solid #fff;border-radius:50%;cursor:pointer}}
+ .hl .h{{position:absolute;width:6px;height:6px;background:var(--c);border:1px solid #fff;border-radius:1px}}
+ .hl .h.nw{{left:-4px;top:-4px;cursor:nwse-resize}} .hl .h.se{{right:-4px;bottom:-4px;cursor:nwse-resize}}
+ .hl .h.ne{{right:-4px;top:-4px;cursor:nesw-resize}} .hl .h.sw{{left:-4px;bottom:-4px;cursor:nesw-resize}}
+ /* the engine's handles stay quiet until the pointer is over the box */
+ .hl.live .x,.hl.live .h{{opacity:0;transition:opacity .15s}} .hl.live:hover .x,.hl.live:hover .h{{opacity:1}}
  .pager{{font-size:13px;color:#555;margin:.3rem 0;display:flex;gap:.4rem;align-items:center}}
+ /* display:flex would otherwise beat the hidden attribute on a one-page document */
+ .pager[hidden]{{display:none}}
  .pager button{{padding:0 .5rem;font-size:11px}}
  .legend{{font-size:13px;color:#555;margin:.3rem 0 0}}
  .pagelinks{{font-size:13px;color:#555;margin:.3rem 0}}
@@ -991,6 +1013,7 @@ def write_review(out_dir, n=30, seed=SAMPLE_SEED, flagged_first=True, graders=Fa
 <p id="count"></p>
 {settle_summary}
 {GRADER_PANEL if graders else ''}
+{f'<div id="stale">{stale} earlier answer{"s" if stale != 1 else ""} saved in this folder belong to documents that are no longer at the same rows (the folder was scanned again with a different draw). They stay in corrections.jsonl and are not shown here, scored, or learned from.</div>' if stale else ''}
 <div id="banner" hidden>This page was opened as a file, so corrections cannot be saved.
   To save them, start it with <code>extract-text review --out YOUR_SCAN_FOLDER --serve</code>,
   or in R with <code>review_documents("YOUR_SCAN_FOLDER", correct = TRUE)</code>.</div>
@@ -1092,11 +1115,13 @@ function curPage(card) {{ return Number(card.querySelector(".shot").dataset.page
 function showPage(card, p) {{
   const shot = card.querySelector(".shot"), img = shot.querySelector("img");
   const n = Number(card.dataset.pages || 1), rendered = Number(card.dataset.rendered || 1);
-  p = Math.max(1, Math.min(n, p));
+  // opened as a file, only the pages rendered at build time exist
+  p = Math.max(1, Math.min(SERVED ? n : Math.min(n, rendered), p));
   shot.dataset.page = p;
   const base = img.dataset.base;
   const src = p === 1 ? base + ".png" : SERVED ? "page/" + card.dataset.row + "/" + p : base + "_p" + p + ".png";
-  if (img.dataset.src !== src) {{ img.src = src; img.dataset.src = src; }}
+  // a turned page loads at once, even when the card is below the fold
+  if (img.dataset.src !== src) {{ img.loading = "eager"; img.src = src; img.dataset.src = src; }}
   img.alt = "page " + p + " of document " + card.dataset.row;
   for (const s of shot.querySelectorAll(".hl")) s.hidden = Number(s.dataset.page || 1) !== p;
   const pager = card.querySelector(".pager");
@@ -1116,7 +1141,7 @@ for (const card of document.querySelectorAll(".doc")) {{
     pager.querySelector(".next").addEventListener("click", () => showPage(card, curPage(card) + 1));
   }}
   for (const b of card.querySelectorAll(".gopage")) {{
-    b.hidden = !pageable;
+    b.hidden = !pageable || (!SERVED && Number(b.dataset.page) > rendered);
     b.addEventListener("click", () => showPage(card, Number(b.dataset.page)));
   }}
 }}
@@ -1136,8 +1161,7 @@ function placeBox(s, b) {{
 function boxSpan(field, b, extra) {{
   const s = document.createElement("span");
   s.className = "hl hl-" + field + " " + extra;
-  s.title = BOXLABEL[field];
-  if (extra !== "ghost") s.dataset.label = BOXLABEL[field];
+  s.title = BOXLABEL[field] + (extra === "edited" ? " (yours: drag to move, a corner to reshape)" : "");
   placeBox(s, b);
   return s;
 }}
@@ -1154,6 +1178,14 @@ function normalizeBoxes(saved) {{
   return out;
 }}
 function getEdits(f) {{ return JSON.parse(f.dataset.boxes || "{{}}"); }}
+const HANDLES = '<b class="x" title="Delete this box">\\u00d7</b>'
+  + ["nw", "ne", "sw", "se"].map(c => '<i class="h ' + c + '"></i>').join("");
+// the engine's own boxes of a field, as the reviewer's boxes would be saved:
+// the first touch of one turns the whole field over to the reviewer
+function engineBoxes(shot, field) {{
+  return [...shot.querySelectorAll(".hl-" + field + ".live")].map(s => ({{
+    page: Number(s.dataset.page || 1), box: s.dataset.box.split(",").map(Number)}}));
+}}
 function renderEdits(f) {{
   const card = f.closest(".doc"), shot = card && card.querySelector(".shot");
   if (!shot) return;
@@ -1164,10 +1196,8 @@ function renderEdits(f) {{
     if (!list) continue;
     list.forEach((item, idx) => {{
       const s = boxSpan(field, item.box, "edited");
-      if (idx) delete s.dataset.label;
       s.dataset.field = field; s.dataset.idx = idx; s.dataset.page = item.page;
-      s.innerHTML = '<b class="x" title="Delete this box">\\u00d7</b>'
-        + ["nw", "ne", "sw", "se"].map(c => '<i class="h ' + c + '"></i>').join("");
+      s.innerHTML = HANDLES;
       shot.appendChild(s);
     }});
   }}
@@ -1188,6 +1218,12 @@ for (const bar of document.querySelectorAll(".fixbox")) {{
   const f = card.querySelector("form.fix");
   if (!CANSAVE || !shot || !f) continue;
   bar.hidden = false;
+  // the engine's boxes start live: handles on hover, draggable like the reviewer's
+  for (const s of shot.querySelectorAll(".hl[data-field]:not(.edited)")) {{
+    s.classList.add("live");
+    s.title = BOXLABEL[s.dataset.field] + " (the engine's: drag to move, a corner to reshape)";
+    s.innerHTML = HANDLES;
+  }}
   let armed = null, drag = null, drew = false;
   const arm = field => {{
     armed = field;
@@ -1225,11 +1261,18 @@ for (const bar of document.querySelectorAll(".fixbox")) {{
   }};
   shot.addEventListener("pointerdown", e => {{
     if (e.button !== 0) return;
-    const box = e.target.closest(".hl.edited");
+    const box = e.target.closest(".hl.edited, .hl.live");
     if (box && !armed) {{
-      const field = box.dataset.field, idx = Number(box.dataset.idx), edits = getEdits(f);
+      const field = box.dataset.field, live = box.classList.contains("live");
       e.preventDefault();
+      // the engine's boxes of a field become the reviewer's when one of
+      // them is deleted, moved, or reshaped; a plain click changes nothing
+      const idx = live ? [...shot.querySelectorAll(".hl-" + field + ".live")].indexOf(box)
+                       : Number(box.dataset.idx);
+      const orig = live ? box.dataset.box.split(",").map(Number) : getEdits(f)[field][idx].box.slice();
       if (e.target.closest(".x")) {{
+        const edits = getEdits(f);
+        if (live) edits[field] = engineBoxes(shot, field);
         edits[field].splice(idx, 1);
         if (!edits[field].length) edits[field] = null;
         setEdits(f, edits, false);
@@ -1237,7 +1280,7 @@ for (const bar of document.querySelectorAll(".fixbox")) {{
       }}
       const h = e.target.closest(".h");
       drag = {{kind: h ? "resize" : "move", corner: h ? h.className.split(" ")[1] : null,
-              field, idx, start: at(e), orig: edits[field][idx].box.slice(), span: box}};
+              field, idx, live, start: at(e), orig, span: box}};
       try {{ shot.setPointerCapture(e.pointerId); }} catch (err) {{}}
       return;
     }}
@@ -1255,6 +1298,7 @@ for (const bar of document.querySelectorAll(".fixbox")) {{
     const d = drag, b = shaped(d, at(e)).map(v => Math.round(v * 10000) / 10000);
     drag = null; drew = true;
     const big = b[2] - b[0] > 0.005 && b[3] - b[1] > 0.003;
+    const moved = d.orig && d.orig.some((v, k) => Math.abs(v - b[k]) > 0.001);
     if (d.kind === "draw") {{
       d.span.remove();
       if (big) {{
@@ -1263,11 +1307,20 @@ for (const bar of document.querySelectorAll(".fixbox")) {{
         setEdits(f, edits, false);
       }}
       arm(null);
-    }} else if (big) {{
+    }} else if (big && moved) {{
       const edits = getEdits(f);
+      if (d.live) edits[d.field] = engineBoxes(shot, d.field);
       edits[d.field][d.idx].box = b;
       setEdits(f, edits, false);
-    }} else renderEdits(f);
+    }} else {{
+      // nothing changed: the box goes back where it was, and a plain click
+      // on a box enlarges the page as a click beside it does
+      if (d.live) placeBox(d.span, d.orig.length ? [Math.max(0, d.orig[0] - 0.004), Math.max(0, d.orig[1] - 0.004),
+                                                   Math.min(1, d.orig[2] + 0.004), Math.min(1, d.orig[3] + 0.004)] : d.orig);
+      else renderEdits(f);
+      drew = false;
+      shot.querySelector("img").click();
+    }}
   }});
   // the click that ends a drawing must not also enlarge the page
   shot.addEventListener("click", e => {{ if (drew) {{ drew = false; e.stopPropagation(); }} }}, true);

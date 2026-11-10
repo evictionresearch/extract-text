@@ -85,6 +85,9 @@
 <a href="#templates">Form templates</a>
 </li>
 <li>
+<a href="#rules">How the rules improve</a>
+</li>
+<li>
 <a href="#address-check">Address checks</a>
 </li>
 <li>
@@ -252,6 +255,13 @@
 <p>Many courts print their summons on a standard form. The engine can learn where a form prints each field from the boxes drawn and confirmed during grading, with no change to the code.</p>
 <p>A template is one readable file per form. It holds the form's printed words, their positions, and a region of the page for each field. It holds no names or addresses. Nothing learned is used until a person approves it.</p>
 <p>A template changes where the engine looks, not how it reads. The rules still read the text inside each region.</p>
+<h2 id="rules">How the rules improve</h2>
+<p>Grading on your own computer does three things. The score tells you how accurate each field is on your documents. Your answers replace the engine's in the final table. And the boxes you draw can become a form template, once you approve it.</p>
+<p>Grading does not change the rules that read the text. A person changes them, in one of two ways.</p>
+<ul>
+<li><strong>On your own copy.</strong> <a href="https://github.com/evictionresearch/extract-text/blob/main/docs/changing_rules.md" target="_blank" rel="noopener noreferrer">Changing the rules</a> shows how to edit a rule and measure the change against your graded documents.</li>
+<li><strong>Through the Eviction Research Network.</strong> ERN can write rule improvements from your corrections and release them in the package, where every user gets them. Corrections hold tenants' names and addresses, so that takes a data agreement between your organization and UC Berkeley before anything is sent. Write to <a href="mailto:evictions@berkeley.edu?Subject=extract-text">evictions@berkeley.edu</a> to ask.</li>
+</ul>
 <h2 id="address-check">Address checks</h2>
 <p><strong>A check against a list of real addresses.</strong> The package compares each address with a list you supply, such as a county's public address points, and reports the ones that match no real address. A preset is included for King County, Washington.</p>
 <p><strong>Address Check, a card game for phones.</strong> Each card shows a picture of an address as printed on a filing beside the address an engine read. The player says whether they match, in about ten seconds a card. The game paints over the names before it takes the picture. The answers become labeled data, broken down by county, year, and the rule that found the address, so a weakness in one county shows up and is not averaged away.</p>
@@ -303,7 +313,7 @@
 <p><strong>What is tuned to Washington.</strong> Three rules expect Washington forms. The city, state, and ZIP pattern looks for WA. The strict case-number format is the Washington superior court one. Attorney bar numbers are recognized by the Washington State Bar label. Each can be changed for another state, and <a href="https://github.com/evictionresearch/extract-text/blob/main/docs/changing_rules.md" target="_blank" rel="noopener noreferrer">Changing the rules</a> shows how.</p>
 <h2 id="status">Status</h2>
 <p>extract-text is under development. The current release is version 0.4.0, of November 9, 2026. Command options, output columns, and the default AI model can still change between releases, so install a specific version for work you need to repeat. The <a href="https://github.com/evictionresearch/extract-text/blob/main/CHANGELOG.md" target="_blank" rel="noopener noreferrer">changelog</a> lists every release and how to install one.</p>
-<p>Today the package reads the parties, the addresses, the attorney, and the case number. Future versions are planned to read the body of a filing, such as the reason for the eviction.</p>
+<p>Today the package reads the parties, the addresses, the attorney, and the case number. Future versions are planned to read the body of a filing, such as the reason for the eviction. The <a href="index.html#development">development timeline</a> lists the three stages.</p>
 <div class="actions" style="margin-top: 30px;">
 <p><a href="get-started.html" class="btn">Get started</a> <a href="https://github.com/evictionresearch/extract-text/blob/main/docs/manual.md" class="btn ghost" target="_blank" rel="noopener noreferrer">Read the manual</a></p>
 </div>

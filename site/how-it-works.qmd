@@ -22,6 +22,7 @@ hero:
 <li><a href="#flags">Flags</a></li>
 <li><a href="#review">Review page</a></li>
 <li><a href="#templates">Form templates</a></li>
+<li><a href="#rules">How the rules improve</a></li>
 <li><a href="#address-check">Address checks</a></li>
 <li><a href="#accuracy">Accuracy</a></li>
 <li><a href="#elsewhere">Outside Washington</a></li>
@@ -118,6 +119,15 @@ A template is one readable file per form. It holds the form's printed words, the
 
 A template changes where the engine looks, not how it reads. The rules still read the text inside each region.
 
+## How the rules improve {#rules}
+
+Grading on your own computer does three things. The score tells you how accurate each field is on your documents. Your answers replace the engine's in the final table. And the boxes you draw can become a form template, once you approve it.
+
+Grading does not change the rules that read the text. A person changes them, in one of two ways.
+
+- **On your own copy.** [Changing the rules](https://github.com/evictionresearch/extract-text/blob/main/docs/changing_rules.md){target="_blank" rel="noopener noreferrer"} shows how to edit a rule and measure the change against your graded documents.
+- **Through the Eviction Research Network.** ERN can write rule improvements from your corrections and release them in the package, where every user gets them. Corrections hold tenants' names and addresses, so that takes a data agreement between your organization and UC Berkeley before anything is sent. Write to [evictions@berkeley.edu](mailto:evictions@berkeley.edu?Subject=extract-text) to ask.
+
 ## Address checks {#address-check}
 
 **A check against a list of real addresses.** The package compares each address with a list you supply, such as a county's public address points, and reports the ones that match no real address. A preset is included for King County, Washington.
@@ -155,7 +165,7 @@ The Eviction Research Network designed extract-text for court documents that fol
 
 extract-text is under development. The current release is version 0.4.0, of November 9, 2026. Command options, output columns, and the default AI model can still change between releases, so install a specific version for work you need to repeat. The [changelog](https://github.com/evictionresearch/extract-text/blob/main/CHANGELOG.md){target="_blank" rel="noopener noreferrer"} lists every release and how to install one.
 
-Today the package reads the parties, the addresses, the attorney, and the case number. Future versions are planned to read the body of a filing, such as the reason for the eviction.
+Today the package reads the parties, the addresses, the attorney, and the case number. Future versions are planned to read the body of a filing, such as the reason for the eviction. The [development timeline](index.html#development) lists the three stages.
 
 ::: {.actions style="margin-top: 30px;"}
 [Get started](get-started.html){.btn}

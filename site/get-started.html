@@ -241,7 +241,7 @@ res &lt;- scan_documents(docs_dir, engine = "deterministic", sample = n_sample,
 7 zip              1     1     0     0     0</code></pre>
 <p>This example is the one made-up document graded in the video, where the engine misread the city. It is shortened to the main columns. With 50 graded documents, <code>checked</code> reads 50. The score has one row per field and counts how many documents the engine got right, nearly right, left blank, or got wrong. Two more columns, <code>right_random</code> and <code>checked_random</code>, give the accuracy estimate for the whole folder when you divide the first by the second.</p>
 <p>Decide here whether the fields you need are accurate enough to scan everything. Fifty random documents put the share right within about 10 points. Grade 100 or more before you publish counts or send anything to people.</p>
-<p>Your corrections do not change the engine. They tell you which fields to trust, and every document you grade carries your answer in the final table.</p>
+<p>Your corrections do not change the engine's rules. They tell you which fields to trust, and every document you grade carries your answer in the final table. <a href="how-it-works.html#rules">How the rules improve</a> says how the rules themselves get better.</p>
 <h2 id="full"><span class="num">6</span> Scan the whole folder and grade a second 50</h2>
 <p>The full run goes to its own folder, so the sample and its corrections stay as they are. It needs no attention while it runs. At about 5 seconds a document, 4,000 documents take five or six hours.</p>
 <pre class="r"><code>res_all &lt;- scan_documents(docs_dir, engine = "deterministic", out_dir = all_dir)</code></pre>

@@ -61,7 +61,7 @@
         <h1><code>extract-text</code> reads eviction court documents into a <em>table</em>.</h1>
         <p class="lede">Many courts keep eviction filings only as page images, and a filing cannot be counted or mapped until it is in a table. extract-text reads e-filed PDFs, scanned PDFs, and TIFF images and returns one row per document, with the plaintiffs, the defendants, the address where the defendants were served, the plaintiff’s attorney, and the case number.</p>
         <p class="small">Free and open source. It runs on your own computer, from R or Python, on Mac, Windows, and Linux.</p>
-        <p class="badge">Under development · version 0.4.0</p>
+        <p class="badge"><a href="#development">Under development · version 0.4.0</a></p>
         <div class="actions">
           <a class="btn" href="get-started.html">Get started</a>
           <a class="btn ghost" href="how-it-works.html">How it works</a>
@@ -135,6 +135,27 @@ Accuracy
 <h2 id="grade-a-random-50-before-you-trust-a-run">Grade a random 50 before you <em>trust a run</em></h2>
 <p>The Eviction Research Network wrote and measured the rules on Washington State filings. Another court's forms, scan quality, or decade can make them misread a field without raising a flag, and accuracy differs by field. On a random 50 King County summonses from 2017, the rules engine read the street right on about 85 percent and the plaintiff on about 40 percent (October 2026).</p>
 <p>So the first run is a random 50 of your own documents. You grade them on a review page that shows each document beside what the engine read. The package scores the engine against your answers. You scan the whole folder only when the fields you need are accurate enough.</p>
+<h3 id="grading">What grading is for</h3>
+<p>Grading happens on your own computer, and it does three things for your own run.</p>
+<div class="cards">
+<div class="card">
+<p><span class="n">1</span></p>
+<h3 id="it-measures-the-engine">It measures the engine</h3>
+<p>The score counts, field by field, how often the engine was right on your documents. You decide from it which fields are accurate enough to use.</p>
+</div>
+<div class="card">
+<p><span class="n">2</span></p>
+<h3 id="it-corrects-your-table">It corrects your table</h3>
+<p>Every document you grade carries your answer in the final table, in place of the engine's.</p>
+</div>
+<div class="card">
+<p><span class="n">3</span></p>
+<h3 id="it-teaches-the-engine-your-form">It teaches the engine your form</h3>
+<p>The boxes you draw show where your court's form prints each field. The package learns a template from them and uses it only after you approve it.</p>
+</div>
+</div>
+<h3 id="rules">How the rules improve</h3>
+<p>Grading does not change the rules that read the text. A person changes them, in one of two ways. You can change them on your own copy of the package, and <a href="https://github.com/evictionresearch/extract-text/blob/main/docs/changing_rules.md" target="_blank" rel="noopener noreferrer">Changing the rules</a> shows how. Or the Eviction Research Network can write rule improvements from your corrections and release them in the package, where every user gets them. Corrections hold tenants' names and addresses, so that takes a data agreement between your organization and UC Berkeley before anything is sent. Write to <a href="mailto:evictions@berkeley.edu?Subject=extract-text">evictions@berkeley.edu</a> to ask.</p>
 <p><a href="how-it-works.html#accuracy" class="more">How grading and accuracy work</a></p>
 </div>
 </section>
@@ -208,6 +229,42 @@ Publications
 <p><a href="about.html#authors" class="more">Meet the authors</a></p>
 </div>
 </div>
+</div>
+</section>
+<section>
+<div class="wrap sec">
+<p class="eyebrow">
+Under development
+</p>
+<h2 id="development">Development <em>timeline</em></h2>
+<p>extract-text is being built in three stages. The first is released, and the other two are open. Until all three are done, command options and output columns can still change between releases.</p>
+<ol class="timeline">
+<li class="done">
+<span class="mark" aria-hidden="true"><svg viewbox="0 0 24 24" width="16" height="16"><path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"></path></svg></span>
+<div>
+<p class="status">Stage 1 · Done</p>
+<h3>The rules engine</h3>
+<p>The engine reads the parties, the address, the attorney, and the case number with written rules and no AI. It is released, along with the review page for grading and form templates. Its rules keep improving as graded documents come in.</p>
+</div>
+</li>
+<li class="open">
+<span class="mark" aria-hidden="true"></span>
+<div>
+<p class="status">Stage 2 · Open</p>
+<h3>Local AI integration and improvements</h3>
+<p>The local AI engine runs today as an option. The work that remains is to measure it against hand-graded documents, improve what it reads, and make it easier to set up.</p>
+</div>
+</li>
+<li class="open">
+<span class="mark" aria-hidden="true"></span>
+<div>
+<p class="status">Stage 3 · Open</p>
+<h3>Large text evaluation</h3>
+<p>Future versions are planned to read the body of a filing, such as the reason for the eviction.</p>
+</div>
+</li>
+</ol>
+<p><a href="https://github.com/evictionresearch/extract-text/blob/main/CHANGELOG.md" class="more" target="_blank" rel="noopener noreferrer">Version history</a></p>
 </div>
 </section>
 

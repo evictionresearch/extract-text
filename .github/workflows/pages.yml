@@ -1,0 +1,43 @@
+name: pages
+
+# Publishes the website in site/ to https://evictionresearch.net/extract-text/.
+# Only the files named in the "Collect" step are published, never the whole
+# repository. To publish a new file or folder, add it to that list.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "site/**"
+      - ".github/workflows/pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Collect the site's own files
+        run: |
+          mkdir _site
+          cd site
+          cp -R index.html get-started.html how-it-works.html about.html \
+                assets images media ../_site/
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+      - id: deploy
+        uses: actions/deploy-pages@v4

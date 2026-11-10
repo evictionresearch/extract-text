@@ -1,0 +1,337 @@
+---
+# Get started page of the extract-text site.
+# The R code here follows getting_started_example_script.R at the repo root;
+# when that script changes, change this page to match. The example output
+# blocks were printed by the package on the made-up test documents in
+# python/tests/fixtures/corpus/ (2026-11-10); print them again when the
+# output changes shape.
+pagetitle: "Get started with extract-text"
+description: "Install extract-text, read an example document, grade a random 50 of your own documents, and build a table of cases, step by step."
+format: extract-text-html
+current-start: true
+hero:
+  eyebrow: "Get started"
+  h1: "From install to a *table of cases*"
+  lede: "Seven steps in R, using the rules engine, which needs no AI setup. Each step is a few lines to copy and run."
+---
+
+<section>
+:::::: {.wrap .sec .article style="padding-top: 0;"}
+
+<ul class="jump">
+<li><a href="#before"><b>1</b> Four free programs</a></li>
+<li><a href="#install"><b>2</b> Install extract-text</a></li>
+<li><a href="#example"><b>3</b> Example document</a></li>
+<li><a href="#sample"><b>4</b> Scan a random 50</a></li>
+<li><a href="#grade"><b>5</b> Grade and score</a></li>
+<li><a href="#full"><b>6</b> Whole folder</a></li>
+<li><a href="#table"><b>7</b> Final table</a></li>
+<li><a href="#next">Go further</a></li>
+<li><a href="#help">If something goes wrong</a></li>
+<li><a href="#python">Python and the command line</a></li>
+</ul>
+
+::: {.note}
+**Before step 1.** You need [R](https://cran.r-project.org/){target="_blank" rel="noopener noreferrer"} and [RStudio](https://posit.co/download/rstudio-desktop/){target="_blank" rel="noopener noreferrer"} on your computer, both free, and your court documents (PDF or TIFF files) in a folder on it.
+:::
+
+## [1]{.num} Install four free programs {#before}
+
+extract-text needs four programs that R does not install.
+
+- **poppler** opens PDF files.
+- **tesseract** reads scanned pages (OCR).
+- **Python 3.10 or newer** runs the engine, which is written in Python. The Python that comes with a Mac is older.
+- **git** downloads the engine during the install.
+
+You install them once, in a terminal window outside R. Find your computer below. You need the internet only to install. After that, extract-text runs with the network unplugged.
+
+::: {.os-group}
+### Mac
+
+1. Open Terminal. Press Command and Space, type Terminal, and press Return.
+2. Install [Homebrew](https://brew.sh){target="_blank" rel="noopener noreferrer"} if you do not have it. Installing Homebrew also installs git.
+3. Run this line.
+
+```bash
+brew install poppler tesseract python
+```
+:::
+
+::: {.os-group}
+### Windows
+
+1. Open PowerShell. Press the Windows key, type PowerShell, and press Enter.
+2. Run these four lines.
+
+```powershell
+winget install oschwartz10612.Poppler
+winget install UB-Mannheim.TesseractOCR
+winget install Python.Python.3.12
+winget install Git.Git
+```
+
+3. Add tesseract to your PATH, which its installer does not do. Open Start, type "Edit environment variables for your account", and open it. Select Path, choose Edit, choose New, and enter `C:\Program Files\Tesseract-OCR`.
+4. Restart RStudio.
+:::
+
+::: {.os-group}
+### Linux (Debian or Ubuntu)
+
+Run this line in a terminal.
+
+```bash
+sudo apt install poppler-utils tesseract-ocr python3 python3-venv git
+```
+:::
+
+On a work computer of any kind, installs may need your IT department. Ask for poppler, tesseract, Python 3.10 or newer, and git.
+
+## [2]{.num} Install extract-text {#install}
+
+In RStudio, install the package, then build the Python engine it runs on. You do this once per computer.
+
+```r
+install.packages(c("remotes", "dplyr"))
+remotes::install_github("evictionresearch/extract-text", subdir = "r")
+
+library(extracttext)
+extracttext_install()
+```
+
+**Restart R** so the package finds the engine. In RStudio, choose Session, then Restart R. Then check your setup.
+
+```r
+library(extracttext)
+library(dplyr)
+
+extracttext_doctor()
+```
+
+The last line of the checkup should be this one.
+
+```{.output}
+Ready: the deterministic engine can run.
+```
+
+The checkup reports Ollama as missing unless you set up the AI engine, and that is fine. The rules engine does not need it. If the checkup says the Python engine is not installed, see [If something goes wrong](#help).
+
+## [3]{.num} Read one example document {#example}
+
+This downloads a made-up summons from the package's test files and reads it.
+
+```r
+f <- file.path(tempdir(), "synthetic_summons_scanned.pdf")
+download.file(paste0("https://raw.githubusercontent.com/evictionresearch/",
+                     "extract-text/main/python/tests/fixtures/",
+                     "synthetic_summons_scanned.pdf"),
+              f, mode = "wb")
+
+# Open the summons, to compare with what the engine reads
+browseURL(f)
+
+one <- extract_deterministic(f)
+
+# Expect 1234 EXAMPLE AVE S APT 5, Seattle, WA 98100
+one$record$defendant_address
+
+# Problems the engine found; empty means none
+one$flags
+```
+
+## [4]{.num} Scan a random 50 of your own documents {#sample}
+
+Start with a random sample, not the whole folder. It takes minutes, and you grade every document in it in the next step.
+
+`docs_dir` is the folder that holds your court documents (PDF or TIFF, subfolders included). `results` is a new folder where everything from here on is written. Type each path with forward slashes, on Windows too.
+
+```r
+# Mac:     "/Users/yourname/Documents/court_documents"
+# Windows: "C:/Users/yourname/Documents/court_documents"
+docs_dir <- "path/to/your/documents"
+results  <- "path/to/your/results"
+n_sample <- 50
+
+sample_dir <- file.path(results, "sample")
+all_dir    <- file.path(results, "all")
+
+res <- scan_documents(docs_dir, engine = "deterministic", sample = n_sample,
+                      seed = 1, out_dir = sample_dir)
+```
+
+Expect about 5 seconds a document when OCR is needed. When the scan finishes, count what came back.
+
+```r
+res %>%
+  count(text_source,
+        found   = defendant_street != "",
+        flagged = flags != "")
+```
+
+```{.output}
+# A tibble: 3 × 4
+  text_source found flagged     n
+  <chr>       <lgl> <lgl>   <int>
+1 pdf_ocr     FALSE TRUE        1
+2 pdf_ocr     TRUE  FALSE       4
+3 pdf_ocr     TRUE  TRUE        1
+```
+
+This example comes from six made-up documents, so your counts will differ. `found` says whether the engine read a street, and `flagged` says whether it raised a flag. `pdf_ocr` means the pages were scans read by OCR.
+
+::: {.note}
+**Keep both folders private.** Your documents and every file written from this step on hold tenants' names and addresses. Keep them wherever your organization keeps the court documents themselves, and out of any folder that syncs or is shared (Dropbox, iCloud Drive, OneDrive, or a Google Drive folder that syncs to your computer).
+:::
+
+## [5]{.num} Grade the sample, then score the engine {#grade}
+
+Grading is required. Until you grade a sample, you do not know how often the scan is right on your documents.
+
+This line opens a page in your browser that shows each document beside what the engine read. Change only what is wrong, leave a field blank when the document does not have it, and save. Fifty documents take about an hour. You can stop at any point by pressing Esc in RStudio, and running the line again picks up where you left off.
+
+```r
+review_documents(res, correct = TRUE, n = n_sample, draw = "random")
+```
+
+```{=html}
+<figure class="video">
+<video controls preload="metadata" poster="media/grading-poster.jpg" width="1600" height="1080" aria-label="Grading one made-up document on the review page">
+<source src="media/grading.mp4" type="video/mp4">
+</video>
+<p class="narration" hidden></p>
+<figcaption>Grading one document, in one minute. The document is made up. The video has no sound, and the script under it follows the video as it plays.</figcaption>
+<details>
+<summary>Read the whole script</summary>
+<ol class="script">
+<li data-start="0">This video grades one made-up document on the review page.</li>
+<li data-start="3.4">The page is on the left. On the right is what the rules engine read, above a form filled in with its answers.</li>
+<li data-start="9.6">The colored boxes show where the engine found each value. Red marks the defendants and blue marks the address.</li>
+<li data-start="15.2">Check each field against the page. Here the page prints the city as Sampleton.</li>
+<li data-start="19.4">The rules engine misspelled it as Sampieton, so we correct it in the City box of the form.</li>
+<li data-start="25.4">The top of the page names the defendants too. We pick Defendants.</li>
+<li data-start="29.2">Then we drag a box over those names. Boxes like this teach the engine where the form prints each field.</li>
+<li data-start="34.7">Our box replaced the engine's own box for the defendants, so we pick Defendants again.</li>
+<li data-start="39.0">We draw a second box over the line addressed to them, the one the engine had found.</li>
+<li data-start="44.6">We press Save. Save every document you check, even when the engine got everything right.</li>
+<li data-start="49.9">The page confirms the save and notes that the engine was wrong on the city.</li>
+<li data-start="53.6">Your answers stay in a file on your own computer. The full guide is GRADING.md.</li>
+</ol>
+</details>
+</figure>
+```
+
+Then score the engine against your answers.
+
+```r
+score_documents(res)
+```
+
+```{.output}
+  field      checked right  near blank wrong
+1 plaintiff        1     1     0     0     0
+2 defendants       1     1     0     0     0
+3 street           1     1     0     0     0
+4 unit             1     1     0     0     0
+5 city             1     0     0     0     1
+6 state            1     1     0     0     0
+7 zip              1     1     0     0     0
+```
+
+This example is the one made-up document graded in the video, where the engine misread the city. It is shortened to the main columns. With 50 graded documents, `checked` reads 50. The score has one row per field and counts how many documents the engine got right, nearly right, left blank, or got wrong. Two more columns, `right_random` and `checked_random`, give the accuracy estimate for the whole folder when you divide the first by the second.
+
+Decide here whether the fields you need are accurate enough to scan everything. Fifty random documents put the share right within about 10 points. Grade 100 or more before you publish counts or send anything to people.
+
+Your corrections do not change the engine. They tell you which fields to trust, and every document you grade carries your answer in the final table.
+
+## [6]{.num} Scan the whole folder and grade a second 50 {#full}
+
+The full run goes to its own folder, so the sample and its corrections stay as they are. It needs no attention while it runs. At about 5 seconds a document, 4,000 documents take five or six hours.
+
+```r
+res_all <- scan_documents(docs_dir, engine = "deterministic", out_dir = all_dir)
+```
+
+The first sample told you whether to run everything. A second sample measures the run that becomes your table.
+
+```r
+review_documents(res_all, correct = TRUE, n = n_sample, draw = "random", seed = 1)
+
+score_documents(res_all)
+```
+
+The share right in this score is the accuracy of the full run. Report it with the table.
+
+## [7]{.num} Build the final table {#table}
+
+```r
+cases <- case_table(res_all, graded = sample_dir,
+                    save = file.path(results, "case_table.csv"))
+
+# How many rows carry a graded answer, and how many the engine's reading
+count(cases, source)
+```
+
+```{.output}
+# A tibble: 2 × 2
+  source     n
+  <chr>  <int>
+1 engine     5
+2 graded     1
+```
+
+The table has one row per document, with the case number, the plaintiff, the defendants, and the defendants' address. Your graded answers from both samples replace the engine's wherever you gave one, and the `source` column says which each row carries. In this example, from the six made-up documents, one row carries a graded answer and five carry the engine's reading. The table is saved as `case_table.csv` in your results folder.
+
+## Go further {#next}
+
+- **The full script.** [`getting_started_example_script.R`](https://github.com/evictionresearch/extract-text/blob/main/getting_started_example_script.R){target="_blank" rel="noopener noreferrer"} holds every step on this page with more explanation, plus two optional ones.
+- **Teach the engine your forms, without code.** While you grade, you can draw a box where your court's form prints each field. The package learns a template from those boxes, and nothing learned is used until you approve it. The guide is the last chapter of [Changing the rules](https://github.com/evictionresearch/extract-text/blob/main/docs/changing_rules.md){target="_blank" rel="noopener noreferrer"}.
+- **Set up the AI engine.** It is optional and needs about 16 GB of memory. [Section 6 of the manual](https://github.com/evictionresearch/extract-text/blob/main/docs/manual.md#6-setting-up-the-ai-engine-optional){target="_blank" rel="noopener noreferrer"} has the two steps.
+- **Read the manual.** [The manual](https://github.com/evictionresearch/extract-text/blob/main/docs/manual.md){target="_blank" rel="noopener noreferrer"} covers every output column, the flags, and how to use the package outside Washington.
+
+## If something goes wrong {#help}
+
+**Run the checkup first.** `extracttext_doctor()` in R looks at your computer and prints the command for anything missing.
+
+**The checkup says "The Python engine is not installed yet."** Restart R and run it again. If the message stays, R may be using another Python project on your computer, such as a `.venv` folder in your working directory. Point R at the engine's own environment, then run the checkup again.
+
+```r
+library(extracttext)
+reticulate::use_virtualenv("r-extracttext", required = TRUE)
+extracttext_doctor()
+```
+
+**Something else.** Open an issue at [github.com/evictionresearch/extract-text/issues](https://github.com/evictionresearch/extract-text/issues){target="_blank" rel="noopener noreferrer"}, or write to [evictions@berkeley.edu](mailto:evictions@berkeley.edu).
+
+::: {.note}
+**Never paste a real document, name, address, or case number into an issue or an email.** Describe the problem, or reproduce it with the made-up example document from step 3.
+:::
+
+## Python and the command line {#python}
+
+The seven steps above use R. The same engine runs from Python and from a terminal. Install the four programs from step 1 first.
+
+```bash
+pip install "extract-text @ git+https://github.com/evictionresearch/extract-text#subdirectory=python"
+extract-text doctor
+```
+
+```python
+from extract_text import extract, scan
+
+result = extract("summons.pdf")                 # rules only, no AI
+result.record.defendant_address.street
+result.flags                                    # empty means all checks passed
+
+rows = scan("documents/", engine="deterministic", out_dir="results/")
+```
+
+From a terminal, with no programming, this line scans a folder.
+
+```bash
+extract-text scan documents/ --engine deterministic --out results/ --review
+```
+
+A folder scan writes `extracted.csv`, the table. It also writes `extracted.jsonl`, the full record of where each value came from, and `review/index.html`, a page that shows each flagged document beside what was read from it.
+
+::::::
+</section>

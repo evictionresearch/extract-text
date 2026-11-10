@@ -1,0 +1,155 @@
+---
+# About page of the extract-text site.
+# Sources for every fact are listed in site/README.md ("Where the facts
+# come from"). The affiliation sentence under "The Eviction Research
+# Network" is canonical wording from the ERN library's ORG.md; do not
+# paraphrase it.
+pagetitle: "About extract-text: authors, research, and terms"
+description: "Who wrote extract-text, the published research it comes from, how to cite it, and the terms for using it."
+format: extract-text-html
+current-about: true
+hero:
+  eyebrow: "About"
+  h1: "The people and research *behind extract-text*"
+  lede: "Cheng Ren, Tim Thomas, and Aaron Culich wrote extract-text. It grew from a peer-reviewed study of Washington State eviction filings and a dissertation on Pierce County cases."
+---
+
+<section id="authors" class="band">
+:::::: {.wrap .sec}
+<p class="eyebrow">People</p>
+
+## Who *wrote it*
+
+::::: {.authors}
+::: {.author}
+<img src="images/people/cheng-ren.jpg" alt="Portrait of Cheng Ren" width="148" height="148">
+
+### Cheng Ren
+
+<p class="role">Assistant Professor, School of Social Welfare, University at Albany, SUNY</p>
+
+Cheng Ren studies housing justice and eviction with natural language processing and computer vision. His 2024 UC Berkeley dissertation read 772,629 court files from 56,070 Pierce County eviction cases. It received the 2025 Outstanding Social Work Doctoral Dissertation Award from the Society for Social Work and Research. The package's rules for reading a whole case file follow that dissertation, and he tested its AI model on 300 Pierce County summonses.
+
+<p class="links"><a href="https://www.albany.edu/cihs/faculty/cheng-ren" target="_blank" rel="noopener noreferrer">Cheng Ren at the University at Albany</a></p>
+:::
+
+::: {.author}
+<img src="images/people/tim-thomas.jpg" alt="Portrait of Tim Thomas" width="148" height="148">
+
+### Tim Thomas
+
+<p class="role">Assistant Professional Researcher, Department of Sociology, UC Berkeley. Director, Eviction Research Network</p>
+
+Tim Thomas is a sociologist, demographer, and data scientist who studies residential displacement, neighborhood change, and housing precarity. He founded the Eviction Research Network and is the lead author of the *Cityscape* paper this package grew from. He maintains extract-text.
+
+<p class="links"><a href="https://sociology.berkeley.edu/visiting-faculty/tim-thomas" target="_blank" rel="noopener noreferrer">Tim Thomas at UC Berkeley Sociology</a></p>
+:::
+
+::: {.author}
+<img src="images/people/aaron-culich.jpg" alt="Portrait of Aaron Culich" width="148" height="148">
+
+### Aaron Culich
+
+<p class="role">Director of Data Science, Eviction Research Network, UC Berkeley</p>
+
+Aaron Culich is the Eviction Research Network's Director of Data Science and an author of extract-text.
+
+<p class="links"><a href="https://www.linkedin.com/in/aaron-culich" target="_blank" rel="noopener noreferrer">Aaron Culich on LinkedIn</a></p>
+:::
+:::::
+::::::
+</section>
+
+<section id="research">
+:::::: {.wrap .sec}
+<p class="eyebrow">Publications</p>
+
+## The work it *comes from*
+
+### The *Cityscape* paper
+
+::: {.cite}
+Thomas, Tim, Alex Ramiller, Cheng Ren, and Ott Toomet. 2024. "Toward a National Eviction Data Collection Strategy Using Natural Language Processing." *Cityscape* 26(1). U.S. Department of Housing and Urban Development. [Article page](https://www.huduser.gov/portal/periodicals/cityscape/vol26num1/article12.html){target="_blank" rel="noopener noreferrer"} · [PDF](https://www.huduser.gov/portal/sites/default/files/periodicals/cityscape/vol26num1/ch12.pdf){target="_blank" rel="noopener noreferrer"}
+:::
+
+Many states have no process to count, digitize, or release information on evictions, and the filings sit in court records as page images. The paper describes how the Eviction Research Network read those images. It downloaded the court records, turned the pages into text, found and mapped the addresses, and estimated demographics from names and locations. For Washington State it processed millions of pages in more than 110,000 eviction filings from 2004 to 2017. The paper closes with a strategy for collecting eviction data across the country.
+
+extract-text replaces the software that paper used. The Network scored both against the same hand-labeled Washington addresses, on a scale where 1 means the address read is identical to the label. The paper's software had a mean similarity of 0.82. The deterministic engine had 0.87 to 0.92 in the July 2026 runs.
+
+### Cheng Ren's dissertation
+
+::: {.cite}
+Ren, Cheng. 2024. "Not All Eviction Cases are Alike: How Do Contextual and Individual Characteristics Matter? A Computational Analysis of a Decade of Court Cases from Pierce County, Washington." PhD dissertation, University of California, Berkeley. [eScholarship](https://escholarship.org/uc/item/7f36p8n6){target="_blank" rel="noopener noreferrer"}
+:::
+
+The dissertation asks what happens after an eviction is filed. It used natural language processing and computer vision to read 772,629 PDF files from 56,070 Pierce County cases, 2004 to 2022. It then followed each case to a dismissal or a judgment and, after a judgment, to an eviction by the sheriff.
+
+extract-text takes three things from the dissertation. The rules that read a whole case file and decide whether a case was dismissed, went to judgment, or ended with the sheriff follow the dissertation's. The form templates are a rule-based version of its method, which learned the layout of each court form from 10 to 20 labeled pages. And Cheng Ren first tested the AI engine's model, on 300 Pierce County summonses.
+
+### The card game's design
+
+Address Check, the card game that produces hand-checked address labels, takes two ideas from braindr.
+
+::: {.cite}
+Keshavan, Anisha, Jason D. Yeatman, and Ariel Rokem. 2019. "Combining Citizen Science and Deep Learning to Amplify Expertise in Neuroimaging." *Frontiers in Neuroinformatics* 13. [doi.org/10.3389/fninf.2019.00029](https://doi.org/10.3389/fninf.2019.00029){target="_blank" rel="noopener noreferrer"}
+:::
+
+A player makes one judgment on one image with a single tap. And each player's answers are weighted by how often that player is right on cards whose answer is already known.
+::::::
+</section>
+
+<section id="cite" class="band">
+:::::: {.wrap .sec}
+<p class="eyebrow">Citation</p>
+
+## How to *cite it*
+
+Cite the software and, for the method, the *Cityscape* paper above.
+
+::: {.cite}
+Ren, Cheng, Tim Thomas, and Aaron Culich. 2026. *extract-text: court record text extraction, deterministic and AI compared.* Version 0.4.0. Eviction Research Network, University of California, Berkeley. [github.com/evictionresearch/extract-text](https://github.com/evictionresearch/extract-text){target="_blank" rel="noopener noreferrer"}
+:::
+
+The repository's [`CITATION.cff`](https://github.com/evictionresearch/extract-text/blob/main/CITATION.cff){target="_blank" rel="noopener noreferrer"} file holds the same details in a form that citation managers and GitHub read directly. Name the version you used.
+::::::
+</section>
+
+<section id="terms">
+:::::: {.wrap .sec}
+<p class="eyebrow">Terms of use</p>
+
+## What the project *supports*, and what it does not
+
+**The code is open source** under the [AGPL-3.0-or-later license](https://github.com/evictionresearch/extract-text/blob/main/LICENSE){target="_blank" rel="noopener noreferrer"}. Commercial use is permitted. Building a closed-source product or a hosted service on this code is not.
+
+**The project is for** research, litigation, journalism, policy analysis, and direct legal services that describe or reduce displacement. It is also for tenant defense, court administration and self-help, and public accountability for how eviction is practiced.
+
+**The project is against** treating a filing as a fact about a person. An eviction filing is not a finding of wrongdoing. We do not want this code, or anything derived from it, used to
+
+- produce tenant screening reports or any product that scores or ranks rental applicants,
+- build or supply landlord blacklists,
+- target people for debt collection,
+- locate people for immigration enforcement or any other enforcement action,
+- resell extracted records or feed them to data brokers, or
+- train models whose purpose is any of the above.
+
+The full statement is [`ETHICS.md`](https://github.com/evictionresearch/extract-text/blob/main/ETHICS.md){target="_blank" rel="noopener noreferrer"}. The license covers the software, not the records you read with it. [`DATA-USE.md`](https://github.com/evictionresearch/extract-text/blob/main/DATA-USE.md){target="_blank" rel="noopener noreferrer"} sets the terms for any dataset the project supplies.
+
+If you are unsure whether a use fits, ask before you build. Write to [evictions@berkeley.edu](mailto:evictions@berkeley.edu).
+::::::
+</section>
+
+<section id="ern" class="band">
+:::::: {.wrap .sec}
+<p class="eyebrow">Who we are</p>
+
+## The Eviction *Research Network*
+
+The Eviction Research Network collects eviction court records across the United States and publishes maps, state profiles, and trend data from them. extract-text is how the Network reads filings that courts keep only as page images.
+
+::: {.actions style="margin-top: 26px;"}
+[Visit evictionresearch.net](https://evictionresearch.net/){.btn target="_blank" rel="noopener noreferrer"}
+[Contact us](mailto:evictions@berkeley.edu?Subject=extract-text){.btn .ghost}
+:::
+::::::
+</section>

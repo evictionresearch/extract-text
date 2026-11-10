@@ -1,0 +1,261 @@
+/*!
+ * ern-2026.css — the Eviction Research Network design system.
+ *
+ * Built from the August 2026 design standardization review
+ * (docs/design-handoff-2026-08/), which rebuilds the home page in the house
+ * style established by the Washington state profile. This page does not load
+ * main.css or the UpConstruction vendor CSS; everything it needs is here.
+ *
+ * One red, brand red #F9322B, for everything: text, buttons, map fills,
+ * legend swatches. This is a deliberate deviation from WCAG 2.1 AA, decided
+ * by Tim on 2026-08-24: he wants the red to pop and accepts the tradeoff.
+ * As small text it is 3.80:1 on white and 3.51:1 on the tint against AA's
+ * 4.5, and a white button label on it is 3.80:1. It clears the 3:1 bar for
+ * graphics and for text at 24px+. Everything else on the page still passes.
+ * Berkeley's full-AA deadline is April 26, 2027, so this is a known item to
+ * revisit rather than an oversight.
+ */
+
+:root {
+  --paper:        #ffffff;
+  --tint:         rgba(232, 238, 244, 0.45);
+  --ink:          #19222C;  /* headings, dark grounds, footer, nav */
+  --body:         #223754;  /* body copy */
+  --muted:        #586573;  /* captions and metadata — 6.0:1 on white */
+  --steel:        #8BA3BE;  /* muted text on dark only — 6.2:1 on ink */
+  --accent:       #F9322B;  /* graphics — same red as text since 2026-08-24 */
+  --accent-deep:  #F9322B;  /* same red as graphics — 3.80:1 white, under AA */
+  --accent-press: #CC2118;  /* hover and press — a darker brand red */
+  --red-on-dark:  #ff706a;  /* eyebrows and link hover on navy — 6.0:1 on ink */
+  --rule:         rgba(25, 34, 44, 0.10);
+  --rule-dark:    rgba(255, 255, 255, 0.15);
+  --sans:         "Inter", -apple-system, system-ui, "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --wrap:         1240px;
+  --pad:          40px;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 16px;
+  line-height: 1.6;
+  font-feature-settings: 'ss01', 'cv11';
+  -webkit-font-smoothing: antialiased;
+}
+
+a { color: var(--accent-deep); }
+a:hover { color: var(--accent-press); }
+::selection { background: rgba(249, 50, 43, 0.18); }
+
+/* A visible focus ring on every interactive thing, including inside the map
+   iframes, since the state shapes are keyboard-reachable. */
+a:focus-visible,
+button:focus-visible,
+select:focus-visible,
+iframe:focus-visible {
+  outline: 2px solid var(--accent-deep);
+  outline-offset: 3px;
+  border-radius: 2px;
+}
+
+.skip {
+  position: absolute; left: -9999px; top: 0;
+  background: var(--ink); color: #fff;
+  padding: 12px 18px; z-index: 100;
+  font-size: 13px; font-weight: 600; text-decoration: none;
+}
+.skip:focus { left: 8px; top: 8px; color: #fff; }
+
+.wrap { max-width: var(--wrap); margin: 0 auto; padding-left: var(--pad); padding-right: var(--pad); }
+
+/* ─── Header ─── */
+.head {
+  position: sticky; top: 0; z-index: 50;
+  background: rgba(255, 255, 255, 0.94);
+  backdrop-filter: saturate(180%) blur(12px);
+  border-bottom: 1px solid var(--rule);
+}
+.head-in {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 32px; min-height: 84px; padding-top: 16px; padding-bottom: 16px;
+}
+.head-in > a { display: flex; align-items: center; text-decoration: none; }
+.head-in img { height: 44px; width: auto; display: block; }
+
+.nav { display: flex; align-items: center; gap: 26px; }
+.nav a { font-size: 13px; font-weight: 500; color: var(--ink); text-decoration: none; white-space: nowrap; }
+.nav a:hover { color: var(--accent-deep); text-decoration: underline; }
+.nav a.btn:hover { text-decoration: none; }
+.nav a[aria-current="page"] { color: var(--accent-deep); font-weight: 600; }
+
+/* ─── Buttons ─── */
+.btn {
+  display: inline-flex; align-items: center; gap: 10px;
+  font-weight: 600; font-size: 13px; letter-spacing: 0.06em;
+  text-transform: uppercase; text-decoration: none;
+  padding: 13px 24px; border-radius: 4px;
+  border: 1.5px solid var(--accent-deep);
+  background: var(--accent-deep); color: #fff;
+  transition: background 180ms ease, border-color 180ms ease, color 180ms ease;
+}
+.btn:hover { background: var(--accent-press); border-color: var(--accent-press); color: #fff; }
+.btn.sm { font-size: 12px; padding: 10px 18px; border-width: 1px; }
+.btn.ghost { background: transparent; color: var(--ink); border-color: var(--ink); }
+.btn.ghost:hover { background: var(--ink); color: #fff; border-color: var(--ink); }
+.btn.on-dark { border-color: rgba(255, 255, 255, 0.5); background: transparent; color: #fff; }
+.btn.on-dark:hover { background: #fff; color: var(--ink); border-color: #fff; }
+
+/* ─── Sections ─── */
+section { scroll-margin-top: 100px; }
+.band { background: var(--tint); }
+.band-dark { background: var(--ink); }
+.sec { padding-top: 64px; padding-bottom: 56px; }
+.sec-sm { padding-top: 56px; padding-bottom: 56px; }
+/* A section that opens a page on text rather than a map. The measure matters:
+   without it a hairline h1 runs the full 1240 and stops reading as a heading. */
+.sec-hero { padding-top: 76px; padding-bottom: 60px; }
+.hero-in { max-width: 62ch; }
+.hero-in .lede { max-width: 60ch; }
+
+/* ─── Type ─── */
+h1, h2 { font-weight: 200; margin: 0 0 16px; text-wrap: pretty; }
+h1 { font-size: 52px; line-height: 1.05; letter-spacing: -0.026em; }
+h2 { font-size: 40px; line-height: 1.06; letter-spacing: -0.024em; max-width: 22ch; }
+h2.on-dark { font-size: 36px; line-height: 1.08; letter-spacing: -0.022em; color: #fff; max-width: none; }
+/* The house emphasis: the closing word of a hairline heading in semibold. */
+h1 em, h2 em { font-style: normal; font-weight: 600; }
+
+.lede { font-size: 18px; line-height: 1.6; margin: 0 0 18px; color: var(--body); text-wrap: pretty; }
+.sub { font-size: 17px; line-height: 1.6; margin: 0 0 32px; max-width: 72ch; color: var(--body); text-wrap: pretty; }
+.prose { font-size: 16.5px; line-height: 1.7; margin: 0 0 14px; max-width: 72ch; color: var(--body); text-wrap: pretty; }
+.prose:last-child { margin-bottom: 0; }
+.prose a, .sub a, .lede a { text-decoration: underline; text-underline-offset: 2px; }
+.small { font-size: 14.5px; line-height: 1.6; margin: 0 0 16px; color: var(--muted); text-wrap: pretty; }
+.meta {
+  font-size: 12.5px; line-height: 1.6; margin: 0 0 24px;
+  padding-top: 12px; border-top: 1px solid var(--rule); color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.meta strong { color: var(--ink); font-weight: 600; }
+
+.eyebrow {
+  font-size: 11px; font-weight: 800; letter-spacing: 0.28em;
+  text-transform: uppercase; color: var(--accent-deep); margin: 0 0 14px;
+}
+.eyebrow.on-dark { color: var(--red-on-dark); }
+
+.badge {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-size: 11.5px; font-weight: 600; letter-spacing: 0.12em;
+  text-transform: uppercase; color: var(--accent-deep);
+  border: 1px solid rgba(249, 50, 43, 0.4); border-radius: 3px;
+  padding: 6px 11px; margin: 0 0 14px;
+}
+
+/* ─── Atlas ─── */
+.atlas-grid { display: grid; grid-template-columns: 0.85fr 1.6fr; gap: 56px; align-items: center; }
+
+/* No aspect-ratio on these frames. Each map measures itself and posts its
+   height to the page, which sets an explicit pixel height; an active
+   aspect-ratio would then derive width from that height and burst the column. */
+iframe.map { display: block; width: 100%; max-width: 100%; border: none; overflow: hidden; }
+
+/* ─── HPRM ─── */
+/* Text left, map right. The map column is deliberately narrower than the
+   atlas map's, so the two national maps do not read as the same object. */
+.hprm-grid { display: grid; grid-template-columns: 1fr 1.1fr; gap: 56px; align-items: center; }
+.hprm-grid > div { min-width: 0; }
+.hprm-grid .sub { max-width: 46ch; }
+
+.mapcard {
+  display: block; background: var(--paper); border: 1px solid var(--rule);
+  border-radius: 4px; padding: 20px 22px; text-decoration: none;
+  transition: border-color 180ms ease;
+}
+.mapcard:hover { border-color: var(--accent-deep); }
+
+/* ─── Research ─── */
+.cards { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 36px; }
+.card { text-decoration: none; color: inherit; display: flex; flex-direction: column; gap: 10px; }
+.kicker { font-size: 11px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: var(--accent-deep); }
+.card h3 { font-size: 20px; font-weight: 600; line-height: 1.35; color: var(--ink); margin: 0; text-wrap: pretty; }
+.card p { font-size: 14.5px; line-height: 1.6; color: var(--body); margin: 0; }
+/* margin-top:auto drops the link to the foot of the card, so a row of cards
+   with uneven blurbs still lines its "Read more" links up. */
+.more { font-size: 12px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: var(--accent-deep); margin-top: auto; padding-top: 4px; }
+.card:hover h3 { color: var(--accent-deep); }
+.card:hover .more { color: var(--accent-press); text-decoration: underline; }
+
+/* ─── Tools ─── two cards, each led by a drawn illustration on the tint */
+.tools { display: grid; grid-template-columns: 1fr 1fr; gap: 48px; margin-top: 36px; }
+.tool img { display: block; width: 100%; height: auto; background: var(--tint); border-radius: 8px; padding: 12px 8px; margin-bottom: 6px; }
+.tool h3 { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 19px; }
+.tool h3 .badge { font-family: var(--sans); font-size: 10px; padding: 3px 8px; margin: 0 0 0 10px; vertical-align: 3px; }
+
+/* ─── Film ─── trailer left, copy right; the frame keeps the video 16:9 */
+.film-grid { display: grid; grid-template-columns: 1.25fr 1fr; gap: 56px; align-items: center; }
+.film-grid > div { min-width: 0; }
+.film-video { aspect-ratio: 16 / 9; background: var(--ink); border-radius: 4px; overflow: hidden; }
+.film-video iframe { display: block; width: 100%; height: 100%; border: none; }
+.film-grid .kicker { display: block; margin: 4px 0 2px; }
+.film-links { display: flex; flex-wrap: wrap; gap: 12px; margin: 22px 0 14px; }
+.film-grid a.more { display: inline-block; text-decoration: none; }
+.film-grid a.more:hover { color: var(--accent-press); text-decoration: underline; }
+
+/* ─── Partner ─── */
+.partner-in { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 32px; }
+.partner-in p.body { font-size: 15.5px; line-height: 1.65; color: rgba(255, 255, 255, 0.86); margin: 0; }
+.actions { display: flex; gap: 14px; flex-wrap: wrap; }
+.actions .btn { padding: 14px 26px; }
+
+/* ─── Footer ─── */
+.foot { background: var(--ink); border-top: 1px solid var(--rule-dark); }
+.foot-in { display: flex; flex-wrap: wrap; gap: 44px; justify-content: space-between; padding-top: 44px; padding-bottom: 44px; }
+.foot-brand { display: flex; flex-direction: column; gap: 14px; max-width: 38ch; }
+/* The stacked mark is 3001x1977 (BRAND.md assigns it to footers), so it needs
+   more height than the banner did to stay legible. */
+.foot-brand img { height: 72px; width: auto; align-self: flex-start; }
+/* UC Berkeley Sociology lockup (approved 2026-09-02). The official file
+   carries its own Berkeley Blue ground, so it sits as a tile under the ERN
+   mark; at 60px tall the lettering is about 24px. */
+.foot-brand .foot-berkeley { display: inline-flex; align-self: flex-start; }
+.foot-brand .foot-berkeley img { height: 26px; width: auto; }
+.foot-brand p { font-size: 13px; line-height: 1.6; color: var(--steel); margin: 0; }
+.foot-brand p + p { font-size: 12.5px; }
+.foot-col { display: flex; flex-direction: column; gap: 10px; }
+.foot-col span { font-size: 11px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--steel); }
+.foot-col a { font-size: 13.5px; color: #fff; text-decoration: none; }
+.foot-col a:hover { color: var(--red-on-dark); text-decoration: underline; }
+.foot-bar { border-top: 1px solid var(--rule-dark); }
+.foot-bar div {
+  display: flex; flex-wrap: wrap; gap: 16px; justify-content: space-between;
+  padding-top: 18px; padding-bottom: 18px; font-size: 12px; color: var(--steel);
+}
+.foot-bar a { color: var(--steel); text-decoration: underline; text-underline-offset: 2px; }
+.foot-bar a:hover { color: var(--red-on-dark); }
+
+/* ─── Responsive ─── */
+@media (max-width: 1000px) {
+  .head-in { flex-wrap: wrap; min-height: 0; padding-top: 12px; padding-bottom: 12px; }
+  .nav { width: 100%; flex-wrap: wrap; gap: 14px 18px; padding-top: 4px; }
+  .nav a { font-size: 12.5px; }
+  .atlas-grid { grid-template-columns: 1fr; gap: 28px; }
+  .hprm-grid { grid-template-columns: 1fr; gap: 32px; }
+  .hprm-grid .sub { max-width: 72ch; }
+  .film-grid { grid-template-columns: 1fr; gap: 32px; }
+}
+@media (max-width: 900px) {
+  :root { --pad: 20px; }
+  h1 { font-size: 36px; }
+  h2 { font-size: 32px; }
+  h2.on-dark { font-size: 30px; }
+  .cards { grid-template-columns: 1fr; }
+  .tools { grid-template-columns: 1fr; gap: 40px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  * { transition-duration: 0.01ms !important; scroll-behavior: auto !important; }
+}

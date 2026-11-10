@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+  <meta content="width=device-width, initial-scale=1.0" name="viewport">
+  <title>Get started with extract-text</title>
+  <meta name="description" content="Install extract-text, read an example document, grade a random 50 of your own documents, and build a table of cases, step by step.">
+  <meta name="author" content="Eviction Research Network, UC Berkeley">
+
+  <!-- Open Graph / social -->
+  <meta property="og:title" content="Get started with extract-text">
+  <meta property="og:description" content="Install extract-text, read an example document, grade a random 50 of your own documents, and build a table of cases, step by step.">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Eviction Research Network">
+
+  <link href="https://evictionresearch.net/assets/img/favicon.png" rel="icon">
+  <link href="https://evictionresearch.net/assets/img/apple-touch-icon.png" rel="apple-touch-icon">
+
+  <!-- Inter is the ERN brand font. -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500;600;700;800&amp;display=swap" rel="stylesheet">
+
+  <!-- ern-2026.css is a copy of the main site's design system
+       (evictionresearch.github.io/assets/css/ern-2026.css). This site is a
+       separate deploy, so nothing keeps the two in sync; when the main
+       site's file changes, copy it here again. extract-text-2026.css holds
+       what only these pages need. -->
+  <link href="assets/css/ern-2026.css" rel="stylesheet">
+  <link href="assets/css/extract-text-2026.css" rel="stylesheet">
+</head>
+
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+
+  <!-- ─────────── Header ───────────
+       The ERN logo goes to the main site. "/ extract-text" beside it is
+       this site's home page. The links are this site's other three pages
+       and the code on GitHub. -->
+  <header class="head">
+    <div class="wrap head-in">
+      <div class="brandline">
+        <a href="https://evictionresearch.net/" aria-label="Eviction Research Network, main site">
+          <img src="images/EvictionStudy_logo_v09_1A_LOGO_BANNER.png" alt="Eviction Research Network">
+        </a>
+        <span class="sep" aria-hidden="true">/</span>
+        <a class="tool-name" href="index.html" aria-label="extract-text, home">extract-text</a>
+      </div>
+      <nav class="nav" aria-label="extract-text pages">
+        <a href="get-started.html" aria-current="page">Get started</a>
+        <a href="how-it-works.html">How it works</a>
+        <a href="about.html">About</a>
+        <a class="btn sm" href="https://github.com/evictionresearch/extract-text" target="_blank" rel="noopener noreferrer">GitHub</a>
+      </nav>
+    </div>
+  </header>
+
+  <div id="main" role="main" class="page">
+
+    <section class="wrap sec-hero">
+      <div class="hero-in">
+        <p class="eyebrow">Get started</p>
+        <h1>From install to a <em>table of cases</em></h1>
+        <p class="lede">Seven steps in R, using the rules engine, which needs no AI setup. Each step is a few lines to copy and run.</p>
+      </div>
+    </section>
+
+<section>
+<div class="wrap sec article" style="padding-top: 0;">
+<ul class="jump">
+<li>
+<a href="#before"><b>1</b> Four free programs</a>
+</li>
+<li>
+<a href="#install"><b>2</b> Install extract-text</a>
+</li>
+<li>
+<a href="#example"><b>3</b> Example document</a>
+</li>
+<li>
+<a href="#sample"><b>4</b> Scan a random 50</a>
+</li>
+<li>
+<a href="#grade"><b>5</b> Grade and score</a>
+</li>
+<li>
+<a href="#full"><b>6</b> Whole folder</a>
+</li>
+<li>
+<a href="#table"><b>7</b> Final table</a>
+</li>
+<li>
+<a href="#next">Go further</a>
+</li>
+<li>
+<a href="#help">If something goes wrong</a>
+</li>
+<li>
+<a href="#python">Python and the command line</a>
+</li>
+</ul>
+<div class="note">
+<p><strong>Before step 1.</strong> You need <a href="https://cran.r-project.org/" target="_blank" rel="noopener noreferrer">R</a> and <a href="https://posit.co/download/rstudio-desktop/" target="_blank" rel="noopener noreferrer">RStudio</a> on your computer, both free, and your court documents (PDF or TIFF files) in a folder on it.</p>
+</div>
+<h2 id="before"><span class="num">1</span> Install four free programs</h2>
+<p>extract-text needs four programs that R does not install.</p>
+<ul>
+<li><strong>poppler</strong> opens PDF files.</li>
+<li><strong>tesseract</strong> reads scanned pages (OCR).</li>
+<li><strong>Python 3.10 or newer</strong> runs the engine, which is written in Python. The Python that comes with a Mac is older.</li>
+<li><strong>git</strong> downloads the engine during the install.</li>
+</ul>
+<p>You install them once, in a terminal window outside R. Find your computer below. You need the internet only to install. After that, extract-text runs with the network unplugged.</p>
+<section id="mac" class="os-group">
+<h3>Mac</h3>
+<ol type="1">
+<li>Open Terminal. Press Command and Space, type Terminal, and press Return.</li>
+<li>Install <a href="https://brew.sh" target="_blank" rel="noopener noreferrer">Homebrew</a> if you do not have it. Installing Homebrew also installs git.</li>
+<li>Run this line.</li>
+</ol>
+<pre class="bash"><code>brew install poppler tesseract python</code></pre>
+</section>
+<section id="windows" class="os-group">
+<h3>Windows</h3>
+<ol type="1">
+<li>Open PowerShell. Press the Windows key, type PowerShell, and press Enter.</li>
+<li>Run these four lines.</li>
+</ol>
+<pre class="powershell"><code>winget install oschwartz10612.Poppler
+winget install UB-Mannheim.TesseractOCR
+winget install Python.Python.3.12
+winget install Git.Git</code></pre>
+<ol start="3" type="1">
+<li>Add tesseract to your PATH, which its installer does not do. Open Start, type "Edit environment variables for your account", and open it. Select Path, choose Edit, choose New, and enter <code>C:\Program Files\Tesseract-OCR</code>.</li>
+<li>Restart RStudio.</li>
+</ol>
+</section>
+<section id="linux-debian-or-ubuntu" class="os-group">
+<h3>Linux (Debian or Ubuntu)</h3>
+<p>Run this line in a terminal.</p>
+<pre class="bash"><code>sudo apt install poppler-utils tesseract-ocr python3 python3-venv git</code></pre>
+</section>
+<p>On a work computer of any kind, installs may need your IT department. Ask for poppler, tesseract, Python 3.10 or newer, and git.</p>
+<h2 id="install"><span class="num">2</span> Install extract-text</h2>
+<p>In RStudio, install the package, then build the Python engine it runs on. You do this once per computer.</p>
+<pre class="r"><code>install.packages(c("remotes", "dplyr"))
+remotes::install_github("evictionresearch/extract-text", subdir = "r")
+
+library(extracttext)
+extracttext_install()</code></pre>
+<p><strong>Restart R</strong> so the package finds the engine. In RStudio, choose Session, then Restart R. Then check your setup.</p>
+<pre class="r"><code>library(extracttext)
+library(dplyr)
+
+extracttext_doctor()</code></pre>
+<p>The last line of the checkup should be this one.</p>
+<pre class="output"><code>Ready: the deterministic engine can run.</code></pre>
+<p>The checkup reports Ollama as missing unless you set up the AI engine, and that is fine. The rules engine does not need it. If the checkup says the Python engine is not installed, see <a href="#help">If something goes wrong</a>.</p>
+<h2 id="example"><span class="num">3</span> Read one example document</h2>
+<p>This downloads a made-up summons from the package's test files and reads it.</p>
+<pre class="r"><code>f &lt;- file.path(tempdir(), "synthetic_summons_scanned.pdf")
+download.file(paste0("https://raw.githubusercontent.com/evictionresearch/",
+                     "extract-text/main/python/tests/fixtures/",
+                     "synthetic_summons_scanned.pdf"),
+              f, mode = "wb")
+
+# Open the summons, to compare with what the engine reads
+browseURL(f)
+
+one &lt;- extract_deterministic(f)
+
+# Expect 1234 EXAMPLE AVE S APT 5, Seattle, WA 98100
+one$record$defendant_address
+
+# Problems the engine found; empty means none
+one$flags</code></pre>
+<h2 id="sample"><span class="num">4</span> Scan a random 50 of your own documents</h2>
+<p>Start with a random sample, not the whole folder. It takes minutes, and you grade every document in it in the next step.</p>
+<p><code>docs_dir</code> is the folder that holds your court documents (PDF or TIFF, subfolders included). <code>results</code> is a new folder where everything from here on is written. Type each path with forward slashes, on Windows too.</p>
+<pre class="r"><code># Mac:     "/Users/yourname/Documents/court_documents"
+# Windows: "C:/Users/yourname/Documents/court_documents"
+docs_dir &lt;- "path/to/your/documents"
+results  &lt;- "path/to/your/results"
+n_sample &lt;- 50
+
+sample_dir &lt;- file.path(results, "sample")
+all_dir    &lt;- file.path(results, "all")
+
+res &lt;- scan_documents(docs_dir, engine = "deterministic", sample = n_sample,
+                      seed = 1, out_dir = sample_dir)</code></pre>
+<p>Expect about 5 seconds a document when OCR is needed. When the scan finishes, count what came back.</p>
+<pre class="r"><code>res %&gt;%
+  count(text_source,
+        found   = defendant_street != "",
+        flagged = flags != "")</code></pre>
+<pre class="output"><code># A tibble: 3 × 4
+  text_source found flagged     n
+  &lt;chr&gt;       &lt;lgl&gt; &lt;lgl&gt;   &lt;int&gt;
+1 pdf_ocr     FALSE TRUE        1
+2 pdf_ocr     TRUE  FALSE       4
+3 pdf_ocr     TRUE  TRUE        1</code></pre>
+<p>This example comes from six made-up documents, so your counts will differ. <code>found</code> says whether the engine read a street, and <code>flagged</code> says whether it raised a flag. <code>pdf_ocr</code> means the pages were scans read by OCR.</p>
+<div class="note">
+<p><strong>Keep both folders private.</strong> Your documents and every file written from this step on hold tenants' names and addresses. Keep them wherever your organization keeps the court documents themselves, and out of any folder that syncs or is shared (Dropbox, iCloud Drive, OneDrive, or a Google Drive folder that syncs to your computer).</p>
+</div>
+<h2 id="grade"><span class="num">5</span> Grade the sample, then score the engine</h2>
+<p>Grading is required. Until you grade a sample, you do not know how often the scan is right on your documents.</p>
+<p>This line opens a page in your browser that shows each document beside what the engine read. Change only what is wrong, leave a field blank when the document does not have it, and save. Fifty documents take about an hour. You can stop at any point by pressing Esc in RStudio, and running the line again picks up where you left off.</p>
+<pre class="r"><code>review_documents(res, correct = TRUE, n = n_sample, draw = "random")</code></pre>
+<figure class="video">
+<video controls="" preload="metadata" poster="media/grading-poster.jpg" width="1600" height="1080" aria-label="Grading one made-up document on the review page">
+<source src="media/grading.mp4" type="video/mp4">
+</video>
+<p class="narration" hidden=""></p>
+<figcaption>Grading one document, in one minute. The document is made up. The video has no sound, and the script under it follows the video as it plays.</figcaption>
+<details>
+<summary>Read the whole script</summary>
+<ol class="script">
+<li data-start="0">This video grades one made-up document on the review page.</li>
+<li data-start="3.4">The page is on the left. On the right is what the rules engine read, above a form filled in with its answers.</li>
+<li data-start="9.6">The colored boxes show where the engine found each value. Red marks the defendants and blue marks the address.</li>
+<li data-start="15.2">Check each field against the page. Here the page prints the city as Sampleton.</li>
+<li data-start="19.4">The rules engine misspelled it as Sampieton, so we correct it in the City box of the form.</li>
+<li data-start="25.4">The top of the page names the defendants too. We pick Defendants.</li>
+<li data-start="29.2">Then we drag a box over those names. Boxes like this teach the engine where the form prints each field.</li>
+<li data-start="34.7">Our box replaced the engine's own box for the defendants, so we pick Defendants again.</li>
+<li data-start="39.0">We draw a second box over the line addressed to them, the one the engine had found.</li>
+<li data-start="44.6">We press Save. Save every document you check, even when the engine got everything right.</li>
+<li data-start="49.9">The page confirms the save and notes that the engine was wrong on the city.</li>
+<li data-start="53.6">Your answers stay in a file on your own computer. The full guide is GRADING.md.</li>
+</ol>
+</details>
+</figure>
+<p>Then score the engine against your answers.</p>
+<pre class="r"><code>score_documents(res)</code></pre>
+<pre class="output"><code>  field      checked right  near blank wrong
+1 plaintiff        1     1     0     0     0
+2 defendants       1     1     0     0     0
+3 street           1     1     0     0     0
+4 unit             1     1     0     0     0
+5 city             1     0     0     0     1
+6 state            1     1     0     0     0
+7 zip              1     1     0     0     0</code></pre>
+<p>This example is the one made-up document graded in the video, where the engine misread the city. It is shortened to the main columns. With 50 graded documents, <code>checked</code> reads 50. The score has one row per field and counts how many documents the engine got right, nearly right, left blank, or got wrong. Two more columns, <code>right_random</code> and <code>checked_random</code>, give the accuracy estimate for the whole folder when you divide the first by the second.</p>
+<p>Decide here whether the fields you need are accurate enough to scan everything. Fifty random documents put the share right within about 10 points. Grade 100 or more before you publish counts or send anything to people.</p>
+<p>Your corrections do not change the engine. They tell you which fields to trust, and every document you grade carries your answer in the final table.</p>
+<h2 id="full"><span class="num">6</span> Scan the whole folder and grade a second 50</h2>
+<p>The full run goes to its own folder, so the sample and its corrections stay as they are. It needs no attention while it runs. At about 5 seconds a document, 4,000 documents take five or six hours.</p>
+<pre class="r"><code>res_all &lt;- scan_documents(docs_dir, engine = "deterministic", out_dir = all_dir)</code></pre>
+<p>The first sample told you whether to run everything. A second sample measures the run that becomes your table.</p>
+<pre class="r"><code>review_documents(res_all, correct = TRUE, n = n_sample, draw = "random", seed = 1)
+
+score_documents(res_all)</code></pre>
+<p>The share right in this score is the accuracy of the full run. Report it with the table.</p>
+<h2 id="table"><span class="num">7</span> Build the final table</h2>
+<pre class="r"><code>cases &lt;- case_table(res_all, graded = sample_dir,
+                    save = file.path(results, "case_table.csv"))
+
+# How many rows carry a graded answer, and how many the engine's reading
+count(cases, source)</code></pre>
+<pre class="output"><code># A tibble: 2 × 2
+  source     n
+  &lt;chr&gt;  &lt;int&gt;
+1 engine     5
+2 graded     1</code></pre>
+<p>The table has one row per document, with the case number, the plaintiff, the defendants, and the defendants' address. Your graded answers from both samples replace the engine's wherever you gave one, and the <code>source</code> column says which each row carries. In this example, from the six made-up documents, one row carries a graded answer and five carry the engine's reading. The table is saved as <code>case_table.csv</code> in your results folder.</p>
+<h2 id="next">Go further</h2>
+<ul>
+<li><strong>The full script.</strong> <a href="https://github.com/evictionresearch/extract-text/blob/main/getting_started_example_script.R" target="_blank" rel="noopener noreferrer"><code>getting_started_example_script.R</code></a> holds every step on this page with more explanation, plus two optional ones.</li>
+<li><strong>Teach the engine your forms, without code.</strong> While you grade, you can draw a box where your court's form prints each field. The package learns a template from those boxes, and nothing learned is used until you approve it. The guide is the last chapter of <a href="https://github.com/evictionresearch/extract-text/blob/main/docs/changing_rules.md" target="_blank" rel="noopener noreferrer">Changing the rules</a>.</li>
+<li><strong>Set up the AI engine.</strong> It is optional and needs about 16 GB of memory. <a href="https://github.com/evictionresearch/extract-text/blob/main/docs/manual.md#6-setting-up-the-ai-engine-optional" target="_blank" rel="noopener noreferrer">Section 6 of the manual</a> has the two steps.</li>
+<li><strong>Read the manual.</strong> <a href="https://github.com/evictionresearch/extract-text/blob/main/docs/manual.md" target="_blank" rel="noopener noreferrer">The manual</a> covers every output column, the flags, and how to use the package outside Washington.</li>
+</ul>
+<h2 id="help">If something goes wrong</h2>
+<p><strong>Run the checkup first.</strong> <code>extracttext_doctor()</code> in R looks at your computer and prints the command for anything missing.</p>
+<p><strong>The checkup says "The Python engine is not installed yet."</strong> Restart R and run it again. If the message stays, R may be using another Python project on your computer, such as a <code>.venv</code> folder in your working directory. Point R at the engine's own environment, then run the checkup again.</p>
+<pre class="r"><code>library(extracttext)
+reticulate::use_virtualenv("r-extracttext", required = TRUE)
+extracttext_doctor()</code></pre>
+<p><strong>Something else.</strong> Open an issue at <a href="https://github.com/evictionresearch/extract-text/issues" target="_blank" rel="noopener noreferrer">github.com/evictionresearch/extract-text/issues</a>, or write to <a href="mailto:evictions@berkeley.edu">evictions@berkeley.edu</a>.</p>
+<div class="note">
+<p><strong>Never paste a real document, name, address, or case number into an issue or an email.</strong> Describe the problem, or reproduce it with the made-up example document from step 3.</p>
+</div>
+<h2 id="python">Python and the command line</h2>
+<p>The seven steps above use R. The same engine runs from Python and from a terminal. Install the four programs from step 1 first.</p>
+<pre class="bash"><code>pip install "extract-text @ git+https://github.com/evictionresearch/extract-text#subdirectory=python"
+extract-text doctor</code></pre>
+<pre class="python"><code>from extract_text import extract, scan
+
+result = extract("summons.pdf")                 # rules only, no AI
+result.record.defendant_address.street
+result.flags                                    # empty means all checks passed
+
+rows = scan("documents/", engine="deterministic", out_dir="results/")</code></pre>
+<p>From a terminal, with no programming, this line scans a folder.</p>
+<pre class="bash"><code>extract-text scan documents/ --engine deterministic --out results/ --review</code></pre>
+<p>A folder scan writes <code>extracted.csv</code>, the table. It also writes <code>extracted.jsonl</code>, the full record of where each value came from, and <code>review/index.html</code>, a page that shows each flagged document beside what was read from it.</p>
+</div>
+</section>
+
+  </div>
+
+  <!-- ─────────── Footer ───────────
+       A copy of the main site's footer with absolute links, plus one column
+       for this site. The affiliation sentence is canonical (ERN library
+       ORG.md): do not paraphrase, never write "housed in". The UC Berkeley
+       Sociology lockup was approved for the ERN website by Brand Protection
+       (Project #1008, 2026-09-02). -->
+  <footer class="foot" role="contentinfo">
+    <div class="wrap foot-in">
+      <div class="foot-brand">
+        <img src="images/EvictionStudy_logo_v09_1A_LOGO_STACK_REV.png" alt="Eviction Research Network">
+        <a class="foot-berkeley" href="https://sociology.berkeley.edu" target="_blank" rel="noopener noreferrer"><img src="images/uc-berkeley-sociology_h_white_transparent.png" alt="UC Berkeley Sociology"></a>
+        <p>A research program led by Dr. Tim Thomas, Assistant Researcher in the UC Berkeley Department of Sociology, which serves as its academic home. Affiliated with the Berkeley Institute for Data Science.</p>
+      </div>
+      <div class="foot-col">
+        <span>extract-text</span>
+        <a href="get-started.html">Get started</a>
+        <a href="how-it-works.html">How it works</a>
+        <a href="about.html">About</a>
+        <a href="https://github.com/evictionresearch/extract-text/blob/main/docs/manual.md" target="_blank" rel="noopener noreferrer">Manual</a>
+        <a href="https://github.com/evictionresearch/extract-text" target="_blank" rel="noopener noreferrer">Code on GitHub</a>
+      </div>
+      <div class="foot-col">
+        <span>Eviction Research Network</span>
+        <a href="https://evictionresearch.net/#atlas">Maps &amp; profiles</a>
+        <a href="https://evictionresearch.net/hprm/">HPRM risk maps</a>
+        <a href="https://evictionresearch.net/research.html">Publications</a>
+        <a href="https://evictionresearch.net/policy.html">What works</a>
+        <a href="https://evictionresearch.net/about.html">About ERN</a>
+      </div>
+      <div class="foot-col">
+        <span>Contact</span>
+        <a href="mailto:evictions@berkeley.edu?Subject=extract-text">evictions@berkeley.edu</a>
+        <a href="https://github.com/evictionresearch/extract-text/issues" target="_blank" rel="noopener noreferrer">Report a problem</a>
+        <a href="https://bsky.app/profile/evictionresearch.bsky.social" target="_blank" rel="noopener noreferrer">Bluesky</a>
+        <a href="https://www.linkedin.com/company/evictionresearch/" target="_blank" rel="noopener noreferrer">LinkedIn</a>
+      </div>
+    </div>
+    <div class="foot-bar">
+      <div class="wrap">
+        <span>© 2026 Eviction Research Network · University of California, Berkeley</span>
+        <span><a href="https://dap.berkeley.edu/get-help/report-web-accessibility-issue" target="_blank" rel="noopener noreferrer">Report a web accessibility issue</a></span>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    // Each block of code gets a strip above it that says what it is (R,
+    // Terminal, PowerShell, Python, or example output) and holds a Copy
+    // button, so the button never sits on the code. A block that scrolls
+    // sideways can be reached and scrolled from the keyboard.
+    (function () {
+      var names = { r: 'R', bash: 'Terminal', powershell: 'PowerShell', python: 'Python', output: 'Example of what you should see' };
+      document.querySelectorAll('.page pre').forEach(function (pre) {
+        var kind = Object.keys(names).filter(function (k) { return pre.classList.contains(k); })[0];
+        var box = document.createElement('div');
+        box.className = 'code' + (kind === 'output' ? ' out' : '');
+        var bar = document.createElement('div');
+        bar.className = 'code-bar';
+        var lang = document.createElement('span');
+        lang.className = 'lang';
+        lang.textContent = names[kind] || 'Code';
+        bar.appendChild(lang);
+        if (kind !== 'output' && navigator.clipboard) {
+          var b = document.createElement('button');
+          b.type = 'button';
+          b.className = 'copy';
+          b.textContent = 'Copy';
+          b.setAttribute('aria-live', 'polite');
+          b.addEventListener('click', function () {
+            var code = pre.querySelector('code') || pre;
+            navigator.clipboard.writeText(code.textContent).then(function () {
+              b.textContent = 'Copied';
+              setTimeout(function () { b.textContent = 'Copy'; }, 1600);
+            });
+          });
+          bar.appendChild(b);
+        }
+        pre.parentNode.insertBefore(box, pre);
+        box.appendChild(bar);
+        box.appendChild(pre);
+        if (pre.scrollWidth > pre.clientWidth + 1) {
+          pre.tabIndex = 0;
+          pre.setAttribute('role', 'region');
+          pre.setAttribute('aria-label', (names[kind] || 'Code') + ', scrolls sideways');
+        }
+      });
+    })();
+  </script>
+
+  <script>
+    // A video with a script: each line of the list under the player carries
+    // the second it starts at (data-start). As the video plays, the line for
+    // that moment is shown under the player and marked in the full list.
+    document.querySelectorAll('figure.video').forEach(function (fig) {
+      var video = fig.querySelector('video');
+      var line = fig.querySelector('.narration');
+      var items = Array.prototype.slice.call(fig.querySelectorAll('.script li[data-start]'));
+      if (!video || !line || !items.length) return;
+      line.hidden = false;
+      var shown = null;
+      function show() {
+        var now = items[0];
+        items.forEach(function (li) { if (parseFloat(li.dataset.start) <= video.currentTime) now = li; });
+        if (now === shown) return;
+        shown = now;
+        line.textContent = now.textContent;
+        items.forEach(function (li) { li.classList.toggle('now', li === now); });
+      }
+      video.addEventListener('timeupdate', show);
+      video.addEventListener('seeked', show);
+      show();
+    });
+  </script>
+
+
+
+</body></html>

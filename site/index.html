@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+  <meta content="width=device-width, initial-scale=1.0" name="viewport">
+  <title>extract-text: read eviction court documents into a table</title>
+  <meta name="description" content="extract-text is open-source software from the Eviction Research Network that reads eviction court documents and returns a table of parties, addresses, and case details, on your own computer.">
+  <meta name="author" content="Eviction Research Network, UC Berkeley">
+
+  <!-- Open Graph / social -->
+  <meta property="og:title" content="extract-text: read eviction court documents into a table">
+  <meta property="og:description" content="extract-text is open-source software from the Eviction Research Network that reads eviction court documents and returns a table of parties, addresses, and case details, on your own computer.">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Eviction Research Network">
+
+  <link href="https://evictionresearch.net/assets/img/favicon.png" rel="icon">
+  <link href="https://evictionresearch.net/assets/img/apple-touch-icon.png" rel="apple-touch-icon">
+
+  <!-- Inter is the ERN brand font. -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500;600;700;800&amp;display=swap" rel="stylesheet">
+
+  <!-- ern-2026.css is a copy of the main site's design system
+       (evictionresearch.github.io/assets/css/ern-2026.css). This site is a
+       separate deploy, so nothing keeps the two in sync; when the main
+       site's file changes, copy it here again. extract-text-2026.css holds
+       what only these pages need. -->
+  <link href="assets/css/ern-2026.css" rel="stylesheet">
+  <link href="assets/css/extract-text-2026.css" rel="stylesheet">
+</head>
+
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+
+  <!-- ─────────── Header ───────────
+       The ERN logo goes to the main site. "/ extract-text" beside it is
+       this site's home page. The links are this site's other three pages
+       and the code on GitHub. -->
+  <header class="head">
+    <div class="wrap head-in">
+      <div class="brandline">
+        <a href="https://evictionresearch.net/" aria-label="Eviction Research Network, main site">
+          <img src="images/EvictionStudy_logo_v09_1A_LOGO_BANNER.png" alt="Eviction Research Network">
+        </a>
+        <span class="sep" aria-hidden="true">/</span>
+        <a class="tool-name" href="index.html" aria-label="extract-text, home" aria-current="page">extract-text</a>
+      </div>
+      <nav class="nav" aria-label="extract-text pages">
+        <a href="get-started.html">Get started</a>
+        <a href="how-it-works.html">How it works</a>
+        <a href="about.html">About</a>
+        <a class="btn sm" href="https://github.com/evictionresearch/extract-text" target="_blank" rel="noopener noreferrer">GitHub</a>
+      </nav>
+    </div>
+  </header>
+
+  <div id="main" role="main" class="page">
+
+    <section class="wrap sec-hero hero-grid">
+      <div class="hero-in">
+        <p class="eyebrow">Open-source software from the Eviction Research Network</p>
+        <h1><code>extract-text</code> reads eviction court documents into a <em>table</em>.</h1>
+        <p class="lede">Many courts keep eviction filings only as page images, and a filing cannot be counted or mapped until it is in a table. extract-text reads e-filed PDFs, scanned PDFs, and TIFF images and returns one row per document, with the plaintiffs, the defendants, the address where the defendants were served, the plaintiff’s attorney, and the case number.</p>
+        <p class="small">Free and open source. It runs on your own computer, from R or Python, on Mac, Windows, and Linux.</p>
+        <p class="badge">Under development · version 0.4.0</p>
+        <div class="actions">
+          <a class="btn" href="get-started.html">Get started</a>
+          <a class="btn ghost" href="how-it-works.html">How it works</a>
+        </div>
+      </div>
+      <img src="images/extract-text.svg" alt="A scanned court summons with a handwritten address, an arrow, and the same case as rows of digital text" width="480" height="260">
+    </section>
+
+<section class="band">
+<div class="wrap sec">
+<p class="eyebrow">
+Two engines
+</p>
+<h2 id="rules-a-local-ai-model-or-both">Rules, a local AI model, <em>or both</em></h2>
+<p>You choose the engine on each run.</p>
+<div class="two">
+<div class="card">
+<p><span class="kicker">No AI of any kind</span></p>
+<h3 id="the-rules-engine">The rules engine</h3>
+<p>It reads with written rules and the layout of the page. A scanned page is first turned into text by OCR (optical character recognition). The same document always gives the same output, so the code and the manual call it the deterministic engine. Every value records the rule that found it and where on the page it was found. It uses no AI and no network connection, so agencies whose policies do not permit AI tools can use it alone.</p>
+</div>
+<div class="card">
+<p><span class="kicker">Optional</span></p>
+<h3 id="the-local-ai-engine">The local AI engine</h3>
+<p>A language model reads the page images. It runs on your own computer through Ollama, a free program that runs AI models locally, and it sends nothing to any cloud service. It reads what rules and OCR cannot, handwriting above all.</p>
+</div>
+</div>
+<p>When you run both, the package compares the two addresses on every document and flags each disagreement for a person to review. Either engine also flags a value it is unsure of. Neither guesses a value to keep a row looking complete.</p>
+</div>
+</section>
+<section>
+<div class="wrap sec">
+<p class="eyebrow">
+Video
+</p>
+<h2 id="extract-text-in-one-minute">extract-text in <em>one minute</em></h2>
+<figure class="video wide">
+<video controls="" preload="metadata" poster="media/overview-poster.jpg" width="1920" height="1080" aria-label="What extract-text does, in one minute">
+<source src="media/overview.mp4" type="video/mp4">
+</video>
+<figcaption>The video has text on screen and no sound.</figcaption>
+<details>
+<summary>Read what the video says</summary>
+<ol>
+<li>extract-text reads eviction court documents into a table of the case number, plaintiff, defendant, address, and attorney.</li>
+<li>Many courts keep eviction filings only as page images. The names, addresses, and case numbers are printed on the page. Filings cannot be counted or mapped until they are in a table.</li>
+<li>extract-text reads a document in one of three ways. The rules engine uses written rules and no AI. The same document always gives the same answer, and agencies that cannot use AI tools can use it. The local AI engine is a language model that reads the page image, handwriting included. It runs on your own computer and sends nothing to a cloud service. Run both and the two answers are compared, with every disagreement flagged for a person to review.</li>
+<li>Documents stay on your computer. With the default engines, tenants' names and addresses never leave it. Once installed, extract-text runs with the network unplugged.</li>
+<li>A little grading shows what to trust. Grade a random 50 of your documents on the review page. The score says how accurate each field is on your documents. The boxes you draw teach the engine where your court's form prints each field. No model is trained, and a person approves what the engine learns.</li>
+<li>extract-text was designed to work on other court documents that follow American conventions. Grade a sample first. Accuracy has been measured only on Washington State eviction filings. Future versions are planned to read the text of a filing, such as the reason for the eviction.</li>
+<li>extract-text is free and open source, at github.com/evictionresearch/extract-text. Its authors are Cheng Ren, Tim Thomas, and Aaron Culich.</li>
+</ol>
+</details>
+</figure>
+</div>
+</section>
+<section class="band-dark">
+<div class="wrap sec">
+<p class="eyebrow on-dark">
+Privacy
+</p>
+<h2 class="on-dark" id="your-documents-stay-on-your-computer">Your documents stay on <em>your computer</em></h2>
+<p>Court filings carry tenants' names and addresses. With the default engines, the documents, the page images, and the extracted values never leave your computer. The package sends no usage data, and once installed it runs with the network unplugged. Every example and test document in the code repository is made up.</p>
+</div>
+</section>
+<section>
+<div class="wrap sec">
+<p class="eyebrow">
+Accuracy
+</p>
+<h2 id="grade-a-random-50-before-you-trust-a-run">Grade a random 50 before you <em>trust a run</em></h2>
+<p>The Eviction Research Network wrote and measured the rules on Washington State filings. Another court's forms, scan quality, or decade can make them misread a field without raising a flag, and accuracy differs by field. On a random 50 King County summonses from 2017, the rules engine read the street right on about 85 percent and the plaintiff on about 40 percent (October 2026).</p>
+<p>So the first run is a random 50 of your own documents. You grade them on a review page that shows each document beside what the engine read. The package scores the engine against your answers. You scan the whole folder only when the fields you need are accurate enough.</p>
+<p><a href="how-it-works.html#accuracy" class="more">How grading and accuracy work</a></p>
+</div>
+</section>
+<section class="band">
+<div class="wrap sec">
+<p class="eyebrow">
+First steps
+</p>
+<h2 id="getting-started-in-outline">Getting started, <em>in outline</em></h2>
+<p>The Get started page has seven steps, each a few lines of R to copy and run. They fall into three stages.</p>
+<div class="cards">
+<div class="card">
+<p><span class="n">1</span></p>
+<p><span class="kicker">Steps 1 and 2</span></p>
+<h3 id="install">Install</h3>
+<p>Install four free programs that open PDFs, read scanned pages, and run the engine (poppler, tesseract, Python, and git), then extract-text itself. A checkup looks at your computer and names anything missing.</p>
+</div>
+<div class="card">
+<p><span class="n">2</span></p>
+<p><span class="kicker">Steps 3 to 5</span></p>
+<h3 id="test-on-a-sample">Test on a sample</h3>
+<p>Read a made-up summons, scan a random 50 of your own documents, grade them on the review page, and score the engine.</p>
+</div>
+<div class="card">
+<p><span class="n">3</span></p>
+<p><span class="kicker">Steps 6 and 7</span></p>
+<h3 id="run-the-whole-folder">Run the whole folder</h3>
+<p>Scan every document, grade a second random 50, and build the final table of cases.</p>
+</div>
+</div>
+<div class="actions" style="margin-top: 34px;">
+<p><a href="get-started.html" class="btn">Get started</a> <a href="https://github.com/evictionresearch/extract-text/blob/main/docs/manual.md" class="btn ghost" target="_blank" rel="noopener noreferrer">Read the manual</a></p>
+</div>
+</div>
+</section>
+<section>
+<div class="wrap sec">
+<p class="eyebrow">
+Uses
+</p>
+<h2 id="who-extract-text-is-for">Who extract-text <em>is for</em></h2>
+<p>The Eviction Research Network built extract-text for work that describes or reduces displacement. That work includes research, legal services, journalism, policy analysis, court administration, and tenant defense.</p>
+<p>Running extract-text takes someone who works in R, Python, or a terminal. If that is not you, send this page to an analyst on your staff or at a partner organization, or write to <a href="mailto:evictions@berkeley.edu?Subject=extract-text">evictions@berkeley.edu</a>.</p>
+<p>An eviction filing is not a finding of wrongdoing. The project does not support tenant screening, landlord blacklists, debt collection, or the use of these records to locate people for enforcement.</p>
+<p><a href="about.html#terms" class="more">Read the terms of use</a></p>
+</div>
+</section>
+<section class="band">
+<div class="wrap sec">
+<p class="eyebrow">
+Publications
+</p>
+<h2 id="the-research-behind-it">The research <em>behind it</em></h2>
+<div class="cards">
+<div class="card">
+<p><span class="kicker">Cityscape, 2024</span></p>
+<h3 id="toward-a-national-eviction-data-collection-strategy-using-natural-language-processing">Toward a National Eviction Data Collection Strategy Using Natural Language Processing</h3>
+<p>Thomas, Ramiller, Ren, and Toomet describe the method this package grew from and apply it to more than 110,000 Washington eviction filings from 2004 to 2017.</p>
+<p><a href="about.html#research" class="more">Read about the paper</a></p>
+</div>
+<div class="card">
+<p><span class="kicker">Dissertation, UC Berkeley, 2024</span></p>
+<h3 id="not-all-eviction-cases-are-alike">Not All Eviction Cases are Alike</h3>
+<p>Cheng Ren read 772,629 court files from 56,070 Pierce County cases, 2004 to 2022, and followed each case past the filing to dismissal, judgment, and the sheriff.</p>
+<p><a href="about.html#research" class="more">Read about the dissertation</a></p>
+</div>
+<div class="card">
+<p><span class="kicker">People</span></p>
+<h3 id="cheng-ren-tim-thomas-and-aaron-culich">Cheng Ren, Tim Thomas, and Aaron Culich</h3>
+<p>The authors work at the University at Albany, SUNY, and the University of California, Berkeley.</p>
+<p><a href="about.html#authors" class="more">Meet the authors</a></p>
+</div>
+</div>
+</div>
+</section>
+
+  </div>
+
+  <!-- ─────────── Footer ───────────
+       A copy of the main site's footer with absolute links, plus one column
+       for this site. The affiliation sentence is canonical (ERN library
+       ORG.md): do not paraphrase, never write "housed in". The UC Berkeley
+       Sociology lockup was approved for the ERN website by Brand Protection
+       (Project #1008, 2026-09-02). -->
+  <footer class="foot" role="contentinfo">
+    <div class="wrap foot-in">
+      <div class="foot-brand">
+        <img src="images/EvictionStudy_logo_v09_1A_LOGO_STACK_REV.png" alt="Eviction Research Network">
+        <a class="foot-berkeley" href="https://sociology.berkeley.edu" target="_blank" rel="noopener noreferrer"><img src="images/uc-berkeley-sociology_h_white_transparent.png" alt="UC Berkeley Sociology"></a>
+        <p>A research program led by Dr. Tim Thomas, Assistant Researcher in the UC Berkeley Department of Sociology, which serves as its academic home. Affiliated with the Berkeley Institute for Data Science.</p>
+      </div>
+      <div class="foot-col">
+        <span>extract-text</span>
+        <a href="get-started.html">Get started</a>
+        <a href="how-it-works.html">How it works</a>
+        <a href="about.html">About</a>
+        <a href="https://github.com/evictionresearch/extract-text/blob/main/docs/manual.md" target="_blank" rel="noopener noreferrer">Manual</a>
+        <a href="https://github.com/evictionresearch/extract-text" target="_blank" rel="noopener noreferrer">Code on GitHub</a>
+      </div>
+      <div class="foot-col">
+        <span>Eviction Research Network</span>
+        <a href="https://evictionresearch.net/#atlas">Maps &amp; profiles</a>
+        <a href="https://evictionresearch.net/hprm/">HPRM risk maps</a>
+        <a href="https://evictionresearch.net/research.html">Publications</a>
+        <a href="https://evictionresearch.net/policy.html">What works</a>
+        <a href="https://evictionresearch.net/about.html">About ERN</a>
+      </div>
+      <div class="foot-col">
+        <span>Contact</span>
+        <a href="mailto:evictions@berkeley.edu?Subject=extract-text">evictions@berkeley.edu</a>
+        <a href="https://github.com/evictionresearch/extract-text/issues" target="_blank" rel="noopener noreferrer">Report a problem</a>
+        <a href="https://bsky.app/profile/evictionresearch.bsky.social" target="_blank" rel="noopener noreferrer">Bluesky</a>
+        <a href="https://www.linkedin.com/company/evictionresearch/" target="_blank" rel="noopener noreferrer">LinkedIn</a>
+      </div>
+    </div>
+    <div class="foot-bar">
+      <div class="wrap">
+        <span>© 2026 Eviction Research Network · University of California, Berkeley</span>
+        <span><a href="https://dap.berkeley.edu/get-help/report-web-accessibility-issue" target="_blank" rel="noopener noreferrer">Report a web accessibility issue</a></span>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    // Each block of code gets a strip above it that says what it is (R,
+    // Terminal, PowerShell, Python, or example output) and holds a Copy
+    // button, so the button never sits on the code. A block that scrolls
+    // sideways can be reached and scrolled from the keyboard.
+    (function () {
+      var names = { r: 'R', bash: 'Terminal', powershell: 'PowerShell', python: 'Python', output: 'Example of what you should see' };
+      document.querySelectorAll('.page pre').forEach(function (pre) {
+        var kind = Object.keys(names).filter(function (k) { return pre.classList.contains(k); })[0];
+        var box = document.createElement('div');
+        box.className = 'code' + (kind === 'output' ? ' out' : '');
+        var bar = document.createElement('div');
+        bar.className = 'code-bar';
+        var lang = document.createElement('span');
+        lang.className = 'lang';
+        lang.textContent = names[kind] || 'Code';
+        bar.appendChild(lang);
+        if (kind !== 'output' && navigator.clipboard) {
+          var b = document.createElement('button');
+          b.type = 'button';
+          b.className = 'copy';
+          b.textContent = 'Copy';
+          b.setAttribute('aria-live', 'polite');
+          b.addEventListener('click', function () {
+            var code = pre.querySelector('code') || pre;
+            navigator.clipboard.writeText(code.textContent).then(function () {
+              b.textContent = 'Copied';
+              setTimeout(function () { b.textContent = 'Copy'; }, 1600);
+            });
+          });
+          bar.appendChild(b);
+        }
+        pre.parentNode.insertBefore(box, pre);
+        box.appendChild(bar);
+        box.appendChild(pre);
+        if (pre.scrollWidth > pre.clientWidth + 1) {
+          pre.tabIndex = 0;
+          pre.setAttribute('role', 'region');
+          pre.setAttribute('aria-label', (names[kind] || 'Code') + ', scrolls sideways');
+        }
+      });
+    })();
+  </script>
+
+  <script>
+    // A video with a script: each line of the list under the player carries
+    // the second it starts at (data-start). As the video plays, the line for
+    // that moment is shown under the player and marked in the full list.
+    document.querySelectorAll('figure.video').forEach(function (fig) {
+      var video = fig.querySelector('video');
+      var line = fig.querySelector('.narration');
+      var items = Array.prototype.slice.call(fig.querySelectorAll('.script li[data-start]'));
+      if (!video || !line || !items.length) return;
+      line.hidden = false;
+      var shown = null;
+      function show() {
+        var now = items[0];
+        items.forEach(function (li) { if (parseFloat(li.dataset.start) <= video.currentTime) now = li; });
+        if (now === shown) return;
+        shown = now;
+        line.textContent = now.textContent;
+        items.forEach(function (li) { li.classList.toggle('now', li === now); });
+      }
+      video.addEventListener('timeupdate', show);
+      video.addEventListener('seeked', show);
+      show();
+    });
+  </script>
+
+
+
+</body></html>

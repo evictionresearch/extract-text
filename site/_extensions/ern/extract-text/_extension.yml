@@ -1,0 +1,25 @@
+title: ERN extract-text site page
+author: Eviction Research Network
+version: 0.1.0
+quarto-required: ">=1.4.0"
+contributes:
+  formats:
+    html:
+      # Same arrangement as the main ERN site's _extensions/ern/* formats: a
+      # full custom pandoc template carrying the ERN 2026 page chrome, and no
+      # Quarto theme to leak into it. -smart keeps straight quotes straight
+      # and -tex_math_dollars stops a dollar amount being read as math.
+      template: template.html
+      from: markdown-smart-tex_math_dollars
+      minimal: true
+      theme: none
+      title-block-style: none
+      highlight-style: none
+      html-table-processing: none
+      toc: false
+      section-divs: false
+      embed-resources: false
+      anchor-sections: false
+      link-external-newwindow: false
+      smooth-scroll: false
+      code-copy: false

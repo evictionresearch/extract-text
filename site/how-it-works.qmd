@@ -1,0 +1,166 @@
+---
+# How it works page of the extract-text site.
+# Every number here comes from README.md, docs/manual.md (section 13), or
+# CHANGELOG.md in this repository. When those change, change this page.
+pagetitle: "How extract-text works"
+description: "How extract-text reads a court document: the two engines, the flags, the review page, form templates, and what the accuracy measurements show."
+format: extract-text-html
+current-how: true
+hero:
+  eyebrow: "How it works"
+  h1: "How extract-text *reads a document*"
+  lede: "extract-text reads each document, records where every value came from, and sends anything doubtful to a person to review."
+---
+
+<section>
+:::::: {.wrap .sec .article style="padding-top: 0;"}
+
+<ul class="jump">
+<li><a href="#output">What comes out</a></li>
+<li><a href="#deterministic">Deterministic engine</a></li>
+<li><a href="#ai">AI engine</a></li>
+<li><a href="#flags">Flags</a></li>
+<li><a href="#review">Review page</a></li>
+<li><a href="#templates">Form templates</a></li>
+<li><a href="#address-check">Address checks</a></li>
+<li><a href="#accuracy">Accuracy</a></li>
+<li><a href="#elsewhere">Outside Washington</a></li>
+<li><a href="#status">Status</a></li>
+</ul>
+
+## What comes out {#output}
+
+A scan of a folder writes three things.
+
+- **`extracted.csv`** is the table, one row per document.
+- **`extracted.jsonl`** is the full record of where each value came from.
+- **`review/index.html`** is a page that shows each flagged document's image beside what was read from it.
+
+The main columns of the table are below. [Section 10 of the manual](https://github.com/evictionresearch/extract-text/blob/main/docs/manual.md#10-the-output-column-by-column){target="_blank" rel="noopener noreferrer"} describes every column.
+
+::: {.table-wrap}
+| Column | What it holds |
+|---|---|
+| `case_number` | The case number read from the document |
+| `plaintiffs` | Plaintiff names as printed |
+| `defendant_names` | Defendant names as printed |
+| `defendant_street`, `defendant_city`, `defendant_state`, `defendant_zip` | The address where the defendants were served |
+| `defendant_address_std` | The same address on one line, abbreviated the way the Postal Service does, for matching against other lists |
+| `attorney_names`, `attorney_firm` | The plaintiff's attorney |
+| `defendant_anchor` | Which rule found the address |
+| `text_source` | Whether the text came from the PDF itself or from OCR |
+| `flags` | Review flags. Empty means every check passed |
+:::
+
+## The deterministic engine {#deterministic}
+
+The deterministic engine reads a document with written rules. It uses no AI, no model files, and no network connection. The same document always gives the same output.
+
+It looks for the defendants' address with four rules, tried in order.
+
+1. The block addressed to the defendants ("TO:").
+2. The phrase "premises located at".
+3. A street line directly over a city line.
+4. The case caption.
+
+It uses the position of the text on the page to tell the tenant's address from the attorney's. For every value it returns, it records which rule found it and where on the page.
+
+The rules read only the documents they were written for. A layout the rules have never seen, or handwriting, produces a flag, not an answer.
+
+## The AI engine {#ai}
+
+The AI engine shows a picture of the page to a language model and asks it for the same fields. The model, qwen3.5 9B, runs on your own computer through Ollama, a free program that runs AI models locally. It needs about 16 GB of memory and a one-time download of about 7 GB. Nothing is sent to any cloud service.
+
+It reads layouts the rules were not written for, and it reads handwriting.
+
+A language model can return a confident, wrong answer. So the package checks each of its answers against the text of the document and marks the ones it cannot find. The model is never asked to rate its own confidence.
+
+**Running both** is the recommended mode where AI is allowed. The deterministic answer fills the main columns, and the AI answer goes in columns beside it. The package measures every disagreement and flags it. The two are never blended.
+
+::: {.table-wrap}
+| Your situation | Use |
+|---|---|
+| Policy does not permit AI tools | Deterministic |
+| You want the most confidence and can use AI | Both |
+| Your documents include handwriting or unusual layouts | Both |
+| A first look at a new set of documents | Deterministic first, then look at the flags |
+:::
+
+## Flags {#flags}
+
+A document that fails a check gets a named flag, and the engine does not guess a value to fill the row. Some of the flags are below. [Section 11 of the manual](https://github.com/evictionresearch/extract-text/blob/main/docs/manual.md#11-flags-and-the-review-workflow){target="_blank" rel="noopener noreferrer"} lists all of them and what to do about each.
+
+::: {.table-wrap}
+| Flag | What it means |
+|---|---|
+| `no_defendant_address` | No rule found a service address |
+| `defendant_address_incomplete` | A street was found but no city or ZIP |
+| `low_ocr_conf` | The whole page read poorly |
+| `defendant_equals_attorney` | The two addresses came out identical, so the row cannot be trusted |
+| `engines_disagree_address` | The two engines found different addresses |
+:::
+
+## The review page {#review}
+
+The review page shows each document's page image beside what the engine read, with a box drawn where each value was found. It is served from your own computer, and nothing on it goes online.
+
+[Watch one document being graded, in one minute](get-started.html#grade){.more}
+
+A reviewer can correct any field, turn to the document's other pages, and move, reshape, or redraw a box. Every save is written to a file named `corrections.jsonl` on the reviewer's computer.
+
+The same page runs a grading round. Several people grade the same documents, the package reports how often they agree, and it scores each engine against their answers. The guide for graders is [`GRADING.md`](https://github.com/evictionresearch/extract-text/blob/main/GRADING.md){target="_blank" rel="noopener noreferrer"}.
+
+## Form templates {#templates}
+
+Many courts print their summons on a standard form. The engine can learn where a form prints each field from the boxes drawn and confirmed during grading, with no change to the code.
+
+A template is one readable file per form. It holds the form's printed words, their positions, and a region of the page for each field. It holds no names or addresses. Nothing learned is used until a person approves it.
+
+A template changes where the engine looks, not how it reads. The rules still read the text inside each region.
+
+## Address checks {#address-check}
+
+**A check against a list of real addresses.** The package compares each address with a list you supply, such as a county's public address points, and reports the ones that match no real address. A preset is included for King County, Washington.
+
+**Address Check, a card game for phones.** Each card shows a picture of an address as printed on a filing beside the address an engine read. The player says whether they match, in about ten seconds a card. The game paints over the names before it takes the picture. The answers become labeled data, broken down by county, year, and the rule that found the address, so a weakness in one county shows up and is not averaged away.
+
+## What the measurements show {#accuracy}
+
+Every number here describes Washington State documents. A new court's documents need their own measurement, which is why [the first step](get-started.html#sample) is a graded random 50.
+
+**Addresses, against hand labels.** In August 2026 the Eviction Research Network scored the deterministic engine against 5,168 Washington cases whose addresses people had recorded by hand. An address counts as the same street when its similarity to the hand label is 0.7 or higher on a scale from 0 to 1. The same-street share below is of all documents, so a document with no address found counts as a miss.
+
+::: {.table-wrap tabindex="0" role="region" aria-label="Address accuracy on two hand-labeled sets"}
+| Hand-labeled set | Documents | Address found | Same street | ZIP agrees |
+|---|---|---|---|---|
+| King County 2013, scanned | 4,254 | 92.4% | 90.8% | 96.3% |
+| King County 2017, e-filed | 877 | 95.6% | 95.1% | 95.1% |
+:::
+
+**Accuracy differs by field.** On a random 50 King County summonses from 2017, graded by hand in October 2026, the rules engine read the street right on about 85 percent and the plaintiff on about 40 percent.
+
+**The AI engine.** It returned the fields for all 300 pages of its test set, at about 17 seconds a page on a 16 GB laptop. The head-to-head test of the AI engine against the hand-labeled sets is not finished.
+
+[Section 13 of the manual](https://github.com/evictionresearch/extract-text/blob/main/docs/manual.md#13-accuracy-measured-honestly){target="_blank" rel="noopener noreferrer"} gives every table, where each number came from, and its limits.
+
+## Using it outside Washington {#elsewhere}
+
+The Eviction Research Network designed extract-text for court documents that follow American conventions, and built and measured it on Washington filings.
+
+**What carries over.** The file handling, the removal of the line numbers printed down the margin of court paper, the address rules for "TO:" blocks and "premises located at", the AI engine, and the flags and review page.
+
+**What is tuned to Washington.** Three rules expect Washington forms. The city, state, and ZIP pattern looks for WA. The strict case-number format is the Washington superior court one. Attorney bar numbers are recognized by the Washington State Bar label. Each can be changed for another state, and [Changing the rules](https://github.com/evictionresearch/extract-text/blob/main/docs/changing_rules.md){target="_blank" rel="noopener noreferrer"} shows how.
+
+## Status {#status}
+
+extract-text is under development. The current release is version 0.4.0, of November 9, 2026. Command options, output columns, and the default AI model can still change between releases, so install a specific version for work you need to repeat. The [changelog](https://github.com/evictionresearch/extract-text/blob/main/CHANGELOG.md){target="_blank" rel="noopener noreferrer"} lists every release and how to install one.
+
+Today the package reads the parties, the addresses, the attorney, and the case number. Future versions are planned to read the body of a filing, such as the reason for the eviction.
+
+::: {.actions style="margin-top: 30px;"}
+[Get started](get-started.html){.btn}
+[Read the manual](https://github.com/evictionresearch/extract-text/blob/main/docs/manual.md){.btn .ghost target="_blank" rel="noopener noreferrer"}
+:::
+
+::::::
+</section>

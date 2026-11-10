@@ -1,0 +1,200 @@
+---
+# Home page of the extract-text site.
+# Rebuild with: quarto render   (run inside site/; see site/README.md)
+pagetitle: "extract-text: read eviction court documents into a table"
+description: "extract-text is open-source software from the Eviction Research Network that reads eviction court documents and returns a table of parties, addresses, and case details, on your own computer."
+format: extract-text-html
+current-home: true
+hero:
+  eyebrow: "Open-source software from the Eviction Research Network"
+  h1: "`extract-text` reads eviction court documents into a *table*."
+  lede: "Many courts keep eviction filings only as page images, and a filing cannot be counted or mapped until it is in a table. extract-text reads e-filed PDFs, scanned PDFs, and TIFF images and returns one row per document, with the plaintiffs, the defendants, the address where the defendants were served, the plaintiff's attorney, and the case number."
+  note: "Free and open source. It runs on your own computer, from R or Python, on Mac, Windows, and Linux."
+  badge: "Under development · version 0.4.0"
+  image: "images/extract-text.svg"
+  image-alt: "A scanned court summons with a handwritten address, an arrow, and the same case as rows of digital text"
+  buttons:
+    - label: "Get started"
+      href: "get-started.html"
+    - label: "How it works"
+      href: "how-it-works.html"
+      ghost: true
+---
+
+<section class="band">
+:::::: {.wrap .sec}
+<p class="eyebrow">Two engines</p>
+
+## Rules, a local AI model, *or both*
+
+You choose the engine on each run.
+
+::::: {.two}
+::: {.card}
+[No AI of any kind]{.kicker}
+
+### The rules engine
+It reads with written rules and the layout of the page. A scanned page is first turned into text by OCR (optical character recognition). The same document always gives the same output, so the code and the manual call it the deterministic engine. Every value records the rule that found it and where on the page it was found. It uses no AI and no network connection, so agencies whose policies do not permit AI tools can use it alone.
+:::
+
+::: {.card}
+[Optional]{.kicker}
+
+### The local AI engine
+A language model reads the page images. It runs on your own computer through Ollama, a free program that runs AI models locally, and it sends nothing to any cloud service. It reads what rules and OCR cannot, handwriting above all.
+:::
+:::::
+
+When you run both, the package compares the two addresses on every document and flags each disagreement for a person to review. Either engine also flags a value it is unsure of. Neither guesses a value to keep a row looking complete.
+::::::
+</section>
+
+<section>
+:::::: {.wrap .sec}
+<p class="eyebrow">Video</p>
+
+## extract-text in *one minute*
+
+```{=html}
+<figure class="video wide">
+<video controls preload="metadata" poster="media/overview-poster.jpg" width="1920" height="1080" aria-label="What extract-text does, in one minute">
+<source src="media/overview.mp4" type="video/mp4">
+</video>
+<figcaption>The video has text on screen and no sound.</figcaption>
+<details>
+<summary>Read what the video says</summary>
+<ol>
+<li>extract-text reads eviction court documents into a table of the case number, plaintiff, defendant, address, and attorney.</li>
+<li>Many courts keep eviction filings only as page images. The names, addresses, and case numbers are printed on the page. Filings cannot be counted or mapped until they are in a table.</li>
+<li>extract-text reads a document in one of three ways. The rules engine uses written rules and no AI. The same document always gives the same answer, and agencies that cannot use AI tools can use it. The local AI engine is a language model that reads the page image, handwriting included. It runs on your own computer and sends nothing to a cloud service. Run both and the two answers are compared, with every disagreement flagged for a person to review.</li>
+<li>Documents stay on your computer. With the default engines, tenants' names and addresses never leave it. Once installed, extract-text runs with the network unplugged.</li>
+<li>A little grading shows what to trust. Grade a random 50 of your documents on the review page. The score says how accurate each field is on your documents. The boxes you draw teach the engine where your court's form prints each field. No model is trained, and a person approves what the engine learns.</li>
+<li>extract-text was designed to work on other court documents that follow American conventions. Grade a sample first. Accuracy has been measured only on Washington State eviction filings. Future versions are planned to read the text of a filing, such as the reason for the eviction.</li>
+<li>extract-text is free and open source, at github.com/evictionresearch/extract-text. Its authors are Cheng Ren, Tim Thomas, and Aaron Culich.</li>
+</ol>
+</details>
+</figure>
+```
+::::::
+</section>
+
+<section class="band-dark">
+:::::: {.wrap .sec}
+<p class="eyebrow on-dark">Privacy</p>
+
+## Your documents stay on *your computer* {.on-dark}
+
+Court filings carry tenants' names and addresses. With the default engines, the documents, the page images, and the extracted values never leave your computer. The package sends no usage data, and once installed it runs with the network unplugged. Every example and test document in the code repository is made up.
+::::::
+</section>
+
+<section>
+:::::: {.wrap .sec}
+<p class="eyebrow">Accuracy</p>
+
+## Grade a random 50 before you *trust a run*
+
+The Eviction Research Network wrote and measured the rules on Washington State filings. Another court's forms, scan quality, or decade can make them misread a field without raising a flag, and accuracy differs by field. On a random 50 King County summonses from 2017, the rules engine read the street right on about 85 percent and the plaintiff on about 40 percent (October 2026).
+
+So the first run is a random 50 of your own documents. You grade them on a review page that shows each document beside what the engine read. The package scores the engine against your answers. You scan the whole folder only when the fields you need are accurate enough.
+
+[How grading and accuracy work](how-it-works.html#accuracy){.more}
+::::::
+</section>
+
+<section class="band">
+:::::: {.wrap .sec}
+<p class="eyebrow">First steps</p>
+
+## Getting started, *in outline*
+
+The Get started page has seven steps, each a few lines of R to copy and run. They fall into three stages.
+
+::::: {.cards}
+::: {.card}
+[1]{.n}
+
+[Steps 1 and 2]{.kicker}
+
+### Install
+Install four free programs that open PDFs, read scanned pages, and run the engine (poppler, tesseract, Python, and git), then extract-text itself. A checkup looks at your computer and names anything missing.
+:::
+
+::: {.card}
+[2]{.n}
+
+[Steps 3 to 5]{.kicker}
+
+### Test on a sample
+Read a made-up summons, scan a random 50 of your own documents, grade them on the review page, and score the engine.
+:::
+
+::: {.card}
+[3]{.n}
+
+[Steps 6 and 7]{.kicker}
+
+### Run the whole folder
+Scan every document, grade a second random 50, and build the final table of cases.
+:::
+:::::
+
+::: {.actions style="margin-top: 34px;"}
+[Get started](get-started.html){.btn}
+[Read the manual](https://github.com/evictionresearch/extract-text/blob/main/docs/manual.md){.btn .ghost target="_blank" rel="noopener noreferrer"}
+:::
+::::::
+</section>
+
+<section>
+:::::: {.wrap .sec}
+<p class="eyebrow">Uses</p>
+
+## Who extract-text *is for*
+
+The Eviction Research Network built extract-text for work that describes or reduces displacement. That work includes research, legal services, journalism, policy analysis, court administration, and tenant defense.
+
+Running extract-text takes someone who works in R, Python, or a terminal. If that is not you, send this page to an analyst on your staff or at a partner organization, or write to [evictions@berkeley.edu](mailto:evictions@berkeley.edu?Subject=extract-text).
+
+An eviction filing is not a finding of wrongdoing. The project does not support tenant screening, landlord blacklists, debt collection, or the use of these records to locate people for enforcement.
+
+[Read the terms of use](about.html#terms){.more}
+::::::
+</section>
+
+<section class="band">
+:::::: {.wrap .sec}
+<p class="eyebrow">Publications</p>
+
+## The research *behind it*
+
+::::: {.cards}
+::: {.card}
+[Cityscape, 2024]{.kicker}
+
+### Toward a National Eviction Data Collection Strategy Using Natural Language Processing
+Thomas, Ramiller, Ren, and Toomet describe the method this package grew from and apply it to more than 110,000 Washington eviction filings from 2004 to 2017.
+
+[Read about the paper](about.html#research){.more}
+:::
+
+::: {.card}
+[Dissertation, UC Berkeley, 2024]{.kicker}
+
+### Not All Eviction Cases are Alike
+Cheng Ren read 772,629 court files from 56,070 Pierce County cases, 2004 to 2022, and followed each case past the filing to dismissal, judgment, and the sheriff.
+
+[Read about the dissertation](about.html#research){.more}
+:::
+
+::: {.card}
+[People]{.kicker}
+
+### Cheng Ren, Tim Thomas, and Aaron Culich
+The authors work at the University at Albany, SUNY, and the University of California, Berkeley.
+
+[Meet the authors](about.html#authors){.more}
+:::
+:::::
+::::::
+</section>

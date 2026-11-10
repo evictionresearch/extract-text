@@ -1,0 +1,293 @@
+/*!
+ * extract-text-2026.css — the extract-text site.
+ *
+ * Loads on top of ern-2026.css (the ERN design system) and adds only what
+ * that sheet has no component for: the sub-site header, plain-markdown body
+ * text, code blocks, numbered steps, operating-system groups, tables, the
+ * notice box, video, and the author cards. Colours, type scale, buttons,
+ * bands, and footer come from the design system and are not restated here.
+ */
+
+:root { --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
+
+/* ─── Header ───
+   The ERN logo goes to the main site; "/ extract-text" beside it is this
+   site's home, so a visitor can see they are in a part of ERN. The current
+   page is marked by an underline as well as the red, never by colour alone. */
+.head-in > .brandline { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.brandline > a { display: flex; align-items: center; text-decoration: none; }
+.brandline .sep { color: var(--steel); font-size: 22px; font-weight: 200; line-height: 1; }
+.brandline .tool-name {
+  font-family: var(--mono); font-size: 15px; font-weight: 600; color: var(--ink);
+  padding: 10px 0; white-space: nowrap;
+}
+.brandline .tool-name:hover { color: var(--accent-deep); }
+.nav a[aria-current="page"],
+.brandline .tool-name[aria-current="page"] {
+  color: var(--accent-deep); text-decoration: underline;
+  text-decoration-thickness: 2px; text-underline-offset: 7px;
+}
+
+/* ─── Hero ─── text left, drawn illustration right */
+.hero-grid { display: grid; grid-template-columns: 1.15fr 1fr; gap: 56px; align-items: center; }
+.hero-grid > img { display: block; width: 100%; height: auto; background: var(--tint); border-radius: 8px; padding: 14px 10px; }
+.sec-hero .badge { margin: 6px 0 0; }
+.sec-hero .actions { margin-top: 26px; }
+.page h1 code { font-family: var(--mono); font-size: 0.84em; font-weight: 500; letter-spacing: -0.03em; background: none; padding: 0; }
+
+/* ─── Body text ───
+   The pages are written in markdown, which gives bare <p>, <ul>, and <h3>
+   tags. :where() keeps these rules weaker than any component rule in the
+   design system, so a paragraph inside a card still takes the card's size. */
+:where(.page) p, :where(.page) li {
+  font-size: 16.5px; line-height: 1.7; color: var(--body);
+  max-width: 72ch; text-wrap: pretty;
+}
+:where(.page) p { margin: 0 0 14px; }
+:where(.page) ul, :where(.page) ol { margin: 0 0 16px; padding-left: 22px; }
+:where(.page) li { margin-bottom: 6px; }
+:where(.page) h3 { font-size: 20px; font-weight: 600; line-height: 1.35; color: var(--ink); margin: 28px 0 8px; text-wrap: pretty; }
+:where(.page) strong { color: var(--ink); font-weight: 600; }
+.page p a, .page li a, .page td a { text-decoration: underline; text-underline-offset: 2px; }
+.page h2 + p, .page h2 + .sub { margin-top: 4px; }
+/* Buttons and "read more" links written in markdown sit inside a <p>; they
+   keep the design system's look, not the underlined body-link look. The
+   "read more" link is padded so a finger can hit it. */
+.page a.btn, .page a.more { text-decoration: none; }
+.page a.more { display: inline-block; padding: 12px 0; }
+.page a.more:hover { text-decoration: underline; }
+.page p:has(> a.more) { margin: 6px 0 0; }
+/* A pair of buttons written in markdown lands inside one <p>; give that
+   <p> the same spacing the hero's pair has. */
+.actions > p { display: flex; flex-wrap: wrap; gap: 14px; margin: 0; max-width: none; }
+.sec > :last-child, .sec-sm > :last-child { margin-bottom: 0; }
+
+/* Dark band: the same text, light on navy */
+.band-dark p, .band-dark li { color: rgba(255, 255, 255, 0.86); }
+.band-dark strong { color: #fff; }
+.band-dark a { color: #fff; }
+.band-dark a:hover { color: var(--red-on-dark); }
+
+/* ─── Cards in a row ─── the design system's .cards is three across; .two is
+   the same idea for a pair. Cards built from markdown are <div>s, not links. */
+.cards, .two { margin-top: 30px; margin-bottom: 30px; }
+.two { display: grid; grid-template-columns: 1fr 1fr; gap: 48px; }
+.card h3 { margin: 0; }
+.card p { max-width: none; }
+.card p:has(.kicker) { margin: 0; }
+/* Small red capitals are weakest on the tinted band, so there the kicker
+   takes the muted ink instead. */
+.band .kicker { color: var(--muted); }
+/* A numbered card: the three stages on the home page */
+.card .n {
+  font-size: 34px; font-weight: 200; line-height: 1; color: var(--accent-deep);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ─── Article pages ─── a narrower measure for step-by-step reading. The
+   section keeps the site's full width so its left edge lines up with the
+   header; everything inside it stops at 820px. */
+.article > * { max-width: 820px; }
+.article h2 {
+  font-size: 28px; font-weight: 300; line-height: 1.2; letter-spacing: -0.018em;
+  margin: 52px 0 14px; padding-top: 30px;
+  border-top: 1px solid var(--rule);
+  /* a jump link must land with the heading below the pinned header */
+  scroll-margin-top: 100px;
+}
+.article h2:first-child { margin-top: 0; padding-top: 0; border-top: none; }
+.article h2 em { font-weight: 600; }
+/* Step number, set off from the heading text */
+.article h2 .num {
+  display: inline-block; min-width: 1.5em; margin-right: 6px;
+  font-weight: 600; color: var(--accent-deep); font-variant-numeric: tabular-nums;
+}
+
+/* The numbered list of in-page links under an article's hero */
+.jump { display: flex; flex-wrap: wrap; gap: 8px 10px; list-style: none; margin: 0 0 8px; padding: 0; }
+.jump li { margin: 0; font-size: 14px; max-width: none; }
+.page .jump a {
+  display: inline-flex; align-items: center; gap: 8px; min-height: 40px;
+  text-decoration: none; color: var(--body);
+  border: 1px solid var(--rule); border-radius: 999px; padding: 6px 16px;
+}
+.page .jump a b { color: var(--accent-deep); font-weight: 600; font-variant-numeric: tabular-nums; }
+.page .jump a:hover { border-color: var(--accent-deep); color: var(--accent-deep); }
+
+/* ─── Operating-system groups ─── one bordered box per system, so a reader
+   can see where the Mac instructions stop and the Windows ones start */
+.os-group {
+  border: 1px solid var(--rule); border-radius: 8px;
+  padding: 20px 22px 6px; margin: 16px 0;
+}
+.os-group h3 { margin: 0 0 10px; font-size: 19px; }
+.os-group p, .os-group li { font-size: 15.5px; }
+
+/* ─── Code ─── */
+.page code {
+  font-family: var(--mono); font-size: 0.88em;
+  background: rgba(232, 238, 244, 0.75); border-radius: 3px; padding: 1px 5px;
+}
+.page pre {
+  margin: 0 0 18px; padding: 16px 20px;
+  background: var(--ink); border-radius: 6px; overflow-x: auto;
+}
+.page pre code {
+  display: block; background: none; padding: 0; border-radius: 0;
+  font-size: 13.5px; line-height: 1.65; color: #E8EEF4; white-space: pre;
+}
+/* The page's script wraps each block in .code and adds a strip above it
+   that names what the block is and holds the Copy button, so the button
+   never sits on the code. */
+.code { margin: 0 0 18px; background: var(--ink); border-radius: 6px; overflow: hidden; }
+.code pre { margin: 0; border-radius: 0; }
+.code-bar {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  min-height: 44px; padding: 5px 8px 5px 20px; border-bottom: 1px solid var(--rule-dark);
+}
+.code-bar .lang {
+  font-family: var(--sans); font-size: 11.5px; font-weight: 700; letter-spacing: 0.12em;
+  text-transform: uppercase; color: var(--steel);
+}
+.code-bar .copy {
+  font-family: var(--sans); font-size: 12px; font-weight: 600; letter-spacing: 0.06em;
+  text-transform: uppercase; color: #fff;
+  background: transparent; border: 1px solid rgba(255, 255, 255, 0.35); border-radius: 4px;
+  min-height: 34px; padding: 0 14px; cursor: pointer;
+}
+.code-bar .copy:hover { background: #fff; color: var(--ink); }
+.code-bar .copy:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+/* What the reader should see after running a block: light, so it cannot be
+   mistaken for something to type */
+.code.out { background: #F4F6F9; border: 1px solid var(--rule); }
+.code.out .code-bar { border-bottom-color: var(--rule); min-height: 36px; }
+.code.out .lang { color: var(--muted); }
+.page pre.output { background: #F4F6F9; }
+.page pre.output code { color: var(--ink); }
+
+/* ─── Video ─── each <video> carries its own width and height, so the frame
+   keeps its shape as it shrinks */
+.video { margin: 22px 0 26px; }
+.video.wide { max-width: 960px; }
+.video video {
+  display: block; width: 100%; height: auto;
+  background: var(--ink); border: 1px solid var(--rule); border-radius: 6px;
+}
+.video figcaption { font-size: 14px; line-height: 1.5; color: var(--muted); margin-top: 9px; }
+/* The video's words, for anyone who cannot watch it */
+.video details { margin-top: 6px; }
+.video summary {
+  display: inline-flex; align-items: center; min-height: 44px; cursor: pointer;
+  font-size: 14px; font-weight: 600; color: var(--ink);
+  text-decoration: underline; text-underline-offset: 3px;
+}
+.video details ol { margin: 6px 0 0; padding-left: 22px; }
+.video details li { font-size: 15px; line-height: 1.6; }
+/* The script line for the moment of the video now playing. It sits under
+   the player, and its height is held at two lines (three on a phone) so
+   the page below does not jump as the lines change. */
+.video .narration {
+  margin: 10px 0 0; padding: 12px 16px; min-height: calc(3.1em + 24px); box-sizing: border-box; max-width: none;
+  font-size: 17px; line-height: 1.55; color: var(--ink);
+  background: var(--tint); border-left: 3px solid var(--accent); border-radius: 0 4px 4px 0;
+}
+@media (max-width: 600px) { .video .narration { font-size: 16px; min-height: calc(4.65em + 24px); } }
+/* In the full script, the line now playing is marked by a rule and weight */
+.video .script li { padding-left: 8px; }
+.video .script li.now { font-weight: 600; color: var(--ink); box-shadow: -3px 0 0 var(--accent); }
+
+/* ─── Notice box ─── a rule on the left and a label, never colour alone */
+.note {
+  border-left: 3px solid var(--accent); background: var(--tint);
+  border-radius: 0 4px 4px 0; padding: 16px 20px; margin: 22px 0;
+}
+.note p { font-size: 15.5px; margin: 0 0 8px; }
+.note p:last-child { margin-bottom: 0; }
+
+/* ─── Tables ─── */
+.table-wrap { overflow-x: auto; margin: 18px 0 22px; }
+.page table { border-collapse: collapse; width: 100%; font-size: 14.5px; line-height: 1.5; color: var(--body); }
+.page th {
+  text-align: left; vertical-align: bottom;
+  font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--muted); padding: 0 16px 9px 0; border-bottom: 1px solid var(--ink);
+}
+.page td {
+  vertical-align: top; padding: 11px 16px 11px 0;
+  border-bottom: 1px solid var(--rule); font-variant-numeric: tabular-nums;
+}
+.page th:last-child, .page td:last-child { padding-right: 0; }
+
+/* ─── Authors ─── three across, portrait over name, role, and a short bio.
+   The role line is given room for three lines so the bios start level. */
+.authors { display: grid; grid-template-columns: repeat(3, 1fr); gap: 44px; margin-top: 36px; }
+.author img {
+  display: block; width: 148px; height: 148px;
+  object-fit: cover; border-radius: 50%; background: var(--tint);
+}
+.author h3 { margin: 18px 0 2px; }
+.author .role { font-size: 13.5px; line-height: 1.5; color: var(--muted); margin: 0 0 12px; min-height: 4.5em; }
+.author p { font-size: 15px; line-height: 1.65; max-width: none; }
+.author .links { font-size: 14px; margin: 0; }
+.author .links a {
+  display: inline-flex; align-items: center; min-height: 44px;
+  color: var(--ink); font-weight: 600; text-decoration: underline; text-underline-offset: 3px;
+}
+.author .links a:hover { color: var(--accent-press); }
+
+/* ─── Citation block ─── */
+.cite {
+  border: 1px solid var(--rule); border-radius: 4px; background: var(--paper);
+  padding: 18px 22px; margin: 14px 0 22px; max-width: 820px;
+}
+.cite p { font-size: 15px; line-height: 1.65; margin: 0; max-width: none; }
+
+/* ─── Responsive ─── */
+@media (max-width: 1000px) {
+  /* The design system pins the header, and on a narrow screen it wraps to
+     several rows. Here it scrolls away with the page, so instructions get
+     the whole screen. Jump links then need no allowance for it. */
+  .head { position: static; }
+  section, .article h2 { scroll-margin-top: 12px; }
+  .head-in { gap: 6px 24px; }
+  .nav { gap: 4px 22px; padding-top: 0; }
+  .nav a { font-size: 14px; padding: 12px 0; }
+  .nav a.btn { padding: 10px 18px; }
+  .foot-col a { padding: 7px 0; }
+  .foot-col { gap: 0; }
+  .foot-col span { margin-bottom: 6px; }
+  .hero-grid { grid-template-columns: 1fr; gap: 32px; }
+  .hero-grid > img { max-width: 560px; }
+}
+@media (max-width: 900px) {
+  .two { grid-template-columns: 1fr; gap: 36px; }
+  .authors { grid-template-columns: 1fr; gap: 40px; }
+  .author .role { min-height: 0; }
+  .article h2 { font-size: 24px; }
+}
+@media (max-width: 600px) {
+  .head-in img { height: 34px; }
+  .brandline { gap: 8px; }
+  .brandline .tool-name { font-size: 14px; }
+  /* On a phone the GitHub button becomes a plain link, so the three pages
+     and GitHub fit on one row under the logo. */
+  .nav { gap: 0 18px; }
+  .nav a { font-size: 13.5px; }
+  .nav a.btn, .nav a.btn:hover {
+    background: none; border: none; color: var(--ink); padding: 12px 0;
+    font-size: 13.5px; font-weight: 500; letter-spacing: 0; text-transform: none;
+  }
+  .os-group pre { padding: 14px 12px; }
+  .os-group pre code { font-size: 12px; }
+  /* One-line commands wrap on a phone, so nothing is hidden off the edge.
+     R and Python keep their line breaks and scroll sideways. */
+  .page pre.bash code, .page pre.powershell code { white-space: pre-wrap; overflow-wrap: anywhere; }
+  .page pre code { font-size: 12.5px; }
+  .page pre { padding: 14px 16px; }
+  .code-bar { padding-left: 16px; }
+  .code-bar .copy { min-height: 40px; }
+  .page table { font-size: 13px; }
+  .page th { font-size: 11px; letter-spacing: 0.04em; padding-right: 10px; }
+  .page td { padding-right: 10px; }
+  .os-group { padding: 16px 16px 4px; }
+}

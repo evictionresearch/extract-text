@@ -4,7 +4,8 @@ Every user-facing change to extract-text is recorded here, newest first. A chang
 
 ## Unreleased
 
-Nothing yet.
+- `docs/grading_with_boxes.md`: a short guide for graders who run the getting-started script and grade with boxes, and where their grades land.
+- Step 4 of the getting-started script says how to bring documents down from a Google Drive folder, and its sample folder and seed are generic again (the 0.4.0 copy carried a test path and seed from Tim's walk-through).
 
 ## 0.4.0 (2026-11-09)
 

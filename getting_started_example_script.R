@@ -108,6 +108,13 @@ glimpse(record_to_row(one))
 # as needed; step 6 explains how many is enough.
 #
 # docs_dir holds the court documents (PDF or TIFF, subfolders included).
+# If they come to you in a Google Drive folder, download that folder to
+# your own computer first (Drive gives a zip; unzip it) and point docs_dir
+# at the unzipped folder. Keep it, and results, out of any folder that
+# syncs or is shared (not Dropbox, iCloud Drive, OneDrive, or a Google
+# Drive folder that syncs to your computer): both hold tenants' names and
+# addresses. Delete both when the round is over.
+#
 # results is where everything this script writes goes: the sample in
 # results/sample, the full run in results/all, and the final table.
 # Expect about 5 seconds a document when OCR is needed.
@@ -115,12 +122,13 @@ docs_dir <- "path/to/your/documents"
 results  <- "path/to/your/results"
 n_sample <- 50
 
-sample_dir <- path.expand("~/data/evictionresearch/washington/court_images/King/2017")
+sample_dir <- file.path(results, "sample")
 all_dir    <- file.path(results, "all")
 
-# seed = 1 draws the same documents every time you run it
+# seed = 1 draws the same documents every time you run it; another number
+# draws a different sample
 res <- scan_documents(docs_dir, engine = "deterministic", sample = n_sample,
-                      seed = 3, out_dir = sample_dir)
+                      seed = 1, out_dir = sample_dir)
 
 # res is not ready to use yet. How often it is right on your documents is
 # unknown until you grade the sample in step 6.

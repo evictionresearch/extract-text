@@ -166,7 +166,7 @@ The Eviction Research Network designed extract-text for court documents that fol
 
 ## Status {#status}
 
-extract-text is under development. The current release is version 0.4.1, of November 17, 2026. The rules engine is the released tool, and the local AI engine is experimental. Command options, output columns, and the default AI model can still change between releases, so install a specific version for work you need to repeat. The [changelog](https://github.com/evictionresearch/extract-text/blob/main/CHANGELOG.md){target="_blank" rel="noopener noreferrer"} lists every release and how to install one.
+extract-text is under development. The current release is version 0.4.2, of November 17, 2026. The rules engine is the released tool, and the local AI engine is experimental. Command options, output columns, and the default AI model can still change between releases, so install a specific version for work you need to repeat. The [changelog](https://github.com/evictionresearch/extract-text/blob/main/CHANGELOG.md){target="_blank" rel="noopener noreferrer"} lists every release and how to install one.
 
 Today the package reads the parties, the addresses, the attorney, and the case number. Future versions are planned to read the body of a filing, such as the reason for the eviction. The [development timeline](index.html#development) lists the three stages.
 

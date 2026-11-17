@@ -25,68 +25,39 @@
 # ==========================================================================
 
 # --------------------------------------------------------------------------
-# Step 1. Install four free programs (once per computer)
+# Step 1. Install R and RStudio (once per computer)
 # --------------------------------------------------------------------------
-# extract-text cannot read a document without two free programs that R does
-# not install: poppler opens PDFs, and tesseract reads scanned pages (OCR).
-# Both Mac and Windows need them. Install them outside R, then open RStudio.
+# R and RStudio are the only programs you install yourself, and you have
+# them if you are reading this in RStudio. extract-text brings everything
+# else with it, including the two programs that open PDFs and read scanned
+# pages (poppler and tesseract). Step 2 asks for no administrator password.
 #
-# Check your system before you install. On a Mac you need macOS 15 (Sequoia)
-# or later on an Apple chip (M1 or later): Apple menu > About This Mac.
-# Homebrew keeps ready-made poppler, tesseract, and Python only for the
-# three newest versions of macOS on Apple chips. On macOS 14 or older, or
-# on an Intel Mac, it tries to build each from source code, which is slow
-# and can fail, as it did for one of our testers on macOS 14. Update macOS
-# first (System Settings > General > Software Update). On a PC, Windows 11
-# works with everything here (Windows key, type winver). On Windows 10 the
-# four programs and R need version 1809 or later, and the current RStudio
-# lists Windows 11 only.
+# How to run this script. Put the cursor on a line and press Cmd + Return
+# on a Mac or Ctrl + Enter on Windows. RStudio runs that line (or the whole
+# block it belongs to) in the Console pane below and moves to the next one.
+# Lines that begin with # are notes to you; R ignores them. A line of code
+# that begins with # is switched off; delete the # and the space after it
+# to switch it on.
 #
-# Check first whether you have them: run `which pdftoppm tesseract` in
-# Terminal (Mac, Linux) or `where.exe pdftoppm tesseract` in PowerShell
-# (Windows). If both print a path, you have those two. On a Mac, brew install on
-# a program you already have upgrades it and everything that depends on it.
+# Which computers. extract-text installs on a Mac with macOS 11 or later (an
+# Apple or an Intel chip), on 64-bit Windows 10 or 11, and on Linux. The
+# current R needs macOS 14 on an Apple chip, or Windows 10, and the current
+# RStudio lists macOS 15 and Windows 11; on an older system, use the R and
+# RStudio versions made for it.
 #
-# Mac. Install Homebrew from https://brew.sh if you don't have it, then run
-# this in Terminal:
-#   brew install poppler tesseract
-#
-# Windows. Run these in PowerShell:
-#   winget install oschwartz10612.Poppler
-#   winget install UB-Mannheim.TesseractOCR
-# winget puts poppler on your PATH, but the tesseract installer does not.
-# Add its folder, by default C:\Program Files\Tesseract-OCR, through Start >
-# "Edit environment variables for your account" > Path > Edit > New. Then
-# restart RStudio. If your computer blocks installs, ask IT for these two
-# programs.
-#
-# Linux (Debian or Ubuntu):
-#   sudo apt install poppler-utils tesseract-ocr
-#
-# extracttext_doctor() in step 2 confirms that R can find both.
-#
-# The engine is written in Python, so the computer also needs Python 3.10
-# or newer, and git, which the install in step 2 downloads the engine with.
-# The Python that comes with a Mac is older than 3.10. Step 2 checks for
-# both before it installs anything. If either is missing:
-#
-# Mac, in Terminal (Homebrew installs git with itself):
-#   brew install python
-#
-# Windows, in PowerShell:
-#   winget install Python.Python.3.12
-#   winget install Git.Git
-#
-# Linux (Debian or Ubuntu):
-#   sudo apt install python3 python3-venv git
-#
-# Then restart RStudio.
+# On a computer your organization manages, read docs/it_checklist.md first
+# ("For your IT department"): it lists what step 2 installs, where, and from
+# which web addresses.
 
 # --------------------------------------------------------------------------
 # Step 2. Install extract-text and check your setup
 # --------------------------------------------------------------------------
-# install_github() fetches the R package. extracttext_install() then builds
-# the Python engine the package runs on, once per computer.
+# install_github() fetches extract-text. extracttext_install() then installs
+# the engine, the part that reads the documents, once per computer: it
+# downloads about 1.5 GB into a folder of its own inside your user folder.
+# It prints many lines, which you can ignore unless it ends with the word
+# Error. On a fast connection it takes about a minute. It is finished when
+# the Console shows "Done. Restart R, then run extracttext_doctor()."
 # install.packages(c("remotes", "dplyr")) # if you don't have them yet
 # Only if you have an older version installed (it stops with an error on a
 # computer that has never had the package):
@@ -94,44 +65,39 @@
 remotes::install_github("evictionresearch/extract-text", subdir = "r")
 library(extracttext)
 
-# The Python the engine will be built on, 3.10 or newer. NULL means R found
-# none: install Python as "Before you start" says, restart RStudio, and run
-# this line again before going on.
-reticulate::virtualenv_starter(">=3.10")
-
-# The path to git. An empty "" means git is missing; install it the same way.
-Sys.which("git")
+# Looks at this computer and installs nothing: the folder the install writes
+# to, the free disk space, and whether R can reach the five web addresses
+# the install downloads from. Each line should read ok. A line marked
+# PROBLEM is one to take to your IT department, with docs/it_checklist.md.
+extracttext_preflight()
 
 extracttext_install()
-
-# Should print TRUE. FALSE means the install above stopped early; its last
-# lines of output say why.
-reticulate::virtualenv_exists("r-extracttext")
 
 # Restart R so the package finds the engine: Session > Restart R in RStudio
 # (Cmd/Ctrl + Shift + 0), or quit and reopen R. The checkup below fails
 # without this.
 
-# Check your setup. The last line should read "Ready: the deterministic engine can run." The
-# AI section reports Ollama as missing unless you set it up; the rules
-# engine does not need it.
+# Check your setup. The last line should read "Ready: the deterministic
+# engine can run." Poppler and tesseract should each read "installed with
+# extract-text". The AI section reports Ollama as missing unless you set it
+# up; the rules engine does not need it.
 library(extracttext)
 library(dplyr) # install.packages("dplyr")
 
 extracttext_doctor()
 
 # If it says "The Python engine is not installed yet", restart R and run the
-# checkup again. If the message stays, the install above failed, most often
-# because Python was missing or older than 3.10. Remove the half-built
-# environment, then go back to the Python check at the top of this step and
-# run from there:
-# reticulate::virtualenv_remove("r-extracttext")
+# checkup again. If the message stays, the install above stopped early; run
+# extracttext_install() again and read its last lines. If they name a web
+# address, a certificate, or a blocked program, the computer's security
+# settings stopped it: see docs/it_checklist.md.
 #
-# The package points R at the engine's own Python environment each time it
-# loads. If you have told R to use another Python (RETICULATE_PYTHON, or a
-# reticulate::use_python() line), the engine will look uninstalled; this
-# line, run before any other extract-text function, points R back:
-# reticulate::use_virtualenv("r-extracttext", required = TRUE)
+# The next two notes are for people who already use Python with R. Skip
+# them otherwise. If you have told R to use another Python
+# (RETICULATE_PYTHON, or a reticulate::use_python() line), the engine will
+# look uninstalled. And a computer that already has Python 3.10 or newer,
+# poppler, and tesseract can use them instead:
+# extracttext_install(method = "virtualenv").
 
 # --------------------------------------------------------------------------
 # Step 3. Read one example document

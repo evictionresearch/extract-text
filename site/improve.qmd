@@ -173,7 +173,10 @@ The first value returned should be `JANE Q. TENANT`. Change one thing at a time,
 `rules_eval.py` reads every graded document again with your rules. It counts, field by field, what the change fixed and what it broke.
 
 ```r
-py <- reticulate::virtualenv_python("r-extracttext")
+# the Python the engine runs on, once the package has been used in this session
+library(extracttext)
+extracttext_available()
+py <- reticulate::py_exe()
 eval_script <- path.expand("~/extract-text/python/scripts/rules_eval.py")
 
 # the first sample, where you shaped the change

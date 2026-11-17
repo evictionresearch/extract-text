@@ -1,6 +1,6 @@
 Package: extracttext
 Title: Court Record Text Extraction, Deterministic and AI Compared
-Version: 0.4.1
+Version: 0.4.2
 Authors@R: c(
     person("Cheng", "Ren", role = "aut"),
     person("Tim", "Thomas", , "timthomas@berkeley.edu", role = c("aut", "cre")),
@@ -22,6 +22,7 @@ Depends:
 Imports:
     cli (>= 3.6.0),
     reticulate (>= 1.35),
+    stats,
     tibble,
     utils
 Suggests:

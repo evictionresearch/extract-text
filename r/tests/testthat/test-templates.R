@@ -4,7 +4,14 @@
 
 fixtures_dir <- testthat::test_path("..", "..", "..", "python", "tests", "fixtures")
 have_fixture_files <- dir.exists(fixtures_dir)
-have_system_tools <- all(nzchar(Sys.which(c("pdftotext", "pdfinfo", "pdftoppm"))))
+# poppler as the engine finds it: the copy installed with the package (a
+# conda environment carries its own), or one on the computer's PATH
+poppler_programs <- c("pdftotext", "pdfinfo", "pdftoppm")
+have_system_tools <- all(nzchar(Sys.which(poppler_programs))) ||
+  (extracttext_available() &&
+     all(vapply(poppler_programs, function(b) {
+       isTRUE(reticulate::import("extract_text.documents")$have(b))
+     }, logical(1))))
 
 # A minimal template file written without a JSON package: twelve printed
 # words at made-up positions and one region.

@@ -25,9 +25,11 @@ Ported from the ERN Washington scanner (`wa_doc_scan.py`).
 
 from __future__ import annotations
 
+import os
 import re
 import shutil
 import subprocess
+import sys
 import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -48,12 +50,59 @@ class MissingDependencyError(RuntimeError):
     """A required system program is not installed. The message says which."""
 
 
+def own_tool_dirs() -> list[Path]:
+    """The folders of the engine's own Python environment that can hold
+    helper programs. An environment built from conda-forge (what
+    `extracttext_install()` builds by default) carries poppler and tesseract
+    there: `bin` on Mac and Linux, `Library/bin` on Windows."""
+    prefix = Path(sys.prefix)
+    return [prefix / "bin", prefix / "Library" / "bin"]
+
+
+def tool_path(binary: str) -> str | None:
+    """Where a helper program is: the copy inside the engine's own
+    environment first, then the system's. The engine runs the path this
+    returns, so the environment never has to be activated or put on PATH."""
+    for folder in own_tool_dirs():
+        found = shutil.which(binary, path=str(folder))
+        if found:
+            return found
+    return shutil.which(binary)
+
+
+def tool_is_own(binary: str) -> bool:
+    """Whether the copy `tool_path` finds is the environment's own."""
+    found = tool_path(binary)
+    return bool(found) and any(Path(found).parent == folder for folder in own_tool_dirs())
+
+
+def _tool_env(binary: str) -> dict | None:
+    """The environment for running a helper program. The environment's own
+    tesseract is told where its language data is, since nothing has
+    activated the environment; a setting the user made is left alone."""
+    if binary != "tesseract" or "TESSDATA_PREFIX" in os.environ or not tool_is_own(binary):
+        return None
+    prefix = Path(sys.prefix)
+    for data in (prefix / "share" / "tessdata", prefix / "Library" / "share" / "tessdata"):
+        if data.is_dir():
+            return {**os.environ, "TESSDATA_PREFIX": str(data)}
+    return None
+
+
 def run(cmd, **kw):
-    return subprocess.run(cmd, capture_output=True, text=True, **kw)
+    cmd = [str(c) for c in cmd]
+    binary = cmd[0]
+    cmd[0] = tool_path(binary) or binary
+    env = _tool_env(binary)
+    if env is not None:
+        kw.setdefault("env", env)
+    # a helper program can write bytes that are not text to its error stream;
+    # they are replaced, never allowed to stop the read
+    return subprocess.run(cmd, capture_output=True, text=True, errors="replace", **kw)
 
 
 def have(binary: str) -> bool:
-    return shutil.which(binary) is not None
+    return tool_path(binary) is not None
 
 
 def _require(binary: str, purpose: str) -> None:

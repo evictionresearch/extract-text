@@ -29,6 +29,7 @@ import subprocess
 import tempfile
 from pathlib import Path
 
+from .documents import tool_path
 from .layout import locate_text
 
 __all__ = [
@@ -240,7 +241,8 @@ def render_card(doc_path, page: int, box, out_png, words=(), redact=frozenset(),
         if p.suffix.lower() == ".pdf":
             stem = Path(td) / "pg"
             subprocess.run(
-                ["pdftoppm", "-png", "-r", str(dpi), "-f", str(page), "-l", str(page),
+                [tool_path("pdftoppm") or "pdftoppm", "-png", "-r", str(dpi),
+                 "-f", str(page), "-l", str(page),
                  str(p), str(stem)], capture_output=True, timeout=180)
             found = sorted(Path(td).glob("pg*.png"))
             if not found:

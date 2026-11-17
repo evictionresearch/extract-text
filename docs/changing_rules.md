@@ -84,7 +84,10 @@ Change one thing at a time, so a measurement can be traced to it. Put a comment 
 `rules_eval.py`, in your copy, reads every graded document again with your rules and counts, field by field, what the change fixed and what it broke:
 
 ```r
-py <- reticulate::virtualenv_python("r-extracttext")
+# the Python the engine runs on, once the package has been used in this session
+library(extracttext)
+extracttext_available()
+py <- reticulate::py_exe()
 eval_script <- path.expand("~/extract-text/python/scripts/rules_eval.py")
 
 # the first sample, where you developed the change
@@ -235,7 +238,7 @@ Templates live in the user's results folder, never in a code repository. A templ
 The package's tests check that existing behavior still holds after a change. They use only made-up documents:
 
 ```r
-reticulate::py_install("pytest", envname = "r-extracttext", pip = TRUE)
+system2(py, c("-m", "pip", "install", "pytest"))
 system2(py, c("-m", "pytest", "-q", path.expand("~/extract-text/python/tests")))
 ```
 

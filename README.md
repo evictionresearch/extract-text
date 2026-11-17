@@ -2,7 +2,7 @@
 
 extract-text reads eviction court documents (e-filed PDFs, scanned PDFs, and TIFF images) and returns a table with one row per document: the plaintiffs, the defendants, the address where the defendants were served, the plaintiff's attorney, and the case number. It runs on your own computer, and your documents never leave it. The [Eviction Research Network](https://evictionresearch.net) built it for housing research and policy work. Thomas, Ramiller, Ren, and Toomet (2024) were the first to use this method on eviction case records, in "[Toward a National Eviction Data Collection Strategy Using Natural Language Processing](https://www.huduser.gov/portal/periodicals/cityscape/vol26num1/article12.html)," *Cityscape* 26(1). This package takes what that paper did and makes it available to the public.
 
-**Status (version 0.4.1, under development).** The rules engine is the released tool, and every instruction here uses it. The local AI engine runs as an option, but its test against hand-labeled documents is not finished, so treat it as experimental. Accuracy has been measured only on Washington documents. Command options and output columns can still change between releases, so pin the version you build on. [`CHANGELOG.md`](CHANGELOG.md) lists every release.
+**Status (version 0.4.2, under development).** The rules engine is the released tool, and every instruction here uses it. The local AI engine runs as an option, but its test against hand-labeled documents is not finished, so treat it as experimental. Accuracy has been measured only on Washington documents. Command options and output columns can still change between releases, so pin the version you build on. [`CHANGELOG.md`](CHANGELOG.md) lists every release.
 
 ## How it works
 
@@ -17,8 +17,8 @@ A person checks the engine's work before anyone trusts it. You grade a random 50
 
 The [Get started page](https://evictionresearch.net/extract-text/get-started.html) walks through the install and a first run in eight steps, in R, on Mac, Windows, or Linux.
 
-1. **Install four free programs:** poppler, tesseract, Python, and git.
-2. **Install extract-text** and run its checkup.
+1. **Install R and RStudio.** They are the only programs you install yourself.
+2. **Install extract-text** and run its checkup. It brings its own Python, poppler, and tesseract, and asks for no administrator password.
 3. **Read one made-up summons** to see what the engine returns.
 4. **Scan a random 50** of your own documents.
 5. **Grade those 50** on a review page in your browser, then read the score.
@@ -37,6 +37,7 @@ You can practice steps 4 to 8 on the package's made-up documents before you open
 | Install it and run it, step by step | [Get started](https://evictionresearch.net/extract-text/get-started.html), or [`getting_started_example_script.R`](getting_started_example_script.R) |
 | See the whole procedure on one page, or use a terminal | [`docs/start_here.md`](docs/start_here.md) |
 | Know what belongs in each field when you grade | [`GRADING.md`](GRADING.md) |
+| Get it approved or installed on a computer your organization manages | [`docs/it_checklist.md`](docs/it_checklist.md) |
 | Fix and draw the boxes on the review page | [`docs/grading_with_boxes.md`](docs/grading_with_boxes.md) |
 | Learn how the engines read a page, and what was measured | [How it works](https://evictionresearch.net/extract-text/how-it-works.html), and manual sections [12](docs/manual.md#12-how-it-works-under-the-hood) and [13](docs/manual.md#13-accuracy-measured-honestly) |
 | Look up an output column, a flag, or an error message | Manual sections [10](docs/manual.md#10-the-output-column-by-column), [11](docs/manual.md#11-flags-and-the-review-workflow), and [18](docs/manual.md#18-troubleshooting) |

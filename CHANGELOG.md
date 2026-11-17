@@ -4,6 +4,17 @@ Every user-facing change to extract-text is recorded here, newest first. A chang
 
 ## Unreleased
 
+## 0.4.2 (2026-11-17)
+
+- From R, `extracttext_install()` now installs everything the engine needs. It builds the engine's environment from conda-forge, with its own Python, poppler, and tesseract, in a folder inside your user folder, and asks for no administrator rights. You install only R and RStudio: no Homebrew, no winget, no Python, no git, and no PATH edit on Windows. It works on macOS 11 and later on Apple and Intel chips, where the Homebrew route needed macOS 15 on an Apple chip. If the computer has no conda that R manages, Miniforge is downloaded first. The earlier route stays as `extracttext_install(method = "virtualenv")`, for a computer that already has the three programs.
+- The engine runs the copies of poppler and tesseract in its own environment first, then the computer's own, and `extracttext_doctor()` says which copy it found.
+- `extracttext_preflight()` checks a computer before the install and installs nothing: the folder the install writes to, the free disk space, and whether R can reach the web addresses the install downloads from. `docs/it_checklist.md` is written for an IT department: what is installed, where, from which addresses, and what can stop it on a managed computer.
+- Where each download comes from is a choice. `extracttext_install()` takes `channel` (a mirror of conda-forge or an organization's own conda repository), `conda` (a conda already on the computer, in place of downloading Miniforge), `pip_index` (an organization's Python package index), and `source` (the engine's code on disk). The first three can be set once per computer as environment variables (`EXTRACTTEXT_CONDA_CHANNEL`, `EXTRACTTEXT_CONDA`, `EXTRACTTEXT_PIP_INDEX`), and `extracttext_preflight()` checks whichever places are chosen. An environment built by an IT department is used as it is when `RETICULATE_PYTHON` names its Python.
+- The engine is downloaded as GitHub's zip of the repository, so the install no longer needs git.
+- The install tells conda to use the computer's certificate store, as pip does, so it works where an office inspects web traffic with its own certificate.
+- A helper program that writes bytes that are not text to its error stream no longer stops a read.
+- Step 1 of Get started, the script, and `docs/start_here.md` is now "Install R and RStudio", and step 2 runs the check and the install. The terminal route's install line uses the zip, and a conda line is given beside it.
+- The repository's tests now run the install on Windows, macOS 14, an Intel Mac, the current macOS, and Linux, on machines with R and nothing else.
 - The install pages say which systems the installers need: on a Mac, macOS 15 (Sequoia) or later on an Apple chip, because Homebrew has ready-made poppler, tesseract, and Python for those only; on a PC, Windows 11, with what Windows 10 (version 1809 or later) can and cannot do. A tester on macOS 14 could not install poppler and tesseract.
 - On the review page, a box you draw is added to the boxes already there. Before, the first box drawn for a field hid the engine's own boxes of that field, and each had to be drawn again. A box in the wrong place is deleted with its cross, as before.
 - While a field is picked for drawing, the pointer is a crosshair on the enlarged page too, and the tooltip says what a drag will do. Before, the enlarged page kept the zoom-out pointer and "Click to shrink".

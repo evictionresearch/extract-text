@@ -14,6 +14,8 @@ import shutil
 import subprocess
 import sys
 
+from .documents import tool_is_own, tool_path
+
 CHECKS_HEADER = "extract-text environment check"
 
 _INSTALL_HINTS = {
@@ -28,8 +30,9 @@ _INSTALL_HINTS = {
         "ollama": "download from https://ollama.com",
     },
     "Windows": {
-        "poppler": "download poppler for Windows and add its bin/ folder to PATH",
-        "tesseract": "install tesseract from the UB Mannheim build and add it to PATH",
+        "poppler": "winget install oschwartz10612.Poppler",
+        "tesseract": ("winget install UB-Mannheim.TesseractOCR, then add "
+                      "C:\\Program Files\\Tesseract-OCR to PATH"),
         "ollama": "download the installer from https://ollama.com",
     },
 }
@@ -73,16 +76,22 @@ def run_doctor(model: str | None = None, file=None) -> bool:
         ("poppler", ("pdftotext", "pdftoppm", "pdfinfo"), "reads PDFs"),
         ("tesseract", ("tesseract",), "reads scanned pages (OCR)"),
     ):
-        have_all = all(shutil.which(b) for b in binaries)
+        have_all = all(tool_path(b) for b in binaries)
         det_ok = det_ok and have_all
         mark = ok(have_all)
         say(f"  [{mark}] {tool:10s} {purpose}")
         if have_all:
-            v = _version_of([binaries[0], "-v" if tool == "poppler" else "--version"])
+            v = _version_of([tool_path(binaries[0]), "-v" if tool == "poppler" else "--version"])
             if v:
                 say(f"        {v}")
+            # which copy the engine will run: the one installed with the
+            # package, or one installed on the computer
+            whose = ("installed with extract-text" if tool_is_own(binaries[0])
+                     else "installed on this computer")
+            say(f"        {whose}: {tool_path(binaries[0])}")
         else:
             say(f"        install with: {_hint(tool)}")
+            say("        or, from R, run extracttext_install(), which installs it with the package")
     try:
         import PIL  # noqa: F401
 

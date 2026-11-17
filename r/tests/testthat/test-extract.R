@@ -23,7 +23,14 @@ synthetic <- paste(
 # full clone of the repository, absent under R CMD check's isolated copy.
 fixtures_dir <- testthat::test_path("..", "..", "..", "python", "tests", "fixtures")
 have_fixture_files <- dir.exists(fixtures_dir)
-have_system_tools <- all(nzchar(Sys.which(c("pdftotext", "pdfinfo", "pdftoppm"))))
+# poppler as the engine finds it: the copy installed with the package (a
+# conda environment carries its own), or one on the computer's PATH
+poppler_programs <- c("pdftotext", "pdfinfo", "pdftoppm")
+have_system_tools <- all(nzchar(Sys.which(poppler_programs))) ||
+  (extracttext_available() &&
+     all(vapply(poppler_programs, function(b) {
+       isTRUE(reticulate::import("extract_text.documents")$have(b))
+     }, logical(1))))
 
 test_that("deterministic extraction reads the caption and scalars", {
   skip_if_not(extracttext_available(), "Python engine not installed")
@@ -212,4 +219,9 @@ test_that("the load-time Python binding stands down when the user chose a Python
   Sys.setenv(RETICULATE_PYTHON = "/a/python/the/user/chose")
   expect_false(bind_engine_python())
   if (is.na(had)) Sys.unsetenv("RETICULATE_PYTHON") else Sys.setenv(RETICULATE_PYTHON = had)
+})
+
+test_that("an environment that was never built is reported as absent", {
+  expect_null(conda_env_python("no-such-environment-for-this-test"))
+  expect_match(conda_env_path("x"), "envs")
 })

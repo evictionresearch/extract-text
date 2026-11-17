@@ -198,7 +198,10 @@ reticulate::py_get_attr(p, "_strip_group_terms")("JANE Q. TENANT and OCCUPANTS O
 <p>The first value returned should be <code>JANE Q. TENANT</code>. Change one thing at a time, keep the pattern narrow, and write a comment above the change with a made-up example.</p>
 <h3 id="measure-the-change">6. Measure the change</h3>
 <p><code>rules_eval.py</code> reads every graded document again with your rules. It counts, field by field, what the change fixed and what it broke.</p>
-<pre class="r"><code>py &lt;- reticulate::virtualenv_python("r-extracttext")
+<pre class="r"><code># the Python the engine runs on, once the package has been used in this session
+library(extracttext)
+extracttext_available()
+py &lt;- reticulate::py_exe()
 eval_script &lt;- path.expand("~/extract-text/python/scripts/rules_eval.py")
 
 # the first sample, where you shaped the change

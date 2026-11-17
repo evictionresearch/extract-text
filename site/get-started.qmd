@@ -19,7 +19,7 @@ hero:
 :::::: {.wrap .sec .article style="padding-top: 0;"}
 
 <ul class="jump">
-<li><a href="#before"><b>1</b> Four free programs</a></li>
+<li><a href="#before"><b>1</b> R and RStudio</a></li>
 <li><a href="#install"><b>2</b> Install extract-text</a></li>
 <li><a href="#example"><b>3</b> Example document</a></li>
 <li><a href="#sample"><b>4</b> Scan a random 50</a></li>
@@ -33,75 +33,34 @@ hero:
 </ul>
 
 ::: {.note}
-**Before step 1.** You need [R](https://cran.r-project.org/){target="_blank" rel="noopener noreferrer"} and [RStudio](https://posit.co/download/rstudio-desktop/){target="_blank" rel="noopener noreferrer"} on your computer, both free, and your court documents (PDF or TIFF files) in a folder on it. Your computer's system also has to be recent enough for the installs in step 1: on a Mac, macOS 15 (Sequoia) or later on an Apple chip (M1 or later), and on a PC, Windows 11. Step 1 says how to check.
+**Before step 1.** Put your court documents (PDF or TIFF files) in a folder on your computer. On a computer your organization manages, read [For your IT department](https://github.com/evictionresearch/extract-text/blob/main/docs/it_checklist.md){target="_blank" rel="noopener noreferrer"} first, and run the check in step 2 before the install.
 :::
 
 ::: {.note}
 **Prefer one file to copy from?** Every step on this page is in [`getting_started_example_script.R`](https://raw.githubusercontent.com/evictionresearch/extract-text/main/getting_started_example_script.R){target="_blank" rel="noopener noreferrer"}, under the same eight numbers and with more explanation. Save it, open it in RStudio, and run it a block at a time.
 :::
 
-## [1]{.num} Install four free programs {#before}
+## [1]{.num} Install R and RStudio {#before}
 
-extract-text needs four programs that R does not install.
+R and RStudio are the only programs you install yourself. Both are free. R is the program that runs the code on this page, and RStudio is the window you work in. If both are already on your computer, go to step 2.
 
-- **poppler** opens PDF files.
-- **tesseract** reads scanned pages (OCR).
-- **Python 3.10 or newer** runs the engine, which is written in Python. The Python that comes with a Mac is older.
-- **git** downloads the engine during the install.
-
-You install them once, in a terminal window outside R. Find your computer below. You need the internet only to install. After that, extract-text runs with the network unplugged.
+1. **Install R.** Go to [cran.r-project.org](https://cran.r-project.org/){target="_blank" rel="noopener noreferrer"} and choose your system (Windows, macOS, or Linux). On Windows, choose "base" and then the download link at the top. On a Mac, there are two files: one for Apple chips (its name has "arm64") and one for Intel chips. The Apple menu, About This Mac, says which chip you have. Open the downloaded file and accept what the installer suggests.
+2. **Install RStudio.** Go to [posit.co/download/rstudio-desktop](https://posit.co/download/rstudio-desktop/){target="_blank" rel="noopener noreferrer"}, download the installer for your system, open it, and accept what it suggests.
+3. **Open RStudio.** The pane named Console, at the lower left, is where code runs.
 
 ::: {.note}
-**Check your system first, and update it if it is old.**
-
-- **Mac.** Open the Apple menu and choose About This Mac. You need macOS 15 (Sequoia) or later, and a line that reads "Chip: Apple M1" or later. Homebrew, the installer used below, keeps ready-made copies of poppler, tesseract, and Python only for the three newest versions of macOS on Apple chips (in November 2026: macOS 15, 26, and 27). On macOS 14 or older, or on an Intel Mac, it prints a warning and tries to build each program from its source code, which is slow and can fail, as it did for one of our testers on macOS 14. Update macOS first, in System Settings, General, Software Update. For a Mac that cannot be updated, Homebrew's own advice is MacPorts, which we have not tested.
-- **Windows.** Press the Windows key, type `winver`, and press Enter. Windows 11 works with everything on this page. On Windows 10, the four programs and R need version 1809 or later, and the current RStudio lists Windows 11 only.
+**How to run the code on this page.** Each dark box below is code. Press Copy at its top right, click in the Console pane in RStudio, paste, and press Return. A light box shows what you should see afterward and is not for typing. Some boxes have a line that begins with `#`. Those lines are notes to you, and R ignores them. When a step tells you to change something, such as the name of a folder, change it after you paste and before you press Return.
 :::
 
-::: {.os-group}
-### Mac
+You install nothing else. extract-text brings what it needs with it, including the two programs that open PDF files and read scanned pages (poppler and tesseract). Earlier versions asked you to install those yourself.
 
-1. Open Terminal. Press Command and Space, type Terminal, and press Return.
-2. Install [Homebrew](https://brew.sh){target="_blank" rel="noopener noreferrer"} if you do not have it. Installing Homebrew also installs git.
-3. Run this line.
-
-```bash
-brew install poppler tesseract python
-```
+::: {.note}
+**Which computers.** extract-text installs on a Mac with macOS 11 or later, on an Apple or an Intel chip, on 64-bit Windows 10 or 11, and on Linux. The limits you are more likely to meet are R's and RStudio's own. The current R needs macOS 14 on an Apple chip, or Windows 10. The current RStudio lists macOS 15 and Windows 11. On an older system, install the R and RStudio versions made for it, or use R without RStudio.
 :::
-
-::: {.os-group}
-### Windows
-
-1. Open PowerShell. Press the Windows key, type PowerShell, and press Enter.
-2. Run these four lines.
-
-```powershell
-winget install oschwartz10612.Poppler
-winget install UB-Mannheim.TesseractOCR
-winget install Python.Python.3.12
-winget install Git.Git
-```
-
-3. Add tesseract to your PATH, which its installer does not do. Open Start, type "Edit environment variables for your account", and open it. Select Path, choose Edit, choose New, and enter `C:\Program Files\Tesseract-OCR`.
-4. Restart RStudio.
-:::
-
-::: {.os-group}
-### Linux (Debian or Ubuntu)
-
-Run this line in a terminal.
-
-```bash
-sudo apt install poppler-utils tesseract-ocr python3 python3-venv git
-```
-:::
-
-On a work computer of any kind, installs may need your IT department. Ask for poppler, tesseract, Python 3.10 or newer, and git.
 
 ## [2]{.num} Install extract-text {#install}
 
-In RStudio, install the package, then build the Python engine it runs on. You do this once per computer.
+In RStudio, run these lines. They install extract-text, check that your computer is ready, and then install the engine, the part of extract-text that reads the documents. You do this once per computer. You need the internet for this step only.
 
 ```r
 install.packages(c("remotes", "dplyr"))
@@ -109,17 +68,15 @@ remotes::install_github("evictionresearch/extract-text", subdir = "r")
 
 library(extracttext)
 
-# Two checks before the engine is built. The first should print the path of
-# a Python, 3.10 or newer (NULL means R found none). The second should print
-# the path of git (an empty "" means it is missing). If either fails, go
-# back to step 1, restart RStudio, and run this block again.
-reticulate::virtualenv_starter(">=3.10")
-Sys.which("git")
+# Looks at this computer and installs nothing. Each line should read ok.
+extracttext_preflight()
 
 extracttext_install()
 ```
 
-The install prints many lines as it downloads the engine's parts. On a fast connection it takes under a minute. **Restart R** when it finishes, so the package finds the engine. In RStudio, choose Session, then Restart R. Then check your setup.
+The check, `extracttext_preflight()`, changes nothing on your computer. It prints a short list: the folder the install will use, the free space on your disk, and whether your computer can reach the web addresses the install downloads from. Every line should begin with `[ok ]`. A line that begins with `[PROBLEM]` means something on the computer, usually a security setting at work, would stop the install. Copy what the check printed and take it to your IT department, with [For your IT department](https://github.com/evictionresearch/extract-text/blob/main/docs/it_checklist.md){target="_blank" rel="noopener noreferrer"}.
+
+The install, `extracttext_install()`, downloads about 1.5 GB into a folder of its own inside your user folder. It asks for no administrator password and changes no settings. It prints many lines as it works, and you can ignore them unless it ends with the word Error. On a fast connection it takes about a minute, and on a slow one it can take much longer. It is finished when the Console shows "Done. Restart R, then run extracttext_doctor()." **Restart R** when it finishes, so the package finds the engine. In RStudio, choose Session, then Restart R. Then check your setup.
 
 ```r
 library(extracttext)
@@ -134,7 +91,7 @@ The last line of the checkup should be this one.
 Ready: the deterministic engine can run.
 ```
 
-The checkup reports Ollama as missing unless you set up the AI engine, and that is fine. The rules engine does not need it. If the checkup says the Python engine is not installed, see [If something goes wrong](#help).
+The checkup lists poppler and tesseract, and under each it should say "installed with extract-text". It reports Ollama as missing, and that is fine. Ollama belongs to the experimental AI engine, which these steps do not use. If the checkup says the Python engine is not installed, see [If something goes wrong](#help).
 
 ## [3]{.num} Read one example document {#example}
 
@@ -374,13 +331,14 @@ The table has one row per document, with the case number, the plaintiff, the def
 
 **Run the checkup first.** `extracttext_doctor()` in R looks at your computer and prints the command for anything missing.
 
-**The checkup says "The Python engine is not installed yet."** Restart R and run it again. If the message stays, the install in step 2 stopped early, most often because Python was missing or older than 3.10. Run the two checks in step 2, fix what they show, and install again.
+**The install in step 2 stops with an error.** Read its last lines. If they name a web address, a certificate, or a blocked program, the computer's security settings stopped a download or stopped a program from running. Run `extracttext_preflight()`, and take its report and [For your IT department](https://github.com/evictionresearch/extract-text/blob/main/docs/it_checklist.md){target="_blank" rel="noopener noreferrer"} to your IT department.
 
-If the install finished and the message still stays, something has told R to use another Python. In a fresh R session, point R at the engine's own environment before anything else, then run the checkup.
+**The checkup says "The Python engine is not installed yet."** Restart R and run it again. If the message stays, the install in step 2 stopped early. Run `extracttext_install()` again and read its last lines.
+
+If the install finished and the message still stays, something has told R to use another Python before the package loaded. Restart R and make these the first two lines you run.
 
 ```r
 library(extracttext)
-reticulate::use_virtualenv("r-extracttext", required = TRUE)
 extracttext_doctor()
 ```
 
@@ -392,16 +350,16 @@ extracttext_doctor()
 
 ## Python and the command line {#python}
 
-The eight steps above use R. The same engine runs from Python and from a terminal. Install the four programs from step 1 first. Then make a private Python environment for the engine and turn it on. Python from Homebrew on a Mac, and from Debian or Ubuntu, refuses a plain `pip install` outside one.
+The eight steps above use R. The same engine runs from Python and from a terminal. There the helper programs are yours to install: Python 3.10 or newer, poppler, and tesseract. [Section 3 of the manual](https://github.com/evictionresearch/extract-text/blob/main/docs/manual.md#3-what-you-need-before-installing){target="_blank" rel="noopener noreferrer"} has the lines for each system. Then make a private Python environment for the engine and turn it on. Python from Homebrew on a Mac, and from Debian or Ubuntu, refuses a plain `pip install` outside one.
 
 ```bash
 python3 -m venv ~/extract-text-env
 source ~/extract-text-env/bin/activate
-pip install "extract-text @ git+https://github.com/evictionresearch/extract-text#subdirectory=python"
+pip install "extract-text @ https://github.com/evictionresearch/extract-text/archive/main.zip#subdirectory=python"
 extract-text doctor
 ```
 
-On Windows, skip the first two lines. On a Mac or Linux, run the `source` line again in every new terminal window. [Start here](https://github.com/evictionresearch/extract-text/blob/main/docs/start_here.md#the-same-steps-at-a-terminal){target="_blank" rel="noopener noreferrer"} gives the terminal command for each of the eight steps.
+On Windows, skip the first two lines. On a Mac or Linux, run the `source` line again in every new terminal window. If you use conda, one line brings Python, poppler, and tesseract together: `conda create -n extract-text -c conda-forge python=3.12 poppler tesseract`, then `conda activate extract-text` and the `pip install` line. [Start here](https://github.com/evictionresearch/extract-text/blob/main/docs/start_here.md#the-same-steps-at-a-terminal){target="_blank" rel="noopener noreferrer"} gives the terminal command for each of the eight steps.
 
 ```python
 from extract_text import extract, scan

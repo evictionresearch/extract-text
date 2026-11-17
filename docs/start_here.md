@@ -14,17 +14,17 @@ Step 5 means the same thing in all three, and so do the files each step writes.
 
 ## What you need
 
-- A Mac, Windows, or Linux computer that you are allowed to keep court records on. Its system has to be recent: on a Mac, macOS 15 (Sequoia) or later on an Apple chip (M1 or later), and on a PC, Windows 11. An older Mac cannot get poppler and tesseract ready-made from Homebrew, so update it before step 1. The Get started page says how to check and what Windows 10 can do.
+- A Mac, Windows, or Linux computer that you are allowed to keep court records on: macOS 11 or later (an Apple or an Intel chip), 64-bit Windows 10 or 11, or Linux. On a computer your organization manages, read [For your IT department](it_checklist.md) first.
 - Your documents in one folder on that computer. Subfolders are fine. Step 4 says which documents to put there.
 - An empty folder for the results. Everything written there holds names and addresses, so keep it where you keep the documents. Keep both folders out of Dropbox, iCloud Drive, OneDrive, and any Google Drive folder that syncs.
-- To follow the R code, R and RStudio.
+- R and RStudio, the only programs you install yourself (step 1).
 
 ## The eight steps
 
 | | Step | What you do |
 |---|---|---|
-| 1 | Install four free programs | poppler, tesseract, Python, and git, once per computer |
-| 2 | Install extract-text | Install the package and run its checkup |
+| 1 | Install R and RStudio | The only programs you install yourself |
+| 2 | Install extract-text | Install the package, which brings Python, poppler, and tesseract, and run its checkup |
 | 3 | Read one example | The engine reads a made-up summons, and you compare |
 | 4 | Scan a random 50 | The engine reads a random 50 of your documents |
 | 5 | Grade and score | You check those 50 against the page, fix what is wrong, and read the score |
@@ -32,13 +32,15 @@ Step 5 means the same thing in all three, and so do the files each step writes.
 | 7 | Scan the whole folder | The engine reads everything, and you grade and score a second 50 |
 | 8 | Build the table | One row per document, your answers in place of the engine's wherever you gave one |
 
-### 1. Install four free programs
+### 1. Install R and RStudio
 
-extract-text needs four programs that neither R nor Python installs. poppler opens PDF files. tesseract reads scanned pages (OCR). Python 3.10 or newer runs the engine. git downloads the engine during the install. The Get started page and the top of the script give the install lines for Mac, Windows, and Linux. On a work computer, the installs may need your IT department.
+R and RStudio are the only programs you install yourself. extract-text brings the rest with it: its own Python, poppler, which opens PDF files, and tesseract, which reads scanned pages (OCR). You do not install Homebrew, Python, or git.
 
 ### 2. Install extract-text
 
-Install the package and run its checkup. The checkup ends with "Ready: the deterministic engine can run." Do not go on until it says so. The script says what to do when it does not. The checkup reports the AI program (Ollama) as missing, and that is fine.
+Install extract-text in R, then run `extracttext_install()` once. It installs the engine, the part that reads the documents: it downloads about 1.5 GB into a folder of its own inside your user folder, asks for no administrator password, and changes no settings. On a computer your organization manages, run `extracttext_preflight()` first. It installs nothing, and it says whether the install can write where it needs to and reach the web addresses it downloads from.
+
+Then run the checkup. The checkup ends with "Ready: the deterministic engine can run." Do not go on until it says so. The script says what to do when it does not. The checkup reports the AI program (Ollama) as missing, and that is fine.
 
 ### 3. Read one example
 
@@ -106,17 +108,17 @@ Grading does not change the engine's rules. Run the engine again on the same doc
 
 ## The same steps at a terminal
 
-Install the four programs of step 1 first. Then make a private Python environment for the engine and turn it on. Python from Homebrew on a Mac, and from Debian or Ubuntu, refuses a plain `pip install` outside one, with the message "externally-managed-environment".
+At a terminal the helper programs are yours to install: Python 3.10 or newer, poppler, and tesseract ([manual, section 3](manual.md#3-what-you-need-before-installing)). Then make a private Python environment for the engine and turn it on. Python from Homebrew on a Mac, and from Debian or Ubuntu, refuses a plain `pip install` outside one, with the message "externally-managed-environment".
 
 ```bash
 # 2. Install extract-text (Mac and Linux)
 python3 -m venv ~/extract-text-env
 source ~/extract-text-env/bin/activate
-pip install "extract-text @ git+https://github.com/evictionresearch/extract-text#subdirectory=python"
+pip install "extract-text @ https://github.com/evictionresearch/extract-text/archive/main.zip#subdirectory=python"
 extract-text doctor
 ```
 
-On Windows, skip the first two lines. The Python that step 1 installs accepts the `pip install` line as it is. On a Mac or Linux, run the `source` line again in every new terminal window, before any `extract-text` command.
+On Windows, skip the first two lines. Python from python.org accepts the `pip install` line as it is. With conda, `conda create -n extract-text -c conda-forge python=3.12 poppler tesseract` brings all three programs, and `conda activate extract-text` takes the place of the first two lines. On a Mac or Linux, run the `source` line again in every new terminal window, before any `extract-text` command.
 
 `DOCS` is your documents folder and `RESULTS` your results folder. To practice on the made-up documents, run `git clone --depth 1 https://github.com/evictionresearch/extract-text` and use `extract-text/python/tests/fixtures` as `DOCS`, with `RESULTS` somewhere outside that folder.
 

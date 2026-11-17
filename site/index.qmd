@@ -10,7 +10,7 @@ hero:
   h1: "`extract-text` reads eviction court documents into a *table*."
   lede: "Many courts keep eviction filings only as page images, and a filing cannot be counted or mapped until it is in a table. extract-text reads e-filed PDFs, scanned PDFs, and TIFF images and returns one row per document, with the plaintiffs, the defendants, the address where the defendants were served, the plaintiff's attorney, and the case number."
   note: "Free and open source. It runs on your own computer, from R or Python, on Mac, Windows, and Linux. The rules engine is the released tool. The local AI engine is experimental."
-  badge: "[Under development · version 0.4.1](#development)"
+  badge: "[Under development · version 0.4.2](#development)"
   image: "images/extract-text.svg"
   image-alt: "A scanned court summons with a handwritten address, an arrow, and the same case as rows of digital text"
   buttons:
@@ -148,7 +148,7 @@ The Get started page has eight steps, each a few lines of R to copy and run. The
 [Steps 1 and 2]{.kicker}
 
 ### Install
-Install four free programs that open PDFs, read scanned pages, and run the engine (poppler, tesseract, Python, and git), then extract-text itself. A checkup looks at your computer and names anything missing.
+Install R and RStudio, then extract-text, which brings with it the programs that open PDFs and read scanned pages. No administrator password is asked for. A checkup looks at your computer and names anything missing.
 :::
 
 ::: {.card}

@@ -281,13 +281,20 @@ def build_text_pdf_pages(pages) -> bytes:
 # the same page as an image, for the OCR and vision paths
 # ---------------------------------------------------------------------------
 
+# The page image has to put each word where the text PDF puts it, and the
+# PDF declares Helvetica. Arial and Liberation Sans share Helvetica's letter
+# widths; DejaVu Sans is wider, so a page drawn in it is a different
+# typesetting of the form (a template learned from the PDFs found 63% of its
+# words on such a page, and 55% once the page was also shifted). DejaVu stays
+# last, for a machine that has nothing else.
 FONT_CANDIDATES = [
     "/System/Library/Fonts/Supplemental/Arial.ttf",
     "/System/Library/Fonts/Supplemental/Arial Unicode.ttf",
     "/System/Library/Fonts/Helvetica.ttc",
-    "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
     "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
+    "/usr/share/fonts/truetype/liberation2/LiberationSans-Regular.ttf",
     "C:/Windows/Fonts/arial.ttf",
+    "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
 ]
 
 

@@ -21,7 +21,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-      - name: Install system programs (poppler, tesseract)
+      - name: Install system programs (poppler, tesseract) and a test font
         # Explicit retries and per-connection timeouts: without them apt waits
         # on a dead mirror indefinitely rather than moving to the next one.
         run: |
@@ -30,7 +30,9 @@ jobs:
             -o Acquire::http::Timeout=20 \
             -o Acquire::https::Timeout=20
           sudo apt-get install -y --no-install-recommends \
-            -o Acquire::Retries=3 poppler-utils tesseract-ocr
+            -o Acquire::Retries=3 poppler-utils tesseract-ocr fonts-liberation
+      # fonts-liberation: the tests draw made-up scans, and Liberation Sans
+      # has the letter widths of the Helvetica the made-up PDFs declare
       - name: Install package
         run: pip install -e "python[dev]"
       - name: Run tests

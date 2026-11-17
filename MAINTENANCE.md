@@ -1058,6 +1058,29 @@ What changed is listed under Unreleased in `CHANGELOG.md`. Three points of evide
 
 Not tested: grading in a browser, Windows, a Mac without Homebrew, and the install of the four programs. A state setting in the engine, so that no user edits a pattern, is the lasting fix and is not built.
 
+## The review page after Tim's own grading (2026-11-17)
+
+Tim graded on the review page and named six things. A box drawn for a field hid the engine's own boxes of that field, so a grader who added the caption box for the defendants had to pick the field again and redraw the service block (seen when the first grading video was recorded on 2026-11-10, and left). The enlarged page kept the zoom-out pointer and "Click to shrink" while a field was picked for drawing. `GRADING.md` did not say what to do with "d/b/a". Several plaintiffs came into the form on one line with semicolons. The rules were a repository away from the page. And nothing said what to do after the last Save.
+
+What changed, all in `write_review()`'s page (`pipeline.py`). The first box drawn for a field starts from the engine's boxes of it, which become the reviewer's, so drawing adds and the cross deletes. The drawing pointer is a crosshair at either size, with a tooltip that says what a drag will do. The plaintiff box is filled one name per line, at build time and when a saved answer or the AI reading fills it; it is still saved as one "; " list. The page opens with the rules in brief and a link to `GRADING.md`, and a served page closes with what to do next. A reviewer's box keeps its cross in view and shows its corner handles only under the pointer, since the engine's one-line boxes now stay on the page as the reviewer's and the handles sat on their first and last letters.
+
+Checked in headless Brave on made-up documents: enlarged with Defendants picked the pointer is `crosshair` and the tooltip names the field; after one drag the answer holds two defendant boxes where the engine had one, both visible, the page still enlarged; one press of a cross leaves one. A new test reads the page's script with `node --check`, because the script lives inside a Python string and one wrong escape (made and caught during this change) stops every button on the page; the test skips where node is absent. The grading video was recorded again with the script in the offline folder, 55.5 seconds, and the save in the recording carried three defendant boxes, the engine's two and the drawn one.
+
+The "d/b/a" wording in `GRADING.md` and in the page's brief rules follows what the engine and round 2's graders already do for the plaintiff (the owner's name only). For a defendant's business it says the business name alone on its own line, without the letters; that part is new wording, for Tim to confirm.
+
+## Which systems the installs need (2026-11-17)
+
+A tester on macOS 14 could not install poppler and tesseract. Checked the same day against each installer's own pages:
+
+- Homebrew (docs.brew.sh/Installation, docs.brew.sh/Support-Tiers): macOS 15 through 27 on Apple chips is supported; macOS 11 through 14 is "unsupported but may work"; Intel Macs are in its lowest tier and it no longer builds ready-made packages for them. The package listings (formulae.brew.sh) show ready-made poppler 26.11.0, tesseract 5.5.4, and python@3.15 for macOS 15, 26, and 27 on Apple chips and for Linux, and for nothing else.
+- WinGet (learn.microsoft.com, Windows Package Manager): Windows 10 version 1809 (build 17763) or later, and Windows 11.
+- R 4.6.2 (CRAN): Windows 10 or later; on a Mac, macOS 14 or later on Apple chips, macOS 11 or later on Intel.
+- Git for Windows (gitforwindows.org): Windows 10 or later, 64-bit.
+- Python 3.12 (docs.python.org): Windows 8.1 or later.
+- RStudio (docs.posit.co/ide/user): Windows 11, macOS 15 or later, and Linux.
+
+So the floor is macOS 15 on an Apple chip, set by Homebrew and RStudio, and Windows 10 version 1809 for the programs and R, with Windows 11 for the current RStudio. The Homebrew floor moves up one macOS version each autumn; check these pages again at each release. Not tested here: any install on macOS 14, on an Intel Mac, or on Windows. Issue #37 (poppler and tesseract from conda-forge) would take Homebrew out of the path.
+
 ## Release checklist
 
 1. `pytest` green in `python/` (including the live model test on a machine

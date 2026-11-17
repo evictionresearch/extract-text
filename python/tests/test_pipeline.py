@@ -119,6 +119,61 @@ def test_review_page_carries_a_correction_form(tmp_path):
 
 
 @needs_system_tools
+def test_review_page_links_the_grading_rules_and_says_what_comes_next(tmp_path):
+    scan([FIXTURES / "synthetic_summons_efiled.pdf"], out_dir=tmp_path, progress=False)
+    html = write_review(tmp_path, n=5).read_text()
+    assert "Grading rules, in brief" in html
+    assert "blob/main/GRADING.md" in html
+    # the closing note of a page served from the reviewer's computer: score
+    # next, and nothing made from records is sent without an agreement
+    assert "When you have saved every document" in html
+    assert "data agreement" in html
+    graders = write_review(tmp_path, n=5, graders=True).read_text()
+    assert "When you stop" in graders
+    assert "When you have saved every document" not in graders
+
+
+@needs_system_tools
+def test_review_page_script_parses(tmp_path):
+    # the page's script is written inside a Python string, where one wrong
+    # escape leaves a syntax error that stops every button on the page;
+    # node, when present, reads it without running it
+    import shutil
+    import subprocess
+
+    node = shutil.which("node")
+    if node is None:
+        pytest.skip("node is not installed")
+    scan([FIXTURES / "synthetic_summons_efiled.pdf"], out_dir=tmp_path, progress=False)
+    for name, kwargs in (("plain", {}), ("graders", {"graders": True})):
+        html = write_review(tmp_path, n=5, **kwargs).read_text()
+        script = html.split("<script>", 1)[1].rsplit("</script>", 1)[0]
+        js = tmp_path / f"page_{name}.js"
+        js.write_text(script)
+        checked = subprocess.run([node, "--check", str(js)], capture_output=True, text=True)
+        assert checked.returncode == 0, checked.stderr
+
+
+@needs_system_tools
+def test_review_form_lists_several_plaintiffs_one_per_line(tmp_path):
+    import csv
+
+    scan([FIXTURES / "synthetic_summons_efiled.pdf"], out_dir=tmp_path, progress=False)
+    # the scan keeps several plaintiffs as one "; " list
+    table = tmp_path / "extracted.csv"
+    with open(table, newline="") as f:
+        rows = list(csv.DictReader(f))
+    rows[0]["plaintiffs"] = "EXAMPLE PROPERTY LLC; SAMPLE HOLDINGS LLC"
+    with open(table, "w", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=list(rows[0]))
+        w.writeheader()
+        w.writerows(rows)
+    html = write_review(tmp_path, n=5).read_text()
+    assert ('<textarea name="plaintiff" rows="1">EXAMPLE PROPERTY LLC\n'
+            'SAMPLE HOLDINGS LLC</textarea>') in html
+
+
+@needs_system_tools
 def test_review_server_saves_corrections(tmp_path):
     import threading
     import urllib.error

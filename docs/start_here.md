@@ -14,7 +14,7 @@ Step 5 means the same thing in all three, and so do the files each step writes.
 
 ## What you need
 
-- A Mac, Windows, or Linux computer that you are allowed to keep court records on.
+- A Mac, Windows, or Linux computer that you are allowed to keep court records on. Its system has to be recent: on a Mac, macOS 15 (Sequoia) or later on an Apple chip (M1 or later), and on a PC, Windows 11. An older Mac cannot get poppler and tesseract ready-made from Homebrew, so update it before step 1. The Get started page says how to check and what Windows 10 can do.
 - Your documents in one folder on that computer. Subfolders are fine. Step 4 says which documents to put there.
 - An empty folder for the results. Everything written there holds names and addresses, so keep it where you keep the documents. Keep both folders out of Dropbox, iCloud Drive, OneDrive, and any Google Drive folder that syncs.
 - To follow the R code, R and RStudio.
@@ -59,7 +59,7 @@ Start with a random 50 of your documents, not the whole folder. A scanned page t
 A page opens in your browser. It shows each document beside what the engine read. For each document:
 
 1. Check each field against the page. Change what is wrong, and leave a field blank when the document does not have it.
-2. Look at the colored boxes on the page image. Each box shows where the engine read one value. Drag a box that sits over the wrong place to the right one. Where a field has no box, press the field's button under the image and drag across the value.
+2. Look at the colored boxes on the page image. Each box shows where the engine read one value. Drag a box that sits over the wrong place to the right one. Where a field has no box, press the field's button under the image and drag across the value. A box you draw is added to the ones already there.
 3. Press Save, even when the engine got everything right.
 
 Plan on about an hour for 50 documents. You can stop at any point and pick up where you left off. [`GRADING.md`](../GRADING.md) says what belongs in each field, and [`grading_with_boxes.md`](grading_with_boxes.md) covers the boxes.

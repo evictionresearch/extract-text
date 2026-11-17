@@ -33,7 +33,7 @@ hero:
 </ul>
 
 ::: {.note}
-**Before step 1.** You need [R](https://cran.r-project.org/){target="_blank" rel="noopener noreferrer"} and [RStudio](https://posit.co/download/rstudio-desktop/){target="_blank" rel="noopener noreferrer"} on your computer, both free, and your court documents (PDF or TIFF files) in a folder on it.
+**Before step 1.** You need [R](https://cran.r-project.org/){target="_blank" rel="noopener noreferrer"} and [RStudio](https://posit.co/download/rstudio-desktop/){target="_blank" rel="noopener noreferrer"} on your computer, both free, and your court documents (PDF or TIFF files) in a folder on it. Your computer's system also has to be recent enough for the installs in step 1: on a Mac, macOS 15 (Sequoia) or later on an Apple chip (M1 or later), and on a PC, Windows 11. Step 1 says how to check.
 :::
 
 ::: {.note}
@@ -50,6 +50,13 @@ extract-text needs four programs that R does not install.
 - **git** downloads the engine during the install.
 
 You install them once, in a terminal window outside R. Find your computer below. You need the internet only to install. After that, extract-text runs with the network unplugged.
+
+::: {.note}
+**Check your system first, and update it if it is old.**
+
+- **Mac.** Open the Apple menu and choose About This Mac. You need macOS 15 (Sequoia) or later, and a line that reads "Chip: Apple M1" or later. Homebrew, the installer used below, keeps ready-made copies of poppler, tesseract, and Python only for the three newest versions of macOS on Apple chips (in November 2026: macOS 15, 26, and 27). On macOS 14 or older, or on an Intel Mac, it prints a warning and tries to build each program from its source code, which is slow and can fail, as it did for one of our testers on macOS 14. Update macOS first, in System Settings, General, Software Update. For a Mac that cannot be updated, Homebrew's own advice is MacPorts, which we have not tested.
+- **Windows.** Press the Windows key, type `winver`, and press Enter. Windows 11 works with everything on this page. On Windows 10, the four programs and R need version 1809 or later, and the current RStudio lists Windows 11 only.
+:::
 
 ::: {.os-group}
 ### Mac
@@ -229,7 +236,7 @@ This example comes from six made-up documents, so your counts will differ. `foun
 
 Grading is required. Until you grade a sample, you do not know how often the scan is right on your documents.
 
-This line opens a page in your browser that shows each document beside what the engine read. Check each field against the page, change only what is wrong, and leave a field blank when the document does not have it. Then look at the colored boxes on the page image, which show where the engine read each value. Drag a box that sits over the wrong place to the right one. Where a field has no box, press the field's button under the image and drag across the value. Save every document, even when the engine got everything right. Fifty documents take about an hour. You can stop at any point by pressing Esc in RStudio, and running the line again picks up where you left off.
+This line opens a page in your browser that shows each document beside what the engine read. Check each field against the page, change only what is wrong, and leave a field blank when the document does not have it. Then look at the colored boxes on the page image, which show where the engine read each value. Drag a box that sits over the wrong place to the right one. Where a field has no box, press the field's button under the image and drag across the value. A box you draw is added to the ones already there, and a box in the wrong place is deleted with its cross. Save every document, even when the engine got everything right. The top of the page has the grading rules in brief, and its foot says what to do when you finish. Fifty documents take about an hour. You can stop at any point by pressing Esc in RStudio, and running the line again picks up where you left off.
 
 ```r
 review_documents(res, correct = TRUE, n = n_sample, draw = "random")
@@ -252,11 +259,11 @@ review_documents(res, correct = TRUE, n = n_sample, draw = "random")
 <li data-start="19.4">The rules engine misspelled it as Sampieton, so we correct it in the City box of the form.</li>
 <li data-start="25.4">The top of the page names the defendants too. We pick Defendants.</li>
 <li data-start="29.2">Then we drag a box over those names. Boxes like this teach the engine where the form prints each field.</li>
-<li data-start="34.7">Our box replaced the engine's own box for the defendants, so we pick Defendants again.</li>
-<li data-start="39.0">We draw a second box over the line addressed to them, the one the engine had found.</li>
-<li data-start="44.6">We press Save. Save every document you check, even when the engine got everything right.</li>
-<li data-start="49.9">The page confirms the save and notes that the engine was wrong on the city.</li>
-<li data-start="53.6">Your answers stay in a file on your own computer. The full guide is GRADING.md.</li>
+<li data-start="34.7">Our box is added to the page. The engine's own box, on the line addressed to the defendants, stays where it was.</li>
+<li data-start="37.4">A box that sits in the wrong place can be deleted. Point at it and press its cross.</li>
+<li data-start="42.3">We press Save. Save every document you check, even when the engine got everything right.</li>
+<li data-start="47.6">The page confirms the save and notes that the engine was wrong on the city.</li>
+<li data-start="51.3">Your answers stay in a file on your own computer. The full guide is GRADING.md.</li>
 </ol>
 </details>
 </figure>

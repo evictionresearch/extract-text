@@ -132,6 +132,25 @@ Sections 3 to 9 of this manual are the reference behind those steps.
 Windows. The deterministic engine is light. The AI engine needs about 16 GB of
 memory to run comfortably.
 
+**A recent system.** The engine itself asks little, but the installers of
+the helper programs below do (checked November 2026).
+
+- **Mac: macOS 15 (Sequoia) or later, on an Apple chip (M1 or later).**
+  Homebrew supports macOS 15 through 27 on Apple chips and calls macOS 11
+  through 14 "unsupported but may work". It publishes ready-made poppler,
+  tesseract, and Python for macOS 15, 26, and 27 on Apple chips only, and no
+  longer builds them for Intel Macs. On an older or Intel Mac, Homebrew
+  warns and tries to build each program from source code, which is slow and
+  can fail; it did for one of our testers on macOS 14. Update macOS first.
+  Homebrew's own advice for a Mac that cannot be updated is MacPorts, which
+  this project has not tested. RStudio also lists macOS 15 or later.
+- **Windows: Windows 11.** The `winget` installer needs Windows 10 version
+  1809 or later, R and git need Windows 10 or later, and Python 3.12 needs
+  Windows 8.1 or later, so the four programs and R install on an up-to-date
+  Windows 10. The current RStudio lists Windows 11 only.
+- **To check.** On a Mac, Apple menu, About This Mac. On Windows, press the
+  Windows key, type `winver`, and press Enter.
+
 **Four helper programs**, all free and open source, installed once from your
 system's package manager, and a fifth that only the AI engine needs.
 
@@ -1200,6 +1219,12 @@ the one selected. If another Python is selected, something told R to use it
 earlier in the session). In a fresh R session, run
 `reticulate::use_virtualenv("r-extracttext", required = TRUE)` before any
 other extract-text function.
+
+**`brew install poppler tesseract` warns that your macOS version is not
+supported, starts compiling, or fails.** Homebrew has ready-made copies of
+these programs only for macOS 15 (Sequoia) and later on Apple chips. Update
+macOS (System Settings, General, Software Update) and run the line again.
+[Section 3](#3-what-you-need-before-installing) has the detail.
 
 **"error: externally-managed-environment" from `pip install`.** Your Python
 does not allow installs outside a virtual environment. Make one and install

@@ -31,6 +31,17 @@
 # not install: poppler opens PDFs, and tesseract reads scanned pages (OCR).
 # Both Mac and Windows need them. Install them outside R, then open RStudio.
 #
+# Check your system before you install. On a Mac you need macOS 15 (Sequoia)
+# or later on an Apple chip (M1 or later): Apple menu > About This Mac.
+# Homebrew keeps ready-made poppler, tesseract, and Python only for the
+# three newest versions of macOS on Apple chips. On macOS 14 or older, or
+# on an Intel Mac, it tries to build each from source code, which is slow
+# and can fail, as it did for one of our testers on macOS 14. Update macOS
+# first (System Settings > General > Software Update). On a PC, Windows 11
+# works with everything here (Windows key, type winver). On Windows 10 the
+# four programs and R need version 1809 or later, and the current RStudio
+# lists Windows 11 only.
+#
 # Check first whether you have them: run `which pdftoppm tesseract` in
 # Terminal (Mac, Linux) or `where.exe pdftoppm tesseract` in PowerShell
 # (Windows). If both print a path, you have those two. On a Mac, brew install on
@@ -253,7 +264,8 @@ View(select(res, doc, defendant_names, defendant_street, defendant_city,
 # look at the colored boxes on the page image, which show where the engine
 # read each value. Where a box sits over the wrong place, drag it to the
 # right one. Where a field has no box, press the field's button under the
-# image and drag across the value. GRADING.md says what belongs in each
+# image and drag across the value. A box you draw is added to the ones
+# already there. GRADING.md says what belongs in each
 # field, and docs/grading_with_boxes.md covers the boxes. Save every
 # document, even when the engine got everything right.
 # Each save goes to corrections.jsonl in sample_dir. Press Esc in RStudio

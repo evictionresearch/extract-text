@@ -21,7 +21,7 @@ The boxes matter because the engine learns from them. Where a box sits over the 
 ## How to grade a document
 
 1. Check each field in the form against the page and fix what is wrong, as `GRADING.md` describes.
-2. Look at the boxes. If a box sits over the wrong place, drag it to the right place, or drag a corner to reshape it, or press its cross to delete it. If a field has no box and the value is on the page, press the field's button under the image and drag across the page where the value is printed. You can draw more than one box for a field.
+2. Look at the boxes. If a box sits over the wrong place, drag it to the right place, or drag a corner to reshape it, or press its cross to delete it. If a field has no box and the value is on the page, press the field's button under the image and drag across the page where the value is printed. While a field is picked the pointer is a crosshair. A box you draw is added to the ones already there, the engine's included, so you can draw more than one box for a field and never have to redraw one that was right.
 3. Box the defendants everywhere the page names them. On a summons that is usually the caption near the top and again the service block in the middle. Cover the whole caption cell, from under "vs." down to the "Defendant(s)" line, so the box fits a longer list than this document shows.
 4. If the document has several pages, arrows under the image turn them. There is no need to turn every page. Look at a later page only when a value is wrong or missing on the first page and the form prints it there.
 5. Press Save, even when the engine got everything right. The message under the buttons says it saved and which fields the engine got wrong.
@@ -38,6 +38,16 @@ Every save goes at once to two files in the sample folder of your results folder
 The scan itself is `extracted.csv` in the same folder. The review page is `review/index.html` beside it.
 
 These files hold tenants' names and addresses. Keep them in the same protected storage as the court documents. If you are grading for someone else, send the two corrections files back by the route they name, never by email or chat.
+
+## When you are done
+
+Close the tab and stop the page (Esc in RStudio, Ctrl-C at a terminal). Then score the engine against your answers, the second half of step 5:
+
+```r
+score_documents(res)
+```
+
+The foot of the review page says the same. If you want your grading to help improve the engine, do not send the corrections files. Describe what the engine got wrong in your own words, with no name, address, or case number, to evictions@berkeley.edu. Anything made from your records needs a data agreement between your organization and UC Berkeley first, and the [Improve it](https://evictionresearch.net/extract-text/improve.html) page has the steps.
 
 ## What happens to the boxes
 

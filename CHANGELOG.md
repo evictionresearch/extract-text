@@ -4,6 +4,13 @@ Every user-facing change to extract-text is recorded here, newest first. A chang
 
 ## Unreleased
 
+- The install pages say which systems the installers need: on a Mac, macOS 15 (Sequoia) or later on an Apple chip, because Homebrew has ready-made poppler, tesseract, and Python for those only; on a PC, Windows 11, with what Windows 10 (version 1809 or later) can and cannot do. A tester on macOS 14 could not install poppler and tesseract.
+- On the review page, a box you draw is added to the boxes already there. Before, the first box drawn for a field hid the engine's own boxes of that field, and each had to be drawn again. A box in the wrong place is deleted with its cross, as before.
+- While a field is picked for drawing, the pointer is a crosshair on the enlarged page too, and the tooltip says what a drag will do. Before, the enlarged page kept the zoom-out pointer and "Click to shrink".
+- The review page lists several plaintiffs one per line in the form, where it showed them on one line with semicolons.
+- The top of the review page has the grading rules in brief and a link to `GRADING.md`, and the foot of a served page says what to do after the last Save: score the engine, where the answers are, and what may be sent to the Eviction Research Network.
+- The grading video on the Get started page was recorded again to show a drawn box being added and the cross that deletes one.
+- `GRADING.md` says what to do with "d/b/a": left out of the plaintiff with the trade name after it, and for a defendant the business on a line of its own without the letters. It also has a "When you are done" section.
 - One walkthrough, one numbering. The getting-started script and `docs/start_here.md` now use the same eight steps as the website's Get started page, so step 5 (grade and score) means the same thing in all three. The script's old steps 5, 7, 10, and 11 are folded into the steps they belong to, and its "scan again" block follows step 8. `docs/quickstart.html`, an older page that nothing linked to, is removed.
 - The README, the home page, How it works, and the manual say up front that the rules engine is the released tool and the local AI engine is experimental, its test against hand-labeled documents not finished. Examples that ran both engines now run the rules engine.
 - The README is cut to what the package is, its status, the eight steps, and a table of where to read what. Install detail, accuracy figures, and the card game's description live in the Get started page, the manual, and `game/README.md`.

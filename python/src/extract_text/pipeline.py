@@ -585,6 +585,53 @@ def write_outputs(rows, details, out_dir, parquet=None):
 # ---------------------------------------------------------------------------
 
 
+# The field rules within reach on every review page. GRADING.md at the
+# repository root is the full text; keep the two in step.
+GRADING_URL = "https://github.com/evictionresearch/extract-text/blob/main/GRADING.md"
+IMPROVE_URL = "https://evictionresearch.net/extract-text/improve.html"
+RULES_PANEL = f"""
+<details id="rules">
+  <summary>Grading rules, in brief</summary>
+  <ul>
+    <li>Type only what the page shows, as printed. Clear a field the page does not have.</li>
+    <li><b>Plaintiff.</b> The name only, one plaintiff per line. Leave out the description after it
+      ("a Washington limited liability company") and any trade name after "d/b/a" or "doing business as".</li>
+    <li><b>Defendants.</b> One per line, named people as printed. Leave out "all other occupants",
+      "John Doe", and "et al". An alias stays on its person's line, written "a/k/a". A business a
+      defendant does business as goes on a line of its own, the business name alone, without "d/b/a".</li>
+    <li><b>Address.</b> The defendant's, in the caption or after "TO:", never the attorney's.
+      Street without the unit, and the unit on its own.</li>
+    <li><b>Boxes.</b> A box shows where a value is printed. Delete one that sits in the wrong place,
+      and draw one where the value is. A box you draw is added to the ones already there.</li>
+    <li>Press <b>Save</b> on every document, even when the engine got everything right.</li>
+  </ul>
+  <p>The full rules are in <a href="{GRADING_URL}" target="_blank" rel="noopener noreferrer">GRADING.md</a>
+    (opens on GitHub, which needs the internet).</p>
+</details>"""
+# What to do after the last Save, on a page served from the reviewer's own
+# computer. Shown only where answers can be saved to the scan folder.
+DONE_PANEL = f"""
+<div id="done" hidden>
+  <h2>When you have saved every document</h2>
+  <ol>
+    <li>Close this tab. In RStudio press Esc, or in a terminal press Ctrl-C, to stop the page.</li>
+    <li>Score the engine against your answers: <code>score_documents(res)</code> in R, or
+      <code>extract-text score --out YOUR_SCAN_FOLDER</code>. That is the second half of step 5.</li>
+    <li>Your answers are in <code>corrections.jsonl</code> and <code>corrections.csv</code> in the scan
+      folder. They hold names and addresses, so they stay on this computer, with the court documents.</li>
+  </ol>
+  <p><b>To help improve the engine,</b> describe in your own words what it got wrong, with no name,
+    address, or case number, to evictions@berkeley.edu. Do not send your answers or any file made from
+    your records: that takes a data agreement between your organization and UC Berkeley first.
+    <a href="{IMPROVE_URL}" target="_blank" rel="noopener noreferrer">Improve it</a> has the steps.</p>
+</div>"""
+DONE_GRADERS = """
+<div id="done" hidden>
+  <h2>When you stop</h2>
+  <p>Press <b>Download my answers</b> in the green box at the top of this page, and upload the file to
+    the restricted Drive folder the zip came from. Never email it. <code>docs/grading_round.md</code>
+    has the steps.</p>
+</div>"""
 GRADER_PANEL = """
 <div id="grader">
   <label>Your name <input id="gname" placeholder="required to save"></label>
@@ -860,6 +907,7 @@ def write_review(out_dir, n=30, seed=SAMPLE_SEED, flagged_first=True, graders=Fa
     {box_note}{box_legend}
     <div class="fixbox" hidden>Hover a box to see its field. Drag it to move it, a corner to reshape it, &#215; to delete it.
       Missing one? Pick the field, then drag across the page to draw it (on any page; draw again for another).
+      A box you draw is added to the ones already there.
       <button type="button" data-field="plaintiff">Plaintiff</button><button type="button" data-field="defendants">Defendants</button><button type="button" data-field="address">Address</button><button type="button" data-field="attorney">Attorney</button><button type="button" data-field="case">Case number</button>
       <button type="button" class="none" hidden>Not in this document</button></div>
     <p class="pagelinks">Click the page to enlarge it.
@@ -881,7 +929,7 @@ def write_review(out_dir, n=30, seed=SAMPLE_SEED, flagged_first=True, graders=Fa
     <form class="fix" data-row="{i}" data-ai="{esc(json.dumps(ai_answer)) if ai_answer else ''}"
           data-differ="{esc(json.dumps(differ_by_row.get(i, {})))}">
       <p class="hint">The right answer, as printed on the page. {hint}</p>
-      <label>Plaintiff, the name only (several plaintiffs, one per line) <textarea name="plaintiff" rows="1">{esc(start['plaintiff'])}</textarea></label>
+      <label>Plaintiff, the name only (several plaintiffs, one per line) <textarea name="plaintiff" rows="1">{esc(chr(10).join(p.strip() for p in start['plaintiff'].split(';') if p.strip()))}</textarea></label>
       <label>Defendants, one per line <textarea name="defendants" rows="2">{esc(chr(10).join(start['defendants']))}</textarea></label>
       <div class="addr">
         <label class="street">Street <input name="street" value="{esc(start['street'])}"></label>
@@ -910,6 +958,10 @@ def write_review(out_dir, n=30, seed=SAMPLE_SEED, flagged_first=True, graders=Fa
  #grader label{{font-size:14px;color:#333}} #grader input,#grader select{{display:block;font:inherit;padding:.25rem .35rem}}
  #gnote{{align-self:center;color:#2e4a6b}}
  #banner,#stale{{background:#fff3cd;border:1px solid #e0c870;padding:.6rem;margin:.5rem 0}}
+ #rules,#done{{background:#fff;border:1px solid #ddd;padding:.5rem .8rem;margin:.5rem 0;max-width:62rem;font-size:14px}}
+ #rules summary{{cursor:pointer;font-weight:600}} #rules ul{{margin:.4rem 0;padding-left:1.2rem}}
+ #rules li,#done li{{margin:.2rem 0}} #done h2{{font-size:1.05rem;margin:.2rem 0 .4rem}}
+ #done ol{{margin:.3rem 0;padding-left:1.3rem}}
  #keep{{background:#eef7ee;border:1px solid #b9dbb9;padding:.2rem .8rem .6rem;margin:.4rem 0}}
  #keep p{{margin:.4rem 0;max-width:60rem}} #keep label{{font-size:14px;color:#333}}
  #knote.warn{{color:#a02020;font-weight:600}}
@@ -936,7 +988,7 @@ def write_review(out_dir, n=30, seed=SAMPLE_SEED, flagged_first=True, graders=Fa
  .fixbox [data-field=address]{{--c:#1f6feb}} .fixbox [data-field=defendants]{{--c:#c0392b}}
  .fixbox [data-field=plaintiff]{{--c:#7d3c98}} .fixbox [data-field=attorney]{{--c:#b9770e}}
  .fixbox [data-field=case]{{--c:#2e7d32}}
- .shot.drawing, .shot.drawing img{{cursor:crosshair}}
+ .shot.drawing, .shot.drawing img, .doc.big .shot.drawing img{{cursor:crosshair}}
  .hl.edited{{border-style:dashed;border-width:1.5px}} .hl.ghost{{border-style:dotted}}
  /* the engine's boxes (live) and the reviewer's (edited) can both be dragged */
  .hl.live,.hl.edited{{pointer-events:auto;cursor:move}}
@@ -952,6 +1004,9 @@ def write_review(out_dir, n=30, seed=SAMPLE_SEED, flagged_first=True, graders=Fa
  .hl .h.ne{{right:-4px;top:-4px;cursor:nesw-resize}} .hl .h.sw{{left:-4px;bottom:-4px;cursor:nesw-resize}}
  /* the engine's handles stay quiet until the pointer is over the box */
  .hl.live .x,.hl.live .h{{opacity:0;transition:opacity .15s}} .hl.live:hover .x,.hl.live:hover .h{{opacity:1}}
+ /* a reviewer's box keeps its cross in view; its corner handles wait for the
+    pointer, since on a one-line box they would sit on the first and last letters */
+ .hl.edited .h{{opacity:0;transition:opacity .15s}} .hl.edited:hover .h{{opacity:1}}
  .pager{{font-size:13px;color:#555;margin:.3rem 0;display:flex;gap:.4rem;align-items:center}}
  /* display:flex would otherwise beat the hidden attribute on a one-page document */
  .pager[hidden]{{display:none}}
@@ -1011,6 +1066,7 @@ def write_review(out_dir, n=30, seed=SAMPLE_SEED, flagged_first=True, graders=Fa
 <h1>Review: {len(subset)} of {len(rows_scan)} documents
     ({len(flagged)} flagged in total; {('in random order' if random_order else 'worst first') if graders else 'flagged shown first' if flagged_first else 'a random draw'})</h1>
 <p id="count"></p>
+{RULES_PANEL}
 {settle_summary}
 {GRADER_PANEL if graders else ''}
 {f'<div id="stale">{stale} earlier answer{"s" if stale != 1 else ""} saved in this folder belong to documents that are no longer at the same rows (the folder was scanned again with a different draw). They stay in corrections.jsonl and are not shown here, scored, or learned from.</div>' if stale else ''}
@@ -1019,6 +1075,7 @@ def write_review(out_dir, n=30, seed=SAMPLE_SEED, flagged_first=True, graders=Fa
   or in R with <code>review_documents("YOUR_SCAN_FOLDER", correct = TRUE)</code>.</div>
 </header>
 {''.join(cells)}
+{DONE_GRADERS if graders else DONE_PANEL}
 <script>
 const GRADERS = {'true' if graders else 'false'};
 const SETTLE = {'true' if rows and not graders else 'false'};
@@ -1046,11 +1103,17 @@ function grow(t) {{
   t.style.height = "auto";
   if (t.scrollHeight) t.style.height = t.scrollHeight + 2 + "px";
 }}
+// several plaintiffs are saved and scanned as one "; " list and shown one
+// per line, like the defendants
+function perLine(v) {{
+  return (v || "").split(";").map(s => s.trim()).filter(Boolean).join("\\n");
+}}
 function fill(f, c) {{
   // answers saved before the attorney boxes existed leave those boxes as read
   for (const k of FIELDS) {{
     if (k === "note") f.elements.note.value = c.note || "";
-    else if (f.elements[k] && k in c.truth) f.elements[k].value = c.truth[k] || "";
+    else if (f.elements[k] && k in c.truth)
+      f.elements[k].value = k === "plaintiff" ? perLine(c.truth[k]) : c.truth[k] || "";
   }}
   for (const k of LISTS) if (f.elements[k] && k in c.truth) f.elements[k].value = (c.truth[k] || []).join("\\n");
   // an answer saved with a separate firm box brings its firm into the
@@ -1181,7 +1244,8 @@ function getEdits(f) {{ return JSON.parse(f.dataset.boxes || "{{}}"); }}
 const HANDLES = '<b class="x" title="Delete this box">\\u00d7</b>'
   + ["nw", "ne", "sw", "se"].map(c => '<i class="h ' + c + '"></i>').join("");
 // the engine's own boxes of a field, as the reviewer's boxes would be saved:
-// the first touch of one turns the whole field over to the reviewer
+// the first touch of one, or the first box drawn beside them, turns the
+// whole field over to the reviewer with every box kept
 function engineBoxes(shot, field) {{
   return [...shot.querySelectorAll(".hl-" + field + ".live")].map(s => ({{
     page: Number(s.dataset.page || 1), box: s.dataset.box.split(",").map(Number)}}));
@@ -1213,6 +1277,9 @@ function setEdits(f, edits, quiet) {{
   }}
 }}
 const CANSAVE = LOCAL || SERVED;
+// the closing note: what to do after the last Save, on a page served from
+// this computer, and on the graders' page opened as a file, which has its own
+{{ const done = document.getElementById("done"); if (done && (LOCAL || (SERVED && !GRADERS))) done.hidden = false; }}
 for (const bar of document.querySelectorAll(".fixbox")) {{
   const card = bar.closest(".doc"), shot = card.querySelector(".shot");
   const f = card.querySelector("form.fix");
@@ -1229,6 +1296,9 @@ for (const bar of document.querySelectorAll(".fixbox")) {{
     armed = field;
     bar.querySelectorAll("button[data-field]").forEach(b => b.classList.toggle("armed", b.dataset.field === field));
     shot.classList.toggle("drawing", !!field);
+    shot.querySelector("img").title = field
+      ? "Drag across the " + BOXLABEL[field].toLowerCase() + " to draw a box"
+      : card.classList.contains("big") ? "Click to shrink" : "Click to enlarge";
     bar.querySelector(".none").hidden = !field;
   }};
   bar.addEventListener("click", e => {{
@@ -1302,7 +1372,13 @@ for (const bar of document.querySelectorAll(".fixbox")) {{
     if (d.kind === "draw") {{
       d.span.remove();
       if (big) {{
-        const edits = getEdits(f), list = Array.isArray(edits[d.field]) ? edits[d.field] : [];
+        // a box drawn for a field joins the boxes already there. The first one
+        // drawn takes the engine's own boxes of that field with it, as the
+        // reviewer's, so nothing the engine found has to be drawn again; a
+        // box in the wrong place is deleted with its cross
+        const edits = getEdits(f);
+        const list = Array.isArray(edits[d.field]) ? edits[d.field]
+                   : d.field in edits ? [] : engineBoxes(shot, d.field);
         edits[d.field] = [...list, {{page: curPage(card), box: b}}];
         setEdits(f, edits, false);
       }}
@@ -1330,7 +1406,8 @@ for (const img of document.querySelectorAll(".page img")) {{
     const card = img.closest(".doc");
     card.classList.toggle("big");
     card.scrollIntoView({{block: "start"}});
-    img.title = card.classList.contains("big") ? "Click to shrink" : "Click to enlarge";
+    if (!img.closest(".shot").classList.contains("drawing"))
+      img.title = card.classList.contains("big") ? "Click to shrink" : "Click to enlarge";
   }});
 }}
 
@@ -1525,7 +1602,8 @@ for (const b of document.querySelectorAll("button.use-ai")) {{
   b.addEventListener("click", () => {{
     const f = b.closest("form");
     const a = JSON.parse(f.dataset.ai);
-    for (const k of FIELDS) if (k !== "note" && f.elements[k]) f.elements[k].value = a[k] || "";
+    for (const k of FIELDS) if (k !== "note" && f.elements[k])
+      f.elements[k].value = k === "plaintiff" ? perLine(a[k]) : a[k] || "";
     // a field the AI engine does not read (attorneys) keeps what is there
     for (const k of LISTS) if (f.elements[k] && k in a) f.elements[k].value = (a[k] || []).join("\\n");
     // the one attorney box takes the AI engine's firm, the only part of the

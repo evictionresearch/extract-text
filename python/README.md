@@ -14,15 +14,15 @@ ruff check src tests scripts
 from extract_text import extract, extract_deterministic, extract_ai, compare, scan
 
 x = extract("summons.pdf")                        # deterministic, no network
-both = extract("summons.pdf", engine="both")      # rules + local AI, compared
 rows = scan("folder/", engine="deterministic", out_dir="results/")
+both = extract("summons.pdf", engine="both")      # experimental: rules + local AI, compared (needs Ollama)
 ```
 
 Command line equivalents:
 
 ```bash
 extract-text doctor
-extract-text extract summons.pdf --engine both
+extract-text extract summons.pdf
 extract-text scan folder/ --out results/ --review
 ```
 

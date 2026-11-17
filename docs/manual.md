@@ -74,6 +74,12 @@ with the honest caveats in [section 16](#16-using-this-outside-washington).
 
 ## 2. The two engines, and which to use
 
+**Where things stand (version 0.4.1).** The deterministic engine is the
+released tool, and the getting-started steps use it alone. The AI engine
+runs as an option, but its test against hand-labeled documents is not
+finished ([section 13](#13-accuracy-measured-honestly)), so treat it as
+experimental and do not rely on its answers without grading them.
+
 **The deterministic engine** reads the document with written rules. It looks
 for the address in the places summonses put it, uses the geometry of the page
 to tell the tenant's address apart from the attorney's, and records, for every
@@ -95,7 +101,8 @@ answer, so this engine's output is verified where possible (see grounding, in
 [section 12](#12-how-it-works-under-the-hood)) and is best used alongside the
 deterministic engine rather than alone.
 
-**Running both** is the recommended mode when you are allowed to use both. The
+**Running both** is how the AI engine is meant to be used, where AI is
+allowed and once you have set it up. The
 deterministic answer fills the main columns, the AI answer lands in columns
 beside it, and every disagreement is measured and flagged. Agreement between
 two independent methods is good evidence a value is right. Disagreement tells
@@ -106,22 +113,27 @@ A plain decision guide, in one table.
 
 | Your situation | Use |
 |---|---|
+| A first run on your documents | `deterministic`, with a graded random 50 ([Get started](https://evictionresearch.net/extract-text/get-started.html)) |
 | Policy does not permit AI tools | `deterministic` |
-| You want maximum confidence and can use AI | `both` |
-| Your documents include handwriting or unusual layouts | `both` (the AI columns cover what rules miss) |
-| Quick exploration of a new corpus | `deterministic` first, look at flags, then decide |
+| Your documents include handwriting or unusual layouts, and you can use AI | `both`, with the AI columns treated as experimental |
 
 The engines never blend silently. A value in a deterministic column always
 came from rules; AI answers are always labeled as such.
 
 ## 3. What you need before installing
 
+The [Get started page](https://evictionresearch.net/extract-text/get-started.html)
+walks through the install and a first run in eight steps, with the lines
+for Mac, Windows, and Linux, and [`start_here.md`](start_here.md) gives the
+same eight steps in plain words. Follow one of them for a first install.
+Sections 3 to 9 of this manual are the reference behind those steps.
+
 **A computer.** Any reasonably modern laptop or desktop on macOS, Linux, or
 Windows. The deterministic engine is light. The AI engine needs about 16 GB of
 memory to run comfortably.
 
-**Three helper programs**, all free and open source, installed once from your
-system's package manager.
+**Four helper programs**, all free and open source, installed once from your
+system's package manager, and a fifth that only the AI engine needs.
 
 - **poppler** opens PDF files. It provides the small programs extract-text
   uses to pull digital text out of e-filed PDFs and to turn scanned pages
@@ -130,6 +142,9 @@ system's package manager.
   software that looks at a picture of a page and works out what characters
   are printed on it. It is what makes scanned documents readable at all, and
   it is only used when a document has no digital text of its own.
+- **Python 3.10 or newer** runs the engine, which is written in Python, for
+  R users as well. The Python that comes with a Mac is older.
+- **git** downloads the engine during the install.
 - **ollama** (optional, only for the AI engine) is a program that downloads
   and runs AI models on your own machine, the way a music app plays files it
   has downloaded. Nothing you process is sent anywhere; ollama is a local
@@ -142,11 +157,11 @@ accident, and [section 14](#14-privacy-and-security) spells it out.
 
 Install commands for the helper programs, by operating system.
 
-| | poppler | tesseract | ollama |
-|---|---|---|---|
-| macOS (Homebrew) | `brew install poppler` | `brew install tesseract` | `brew install ollama`, or the installer at ollama.com |
-| Debian/Ubuntu | `sudo apt install poppler-utils` | `sudo apt install tesseract-ocr` | installer at ollama.com |
-| Windows | poppler for Windows build, added to PATH | UB Mannheim tesseract installer, added to PATH | installer at ollama.com |
+| | poppler | tesseract | Python and git | ollama (optional) |
+|---|---|---|---|---|
+| macOS (Homebrew) | `brew install poppler` | `brew install tesseract` | `brew install python` (Homebrew installs git with itself) | `brew install ollama`, or the installer at ollama.com |
+| Debian/Ubuntu | `sudo apt install poppler-utils` | `sudo apt install tesseract-ocr` | `sudo apt install python3 python3-venv git` | installer at ollama.com |
+| Windows | `winget install oschwartz10612.Poppler` | `winget install UB-Mannheim.TesseractOCR`, then add `C:\Program Files\Tesseract-OCR` to PATH | `winget install Python.Python.3.12` and `winget install Git.Git` | installer at ollama.com |
 
 If any of that sounds unfamiliar, install what you can, then run the checkup
 in [section 7](#7-checking-your-setup). It looks at your machine and prints
@@ -154,11 +169,21 @@ the exact command for anything missing.
 
 ## 4. Installation for Python users
 
-You need Python 3.10 or newer. In a terminal,
+You need Python 3.10 or newer. Install into a private Python environment
+(a virtual environment). Python from Homebrew on a Mac, and from Debian or
+Ubuntu, refuses a plain `pip install` outside one, with the message
+"externally-managed-environment". In a terminal on a Mac or Linux,
 
 ```bash
+python3 -m venv ~/extract-text-env
+source ~/extract-text-env/bin/activate
 pip install "extract-text @ git+https://github.com/evictionresearch/extract-text#subdirectory=python"
 ```
+
+Run the `source` line again in every new terminal window, before any
+`extract-text` command. On Windows, the Python from python.org or winget
+accepts the `pip install` line as it is, so the first two lines can be
+skipped.
 
 That installs the package and its two Python dependencies (pydantic, which
 enforces the data structure, and Pillow, which reads TIFF files). Two optional
@@ -197,6 +222,13 @@ extracttext_install()   # one time: sets up the Python engine behind the scenes
 Python or manage it afterward; the reticulate package carries R calls across
 to the engine automatically. Restart R after the install, then run
 `extracttext_doctor()` to confirm everything is in place.
+
+Each time the package loads, it points R at that environment, so a `.venv`
+folder in your working directory, or another Python project, does not get
+in the way. A Python you chose yourself is left alone: the
+`RETICULATE_PYTHON` environment variable, or
+`options(extracttext.bind_python = FALSE)` set before `library(extracttext)`,
+turns this off.
 
 The helper programs in [section 3](#3-what-you-need-before-installing) are
 still needed, because the engine calls them no matter which language you work
@@ -335,7 +367,7 @@ it goes.
 Terminal:
 
 ```bash
-extract-text scan ~/data/summonses/2026-07/ --engine both \
+extract-text scan ~/data/summonses/2026-07/ --engine deterministic \
     --out ~/data/extractions/2026-07/ --review
 ```
 
@@ -344,17 +376,20 @@ Python:
 ```python
 from extract_text import scan
 
-rows = scan("~/data/summonses/2026-07/", engine="both",
+rows = scan("~/data/summonses/2026-07/", engine="deterministic",
             out_dir="~/data/extractions/2026-07/")
 ```
 
 R:
 
 ```r
-results <- scan_documents("~/data/summonses/2026-07/", engine = "both",
+results <- scan_documents("~/data/summonses/2026-07/", engine = "deterministic",
                           out_dir = "~/data/extractions/2026-07/",
                           review = TRUE)
 ```
+
+With the AI engine set up ([section 6](#6-setting-up-the-ai-engine-optional)),
+`both` in place of `deterministic` runs the two engines and compares them.
 
 The output directory receives
 
@@ -731,7 +766,8 @@ answers into scores. The steps, in order:
    restricted storage, by name. Build the page before anyone grades and
    leave the folder's name alone afterward: each answer carries it, and
    the import in step 6 refuses answers from another folder's page.
-   `GRADING.md` at the repository root is the graders' own step-by-step.
+   `docs/grading_round.md` is the graders' own step-by-step, and
+   `GRADING.md` at the repository root says what belongs in each field.
    The older route still works: a grader with the package installed runs
    `review --out DIR --graders ... --serve` on a full copy of the scan
    folder, and answers save to that copy's `corrections.jsonl`. Anything
@@ -1091,12 +1127,23 @@ change, and the project welcomes such contributions as pull requests (see
 your own copy, measuring the change against your graded documents, and
 keeping it through package updates.
 
+**What that means on a first run.** On a document from another state the
+engine reads the street, the unit, and the ZIP, leaves the city and the
+state blank, and raises no flag. That was the result on two made-up
+summonses, one with an Oregon address and one with a Texas address
+(November 2026). Documents you grade carry the city and state you typed.
+["Documents from another state"](changing_rules.md#documents-from-another-state)
+in the rules guide gives the four-line change that makes the engine read
+your state, and its cautions.
+
 **How to validate in a new place.** Do not trust transferred rules blind, and
 do not trust the AI lane blind either. Sample a few hundred documents, have
 people record the true address for each, run the tool, and score with
 `extract_text.similarity.address_similarity`. That is the same procedure the
 Washington numbers come from, and it turns "it seems to work" into a number
-you can put in a methods section.
+you can put in a methods section. The getting-started steps do a smaller
+version of this on the review page, a graded random 50 scored field by
+field, and that is the place to start.
 
 ## 17. Speed and hardware
 
@@ -1148,7 +1195,20 @@ nothing when the weights are already on disk.
 **"The Python engine is not available. Run extracttext_install() once, then
 restart R."** Exactly that. If it persists after a restart, run
 `reticulate::py_config()` and check that the `r-extracttext` environment is
-the one selected.
+the one selected. If another Python is selected, something told R to use it
+(a `RETICULATE_PYTHON` setting, or a `reticulate::use_python()` line run
+earlier in the session). In a fresh R session, run
+`reticulate::use_virtualenv("r-extracttext", required = TRUE)` before any
+other extract-text function.
+
+**"error: externally-managed-environment" from `pip install`.** Your Python
+does not allow installs outside a virtual environment. Make one and install
+into it, as [section 4](#4-installation-for-python-users) shows. R users do
+not see this, because `extracttext_install()` makes its own environment.
+
+**`pip: command not found`.** Use `pip3`, or better, make the virtual
+environment in [section 4](#4-installation-for-python-users); inside it the
+command is `pip`.
 
 **Rows full of `no_text` or very low `ocr_mean_conf`.** Your scans are poor.
 If re-scanning at 300 dpi is possible, do that; if not, the AI lane reads
@@ -1160,7 +1220,7 @@ the row is flagged `defendant_equals_attorney` (it should be). If you can
 share the document layout with the maintainers with a synthetic mock-up, not
 the real page, it helps the next release.
 
-**Windows notes.** All three helper programs have Windows builds, and the
+**Windows notes.** The helper programs all have Windows builds, and the
 paths must be on PATH (the doctor checks). Everything else is identical.
 
 ## 19. Glossary

@@ -91,8 +91,8 @@ def cmd_scan(args):
         page = write_review(args.out, n=args.review_n)
         print(f"Review page: {page}", file=sys.stderr)
     else:
-        print("Build the review page with: extract-text review --out "
-              + str(args.out), file=sys.stderr)
+        print("Grade it on the review page with: extract-text review --out "
+              + str(args.out) + " --serve", file=sys.stderr)
     return 0
 
 

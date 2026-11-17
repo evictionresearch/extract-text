@@ -1046,6 +1046,18 @@ Checked on made-up documents only. The script's calls from step 4 on and the ter
 
 `test_a_shifted_scan_of_the_form_is_recognized` failed on the Ubuntu runner from 0.4.0 at its OCR-scanned half and passed on macOS. Diagnosed 2026-11-17 by drawing the test's made-up scan on a Mac in each font: the runner drew it in DejaVu Sans, whose wider letters move the words, so the template learned from the Helvetica PDFs found 63% of its words on the unshifted page and 55% on the shifted one, under the 60% a match needs; in Arial or Liberation Sans it found 100% and 99 to 100%. The fixture now prefers Liberation Sans over DejaVu and CI installs it. The engine was not changed: a form set again in a font with other letter widths is not the same printed form, and the matcher is right to say so. The terminal gained `extract-text case-table` for the final table, so the terminal route finishes without Python code. The PII sweep's three hits in `site/` were shapes in prose and a drawing, now whitelisted with comments, and the diagram's case number is the documented synthetic one.
 
+## A new-user walkthrough, and what it changed (2026-11-17)
+
+Tim asked for the public pages to be read as a newcomer from another state would read them, ahead of two students testing the instructions. Both routes were installed from GitHub into a clean folder on a Mac and run on made-up documents, at `7b7ce16`. The R route ran end to end. Four things stopped a newcomer and five confused one.
+
+What stopped a newcomer. The terminal `pip install` failed with "externally-managed-environment" on Homebrew's Python, and no page mentioned a virtual environment. Two made-up summonses, the package's example with an Oregon and a Texas address, came back with street, unit, and ZIP and with city and state blank, unflagged, and no walkthrough page said the rules expect WA. No page said which document types to scan. And there was no practice folder, so steps 4 to 8 could be tried only on real records.
+
+What confused. Five walkthroughs used three numberings (the site's 8 steps, the script's 13, eight stages in `start_here.md` cut differently). The AI engine read as ready, with `engine = "both"` in the README's install examples. `GRADING.md` spoke to the Network's graders while four pages sent new users to it. The score had no worked reading. And How it works still said 0.4.0.
+
+What changed is listed under Unreleased in `CHANGELOG.md`. Three points of evidence. The practice folder is the repository's own tracked fixtures, 15 made-up documents, fetched as the GitHub zip (9.3 MB); the 24-document bench corpus is not committed and was not used. The load-time binding in `r/R/zzz.R` was tested in four situations with the package installed in a scratch library: a `.venv` in the working directory (the engine is found, where before it was not), the option turned off, `RETICULATE_PYTHON` set (both leave the other Python in place), and no environment yet (the doctor's install message). A `use_virtualenv()` call made before the package loads is superseded with reticulate's warning, and one made after it wins. The four-line state change in `docs/changing_rules.md` was made in a scratch copy for Texas and for Oregon and read the city and state on its made-up page; it was not measured on any real document, and the guide says so.
+
+Not tested: grading in a browser, Windows, a Mac without Homebrew, and the install of the four programs. A state setting in the engine, so that no user edits a pattern, is the lasting fix and is not built.
+
 ## Release checklist
 
 1. `pytest` green in `python/` (including the live model test on a machine
@@ -1061,6 +1073,11 @@ Checked on made-up documents only. The script's calls from step 4 on and the ter
 5. Version bumped in **four** places, kept identical:
    `python/pyproject.toml`, `python/src/extract_text/__init__.py`
    (`__version__`), `r/DESCRIPTION`, `CITATION.cff`.
+   The docs and the website repeat the version, so change them in the same
+   commit: the status line of `README.md`, section 2 of `docs/manual.md`,
+   the badge in `site/index.qmd`, Status in `site/how-it-works.qmd` (with
+   the release date), and the citation in `site/about.qmd`. Then render
+   the site (`cd site && quarto render`).
 6. Fixtures regenerated only if their script changed
    (`python3 python/scripts/make_synthetic_fixtures.py`), and the manual's
    example outputs re-checked against them.

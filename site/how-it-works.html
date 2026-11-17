@@ -173,10 +173,11 @@
 <p>It uses the position of the text on the page to tell the tenant's address from the attorney's. For every value it returns, it records which rule found it and where on the page.</p>
 <p>The rules read only the documents they were written for. A layout the rules have never seen, or handwriting, produces a flag, not an answer.</p>
 <h2 id="ai">The AI engine</h2>
+<p>The AI engine is experimental. It runs today, but its test against hand-labeled documents is not finished, and the Get started steps do not use it.</p>
 <p>The AI engine shows a picture of the page to a language model and asks it for the same fields. The model, qwen3.5 9B, runs on your own computer through Ollama, a free program that runs AI models locally. It needs about 16 GB of memory and a one-time download of about 7 GB. Nothing is sent to any cloud service.</p>
 <p>It reads layouts the rules were not written for, and it reads handwriting.</p>
 <p>A language model can return a confident, wrong answer. So the package checks each of its answers against the text of the document and marks the ones it cannot find. The model is never asked to rate its own confidence.</p>
-<p><strong>Running both</strong> is the recommended mode where AI is allowed. The deterministic answer fills the main columns, and the AI answer goes in columns beside it. The package measures every disagreement and flags it. The two are never blended.</p>
+<p><strong>Running both</strong> is how the AI engine is meant to be used, where AI is allowed. The deterministic answer fills the main columns, and the AI answer goes in columns beside it. The package measures every disagreement and flags it. The two are never blended.</p>
 <div class="table-wrap">
 <table class="caption-top">
 <colgroup>
@@ -191,20 +192,16 @@
 </thead>
 <tbody>
 <tr class="odd">
+<td>A first run on your documents</td>
+<td>Deterministic, with a graded random 50</td>
+</tr>
+<tr class="even">
 <td>Policy does not permit AI tools</td>
 <td>Deterministic</td>
 </tr>
-<tr class="even">
-<td>You want the most confidence and can use AI</td>
-<td>Both</td>
-</tr>
 <tr class="odd">
-<td>Your documents include handwriting or unusual layouts</td>
-<td>Both</td>
-</tr>
-<tr class="even">
-<td>A first look at a new set of documents</td>
-<td>Deterministic first, then look at the flags</td>
+<td>Your documents include handwriting or unusual layouts, and you can use AI</td>
+<td>Both, with the AI columns treated as experimental</td>
 </tr>
 </tbody>
 </table>
@@ -251,7 +248,7 @@
 <p>The review page shows each document's page image beside what the engine read, with a box drawn where each value was found. It is served from your own computer, and nothing on it goes online.</p>
 <p><a href="get-started.html#grade" class="more">Watch one document being graded, in one minute</a></p>
 <p>A reviewer can correct any field, turn to the document's other pages, and move, reshape, or redraw a box. Every save is written to a file named <code>corrections.jsonl</code> on the reviewer's computer.</p>
-<p>The same page runs a grading round. Several people grade the same documents, the package reports how often they agree, and it scores each engine against their answers. The guide for graders is <a href="https://github.com/evictionresearch/extract-text/blob/main/GRADING.md" target="_blank" rel="noopener noreferrer"><code>GRADING.md</code></a>.</p>
+<p>The same page runs a grading round. Several people grade the same documents, the package reports how often they agree, and it scores each engine against their answers. <a href="https://github.com/evictionresearch/extract-text/blob/main/GRADING.md" target="_blank" rel="noopener noreferrer"><code>GRADING.md</code></a> says what belongs in each field, and <a href="https://github.com/evictionresearch/extract-text/blob/main/docs/grading_round.md" target="_blank" rel="noopener noreferrer"><code>grading_round.md</code></a> is the guide for graders in a round.</p>
 <h2 id="templates">Form templates</h2>
 <p>Many courts print their summons on a standard form. The engine can learn where a form prints each field from the boxes drawn and confirmed during grading, with no change to the code.</p>
 <p>A template is one readable file per form. It holds the form's printed words, their positions, and a region of the page for each field. It holds no names or addresses. Nothing learned is used until a person approves it.</p>
@@ -311,9 +308,10 @@
 <h2 id="elsewhere">Using it outside Washington</h2>
 <p>The Eviction Research Network designed extract-text for court documents that follow American conventions, and built and measured it on Washington filings.</p>
 <p><strong>What carries over.</strong> The file handling, the removal of the line numbers printed down the margin of court paper, the address rules for "TO:" blocks and "premises located at", the AI engine, and the flags and review page.</p>
-<p><strong>What is tuned to Washington.</strong> Three rules expect Washington forms. The city, state, and ZIP pattern looks for WA. The strict case-number format is the Washington superior court one. Attorney bar numbers are recognized by the Washington State Bar label. Each can be changed for another state, and <a href="https://github.com/evictionresearch/extract-text/blob/main/docs/changing_rules.md" target="_blank" rel="noopener noreferrer">Changing the rules</a> shows how.</p>
+<p><strong>What is tuned to Washington.</strong> Three rules expect Washington forms. The city, state, and ZIP pattern looks for WA. The strict case-number format is the Washington superior court one. Attorney bar numbers are recognized by the Washington State Bar label.</p>
+<p><strong>What that means on a first run.</strong> On a document from another state the engine reads the street, the unit, and the ZIP, leaves the city and the state blank, and raises no flag. That was the result on two made-up summonses, one with an Oregon address and one with a Texas address. Documents you grade carry the city and state you typed. <a href="https://github.com/evictionresearch/extract-text/blob/main/docs/changing_rules.md#documents-from-another-state" target="_blank" rel="noopener noreferrer">Documents from another state</a> gives the four-line change that makes the engine read your state.</p>
 <h2 id="status">Status</h2>
-<p>extract-text is under development. The current release is version 0.4.0, of November 9, 2026. Command options, output columns, and the default AI model can still change between releases, so install a specific version for work you need to repeat. The <a href="https://github.com/evictionresearch/extract-text/blob/main/CHANGELOG.md" target="_blank" rel="noopener noreferrer">changelog</a> lists every release and how to install one.</p>
+<p>extract-text is under development. The current release is version 0.4.1, of November 17, 2026. The rules engine is the released tool, and the local AI engine is experimental. Command options, output columns, and the default AI model can still change between releases, so install a specific version for work you need to repeat. The <a href="https://github.com/evictionresearch/extract-text/blob/main/CHANGELOG.md" target="_blank" rel="noopener noreferrer">changelog</a> lists every release and how to install one.</p>
 <p>Today the package reads the parties, the addresses, the attorney, and the case number. Future versions are planned to read the body of a filing, such as the reason for the eviction. The <a href="index.html#development">development timeline</a> lists the three stages.</p>
 <div class="actions" style="margin-top: 30px;">
 <p><a href="get-started.html" class="btn">Get started</a> <a href="https://github.com/evictionresearch/extract-text/blob/main/docs/manual.md" class="btn ghost" target="_blank" rel="noopener noreferrer">Read the manual</a></p>

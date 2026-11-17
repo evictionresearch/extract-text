@@ -3,7 +3,7 @@
 # Author: Tim Thomas
 # Created: 2026-10-29
 # Reviewer:
-# Updated: 2026-11-09
+# Updated: 2026-11-17
 #
 # This script is the quick start script for the extract-text package using the
 # rules engine only (no AI, no network). It installs the package, reads a
@@ -12,8 +12,12 @@
 # that grading, scans the whole folder, has you grade a second random 50
 # from it, and builds the final table of cases, names, and addresses. The
 # grading is not optional: until it is done, how often the scan is right on
-# your documents is unknown (step 6 says why). Run it a line or a block at a
-# time, not with source(), because step 1 ends by restarting R.
+# your documents is unknown (step 5 says why). Run it a line or a block at a
+# time, not with source(), because step 2 restarts R partway through.
+#
+# The eight steps here are the eight steps of the Get started page,
+# https://evictionresearch.net/extract-text/get-started.html, and of
+# docs/start_here.md. Step 5 means the same thing in all three.
 #
 # Your documents, and every file this script writes from step 4 on, hold
 # tenants' names and addresses. Keep them wherever your organization keeps
@@ -21,7 +25,7 @@
 # ==========================================================================
 
 # --------------------------------------------------------------------------
-# Before you start: install poppler and tesseract (once per computer)
+# Step 1. Install four free programs (once per computer)
 # --------------------------------------------------------------------------
 # extract-text cannot read a document without two free programs that R does
 # not install: poppler opens PDFs, and tesseract reads scanned pages (OCR).
@@ -29,7 +33,7 @@
 #
 # Check first whether you have them: run `which pdftoppm tesseract` in
 # Terminal (Mac, Linux) or `where.exe pdftoppm tesseract` in PowerShell
-# (Windows). If both print a path, skip to step 1. On a Mac, brew install on
+# (Windows). If both print a path, you have those two. On a Mac, brew install on
 # a program you already have upgrades it and everything that depends on it.
 #
 # Mac. Install Homebrew from https://brew.sh if you don't have it, then run
@@ -51,8 +55,8 @@
 # extracttext_doctor() in step 2 confirms that R can find both.
 #
 # The engine is written in Python, so the computer also needs Python 3.10
-# or newer, and git, which the install in step 1 downloads the engine with.
-# The Python that comes with a Mac is older than 3.10. Step 1 checks for
+# or newer, and git, which the install in step 2 downloads the engine with.
+# The Python that comes with a Mac is older than 3.10. Step 2 checks for
 # both before it installs anything. If either is missing:
 #
 # Mac, in Terminal (Homebrew installs git with itself):
@@ -68,7 +72,7 @@
 # Then restart RStudio.
 
 # --------------------------------------------------------------------------
-# Step 1. Install extract-text
+# Step 2. Install extract-text and check your setup
 # --------------------------------------------------------------------------
 # install_github() fetches the R package. extracttext_install() then builds
 # the Python engine the package runs on, once per computer.
@@ -94,31 +98,29 @@ extracttext_install()
 reticulate::virtualenv_exists("r-extracttext")
 
 # Restart R so the package finds the engine: Session > Restart R in RStudio
-# (Cmd/Ctrl + Shift + 0), or quit and reopen R. Step 2 fails without this.
+# (Cmd/Ctrl + Shift + 0), or quit and reopen R. The checkup below fails
+# without this.
 
-# --------------------------------------------------------------------------
-# Step 2. Check your setup
-# --------------------------------------------------------------------------
-# The last line should read "Ready: the deterministic engine can run." The
+# Check your setup. The last line should read "Ready: the deterministic engine can run." The
 # AI section reports Ollama as missing unless you set it up; the rules
 # engine does not need it.
 library(extracttext)
 library(dplyr) # install.packages("dplyr")
 
-# Point R at the engine's own Python environment. Without this line, R picks
-# up any other Python project it finds first (a ".venv" folder in your
-# working directory, for one) and reports the engine as not installed. Run
-# it at the start of every R session, before any other extract-text function.
-reticulate::use_virtualenv("r-extracttext", required = TRUE)
-
 extracttext_doctor()
 
-# If it still says "The Python engine is not installed yet", restart R and
-# run this step again from the top. If the message stays, step 1's install
-# failed, most often because Python was missing or older than 3.10. Remove
-# the half-built environment, then go back to step 1's Python check and run
-# from there:
+# If it says "The Python engine is not installed yet", restart R and run the
+# checkup again. If the message stays, the install above failed, most often
+# because Python was missing or older than 3.10. Remove the half-built
+# environment, then go back to the Python check at the top of this step and
+# run from there:
 # reticulate::virtualenv_remove("r-extracttext")
+#
+# The package points R at the engine's own Python environment each time it
+# loads. If you have told R to use another Python (RETICULATE_PYTHON, or a
+# reticulate::use_python() line), the engine will look uninstalled; this
+# line, run before any other extract-text function, points R back:
+# reticulate::use_virtualenv("r-extracttext", required = TRUE)
 
 # --------------------------------------------------------------------------
 # Step 3. Read one example document
@@ -151,8 +153,45 @@ glimpse(record_to_row(one))
 # Step 4. Scan a random 50 of your own documents
 # --------------------------------------------------------------------------
 # Start with a random sample rather than the whole folder: it takes minutes
-# instead of hours, and step 6 grades every document in it. Change n_sample
-# as needed; step 6 explains how many is enough.
+# instead of hours, and step 5 grades every document in it. Change n_sample
+# as needed; step 5 explains how many is enough.
+#
+# To practice first. Steps 4 to 8 run on the package's made-up documents as
+# well as on real ones, so you can learn the grading page before you open a
+# court record. This block downloads the package's code (about 10 MB) into
+# a folder in your home directory and points docs_dir and results at it.
+# Run it, skip the docs_dir and results lines below, and go on from
+# n_sample. The 15 documents are few and partly repeat one another, so the
+# scores mean nothing; the practice is in the steps. Delete the folder when
+# you are done.
+# practice <- path.expand("~/extract_text_practice")
+# dir.create(practice, showWarnings = FALSE)
+# download.file(paste0("https://github.com/evictionresearch/extract-text/",
+#                      "archive/refs/heads/main.zip"),
+#               file.path(practice, "extract-text.zip"), mode = "wb")
+# unzip(file.path(practice, "extract-text.zip"), exdir = practice)
+# docs_dir <- file.path(practice, "extract-text-main", "python", "tests",
+#                       "fixtures")
+# results  <- file.path(practice, "results")
+#
+# What to put in the folder. The engine reads one document at a time and
+# writes one row for every file it is given, whatever kind of document the
+# file is. Its rules are built for the summons. If your folder holds whole
+# case files (complaints, orders, returns of service), a case gets a row for
+# each of them. When the file names say which documents are summonses, scan
+# those alone by giving scan_documents() the list of files in place of
+# docs_dir:
+# summonses <- list.files(docs_dir, pattern = "summons", ignore.case = TRUE,
+#                         recursive = TRUE, full.names = TRUE)
+#
+# Documents from outside Washington. The rules that read the city and the
+# state expect "WA" or "Washington" after the city. On a made-up Oregon
+# summons and a made-up Texas one, the engine read the street, the unit,
+# and the ZIP, left the city and state blank, and raised no flag. Every
+# document you grade carries your city and state in the final table; the
+# others carry the street and ZIP alone. docs/changing_rules.md, "Documents
+# from another state", shows the four-line change that makes the engine
+# read your state, and how to measure it.
 #
 # docs_dir holds the court documents (PDF or TIFF, subfolders included).
 # If they come to you in a Google Drive folder, download that folder to
@@ -178,12 +217,9 @@ res <- scan_documents(docs_dir, engine = "deterministic", sample = n_sample,
                       seed = 1, out_dir = sample_dir)
 
 # res is not ready to use yet. How often it is right on your documents is
-# unknown until you grade the sample in step 6.
+# unknown until you grade the sample in step 5.
 
-# --------------------------------------------------------------------------
-# Step 5. Look at the results
-# --------------------------------------------------------------------------
-# Counts only, no names or addresses: whether the engine found a street,
+# Look at the results. Counts only, no names or addresses: whether the engine found a street,
 # whether it flagged the document, and whether the PDF carried text
 # (pdf_text_layer) or had to be read by OCR (pdf_ocr)
 res %>%
@@ -196,7 +232,7 @@ View(select(res, doc, defendant_names, defendant_street, defendant_city,
             defendant_zip, flags))
 
 # --------------------------------------------------------------------------
-# Step 6. Grade the sample by hand (required)
+# Step 5. Grade the sample by hand (required), then score the engine
 # --------------------------------------------------------------------------
 # The rules were written and measured on Washington filings. Another court's
 # forms, scan quality, or decade can make them misread a field without
@@ -206,10 +242,10 @@ View(select(res, doc, defendant_names, defendant_street, defendant_city,
 # the share right within about 10 points; grade 100 or more before
 # publishing counts or sending anything to people (manual section 11).
 # Your corrections do not change the engine's rules. They do three things.
-# The score in step 7 tells you which fields to trust. Every document you
-# grade carries your answer in the final table (step 13). And the boxes on
+# The score below tells you which fields to trust. Every document you
+# grade carries your answer in the final table (step 8). And the boxes on
 # the page image can teach the engine where your court's form prints each
-# field (step 8).
+# field (step 6).
 #
 # This opens a page in your browser with each document beside what the
 # engine read. Check each field against the page, change only what is
@@ -217,34 +253,48 @@ View(select(res, doc, defendant_names, defendant_street, defendant_city,
 # look at the colored boxes on the page image, which show where the engine
 # read each value. Where a box sits over the wrong place, drag it to the
 # right one. Where a field has no box, press the field's button under the
-# image and drag across the value. docs/grading_with_boxes.md has the
-# details. Save every document, even when the engine got everything right.
+# image and drag across the value. GRADING.md says what belongs in each
+# field, and docs/grading_with_boxes.md covers the boxes. Save every
+# document, even when the engine got everything right.
 # Each save goes to corrections.jsonl in sample_dir. Press Esc in RStudio
 # (Ctrl-C at a terminal) when done; running it again picks up where you
 # left off.
 review_documents(res, correct = TRUE, n = n_sample, draw = "random")
 
-# --------------------------------------------------------------------------
-# Step 7. Score the engine against your corrections
-# --------------------------------------------------------------------------
-# One row per field: how many documents you checked, and how many the engine
-# got right, nearly right, left blank, or got wrong. right_random /
-# checked_random is the accuracy estimate for the whole folder.
+# Score the engine against your corrections. One row per field: how many
+# documents you checked, and how many the engine got right, nearly right
+# (the right content, written differently, such as Ave for Avenue), left
+# blank, or got wrong. right_random / checked_random is the accuracy
+# estimate for the whole folder.
 #
-# Decide here whether the fields you need are accurate enough to scan
-# everything. If they are not, check for a newer version of the package
-# (rerun step 1): rule fixes reach you through package updates, made by the
-# Eviction Research Network from its own graded documents. You can also
-# change the rules on your own copy of the code: docs/changing_rules.md
-# shows how, with a worked example. Grading alone does not change them.
-# Where the engine looked in the wrong place on your court's forms, step 8
-# can help before you scan everything.
+# Reading it. Say the street row shows checked_random 50 and right_random
+# 43. The engine read the street right on 43 of your 50 documents, 86
+# percent. Fifty documents is a small sample, so the share for the whole
+# folder is probably between about 76 and 96 percent. No score is right for
+# everyone. Ask what the table is for: a count of filings by ZIP code can
+# live with a street that is wrong one time in seven, and a mailing to
+# tenants cannot. Look only at the fields you will use, and grade those
+# with care. A field you leave as the engine filled it is counted as right.
+#
+# When a field you need is weak:
+# - The engine looked in the wrong place (its box sat over the wrong part
+#   of the page, or the field had no box). Step 6 can fix that for your
+#   court's forms, with no code.
+# - The box was in the right place and the value was still wrong. A rule
+#   has to change. Check for a newer version of the package (rerun the
+#   install in step 2): rule fixes reach you through package updates, made
+#   by the Eviction Research Network from its own graded documents. Or tell
+#   the Network what goes wrong, or change the rule on your own copy:
+#   https://evictionresearch.net/extract-text/improve.html and
+#   docs/changing_rules.md show how. Grading alone does not change a rule.
+# - Whatever the score, every document you grade is right in the final
+#   table. For a small folder, grading all of it is a sound plan.
 score_documents(res)
 
 # --------------------------------------------------------------------------
-# Step 8. Teach the engine your forms (optional, no code)
+# Step 6. Teach the engine your forms (optional, no code)
 # --------------------------------------------------------------------------
-# The boxes from step 6 can improve how the engine reads your court's own
+# The boxes from step 5 can improve how the engine reads your court's own
 # forms, with no change to any code. learn_templates() groups the documents
 # you graded by printed form. For each form with at least five graded
 # documents it writes a template: the form's printed words, which identify
@@ -271,18 +321,19 @@ list_templates(sample_dir)
 # A template changes where the engine looks, not how it reads. The rules
 # still do the reading inside each region. When a value is in the right
 # place and still read wrong, a rule needs to change: check for a newer
-# version of the package (rerun step 1), or see docs/changing_rules.md. Its
+# version of the package (rerun the install in step 2), or see
+# docs/changing_rules.md. Its
 # last chapter, "Teaching the engine a form, without code", is the full
 # guide to templates.
 
 # --------------------------------------------------------------------------
-# Step 9. Scan the whole folder
+# Step 7. Scan the whole folder, then grade and score a second 50
 # --------------------------------------------------------------------------
 # The full run goes to its own folder, so the sample and its corrections
 # stay as they are. At about 5 seconds a document, 4,000 documents take five
 # or six hours; it needs no attention while it runs.
 #
-# The run uses the templates you approved in step 8, and the rules alone if
+# The run uses the templates you approved in step 6, and the rules alone if
 # you approved none.
 templates_dir <- file.path(sample_dir, "templates")
 use_templates <- dir.exists(templates_dir) &&
@@ -294,13 +345,11 @@ res_all <- scan_documents(docs_dir, engine = "deterministic", out_dir = all_dir,
 # How many documents matched each template (blank means none)
 count(res_all, template)
 
-# --------------------------------------------------------------------------
-# Step 10. Grade a second random sample, from the full run
-# --------------------------------------------------------------------------
-# The first sample told you whether to run everything. This one measures the
+# Grade a second random sample, from the full run. The first sample told
+# you whether to run everything. This one measures the
 # run that becomes your table, templates included, and it can catch kinds of
 # documents the first sample happened to miss. Grade it the same way as
-# step 6. A document you already graded may come up again; grade it again,
+# step 5. A document you already graded may come up again; grade it again,
 # and the later answer is the one kept. The draw is seeded, so building the
 # page again shows the same documents; give seed another value for a fresh
 # draw.
@@ -311,30 +360,12 @@ review_documents(res_all, correct = TRUE, n = n_sample, draw = "random", seed = 
 # review_documents(res_all, correct = TRUE, n = sum(res_all$flags != ""),
 #                  draw = "flagged")
 
-# --------------------------------------------------------------------------
-# Step 11. Score the full run
-# --------------------------------------------------------------------------
-# right_random / checked_random here is the accuracy of the full run, the
-# figure to report with the table.
+# Score the full run. right_random / checked_random here is the accuracy of
+# the full run, the figure to report with the table.
 score_documents(res_all)
 
 # --------------------------------------------------------------------------
-# Step 12. Re-scan, only after something changes
-# --------------------------------------------------------------------------
-# Grading does not change the rules engine: run it again on the same
-# documents and it gives the same answers. Its readings change only when you
-# update the package (rerun step 1), which brings the fixes the Eviction
-# Research Network makes from its own graded documents, or when you change
-# the rules yourself (docs/changing_rules.md), or when you approve or
-# withdraw a form template (step 8). Re-scan only then. Re-scanning the same
-# documents into the same folder keeps your corrections, and scoring again
-# shows what the change fixed or broke.
-# res_all <- scan_documents(docs_dir, engine = "deterministic", out_dir = all_dir,
-#                           templates = if (use_templates) templates_dir)
-# score_documents(res_all)
-
-# --------------------------------------------------------------------------
-# Step 13. Build the final table
+# Step 8. Build the final table
 # --------------------------------------------------------------------------
 # One row per document: case number, plaintiff, defendants, and the
 # defendants' address, with your graded answers (from both samples) in
@@ -351,9 +382,24 @@ count(cases, source)
 # names and addresses.
 
 # --------------------------------------------------------------------------
+# Later: scan again only after something changes
+# --------------------------------------------------------------------------
+# Grading does not change the rules engine: run it again on the same
+# documents and it gives the same answers. Its readings change only when you
+# update the package (rerun the install in step 2), which brings the fixes
+# the Eviction Research Network makes from its own graded documents, or when
+# you change the rules yourself (docs/changing_rules.md), or when you
+# approve or withdraw a form template (step 6). Re-scan only then.
+# Re-scanning the same documents into the same folder keeps your
+# corrections, and scoring again shows what the change fixed or broke.
+# res_all <- scan_documents(docs_dir, engine = "deterministic", out_dir = all_dir,
+#                           templates = if (use_templates) templates_dir)
+# score_documents(res_all)
+
+# --------------------------------------------------------------------------
 # Next
 # --------------------------------------------------------------------------
 # The manual (docs/manual.md) covers every output column (section 10), the
 # flags and the address check against a list of real addresses (section 11),
-# the optional AI engine (section 6), and documents from outside Washington
-# (section 16).
+# the experimental local AI engine (section 6), and documents from outside
+# Washington (section 16).

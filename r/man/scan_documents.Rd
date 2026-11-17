@@ -85,7 +85,7 @@ accordingly: a governed data location, never a code repository.
 }
 \examples{
 \dontrun{
-results <- scan_documents("~/data/summonses/2026-07/", engine = "both",
+results <- scan_documents("~/data/summonses/2026-07/", engine = "deterministic",
                           out_dir = "~/data/extractions/2026-07/",
                           review = TRUE)
 table(results$flags == "")

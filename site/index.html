@@ -61,7 +61,7 @@
         <p class="eyebrow">Open-source software from the Eviction Research Network</p>
         <h1><code>extract-text</code> reads eviction court documents into a <em>table</em>.</h1>
         <p class="lede">Many courts keep eviction filings only as page images, and a filing cannot be counted or mapped until it is in a table. extract-text reads e-filed PDFs, scanned PDFs, and TIFF images and returns one row per document, with the plaintiffs, the defendants, the address where the defendants were served, the plaintiff’s attorney, and the case number.</p>
-        <p class="small">Free and open source. It runs on your own computer, from R or Python, on Mac, Windows, and Linux.</p>
+        <p class="small">Free and open source. It runs on your own computer, from R or Python, on Mac, Windows, and Linux. The rules engine is the released tool. The local AI engine is experimental.</p>
         <p class="badge"><a href="#development">Under development · version 0.4.1</a></p>
         <div class="actions">
           <a class="btn" href="get-started.html">Get started</a>
@@ -76,8 +76,8 @@
 <p class="eyebrow">
 Two engines
 </p>
-<h2 id="rules-a-local-ai-model-or-both">Rules, a local AI model, <em>or both</em></h2>
-<p>You choose the engine on each run.</p>
+<h2 id="the-rules-engine-and-an-experimental-local-ai-engine">The rules engine, and an <em>experimental</em> local AI engine</h2>
+<p>The rules engine is the released tool, and the Get started steps use it alone. The local AI engine runs as an option, but its test against hand-labeled documents is not finished.</p>
 <div class="two">
 <div class="card">
 <p><span class="kicker">No AI of any kind</span></p>
@@ -85,7 +85,7 @@ Two engines
 <p>It reads with written rules and the layout of the page. A scanned page is first turned into text by OCR (optical character recognition). The same document always gives the same output, so the code and the manual call it the deterministic engine. Every value records the rule that found it and where on the page it was found. It uses no AI and no network connection, so agencies whose policies do not permit AI tools can use it alone.</p>
 </div>
 <div class="card">
-<p><span class="kicker">Optional</span></p>
+<p><span class="kicker">Experimental</span></p>
 <h3 id="the-local-ai-engine">The local AI engine</h3>
 <p>A language model reads the page images. It runs on your own computer through Ollama, a free program that runs AI models locally, and it sends nothing to any cloud service. It reads what rules and OCR cannot, handwriting above all.</p>
 </div>

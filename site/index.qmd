@@ -9,7 +9,7 @@ hero:
   eyebrow: "Open-source software from the Eviction Research Network"
   h1: "`extract-text` reads eviction court documents into a *table*."
   lede: "Many courts keep eviction filings only as page images, and a filing cannot be counted or mapped until it is in a table. extract-text reads e-filed PDFs, scanned PDFs, and TIFF images and returns one row per document, with the plaintiffs, the defendants, the address where the defendants were served, the plaintiff's attorney, and the case number."
-  note: "Free and open source. It runs on your own computer, from R or Python, on Mac, Windows, and Linux."
+  note: "Free and open source. It runs on your own computer, from R or Python, on Mac, Windows, and Linux. The rules engine is the released tool. The local AI engine is experimental."
   badge: "[Under development · version 0.4.1](#development)"
   image: "images/extract-text.svg"
   image-alt: "A scanned court summons with a handwritten address, an arrow, and the same case as rows of digital text"
@@ -25,9 +25,9 @@ hero:
 :::::: {.wrap .sec}
 <p class="eyebrow">Two engines</p>
 
-## Rules, a local AI model, *or both*
+## The rules engine, and an *experimental* local AI engine
 
-You choose the engine on each run.
+The rules engine is the released tool, and the Get started steps use it alone. The local AI engine runs as an option, but its test against hand-labeled documents is not finished.
 
 ::::: {.two}
 ::: {.card}
@@ -38,7 +38,7 @@ It reads with written rules and the layout of the page. A scanned page is first 
 :::
 
 ::: {.card}
-[Optional]{.kicker}
+[Experimental]{.kicker}
 
 ### The local AI engine
 A language model reads the page images. It runs on your own computer through Ollama, a free program that runs AI models locally, and it sends nothing to any cloud service. It reads what rules and OCR cannot, handwriting above all.

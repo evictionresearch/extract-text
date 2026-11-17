@@ -1,7 +1,7 @@
 ---
 # How it works page of the extract-text site.
-# Every number here comes from README.md, docs/manual.md (section 13), or
-# CHANGELOG.md in this repository. When those change, change this page.
+# Every number here comes from docs/manual.md (section 13), the Get started
+# page, or CHANGELOG.md in this repository. When those change, change this page.
 pagetitle: "How extract-text works"
 description: "How extract-text reads a court document: the two engines, the flags, the review page, form templates, and what the accuracy measurements show."
 format: extract-text-html
@@ -70,21 +70,22 @@ The rules read only the documents they were written for. A layout the rules have
 
 ## The AI engine {#ai}
 
+The AI engine is experimental. It runs today, but its test against hand-labeled documents is not finished, and the Get started steps do not use it.
+
 The AI engine shows a picture of the page to a language model and asks it for the same fields. The model, qwen3.5 9B, runs on your own computer through Ollama, a free program that runs AI models locally. It needs about 16 GB of memory and a one-time download of about 7 GB. Nothing is sent to any cloud service.
 
 It reads layouts the rules were not written for, and it reads handwriting.
 
 A language model can return a confident, wrong answer. So the package checks each of its answers against the text of the document and marks the ones it cannot find. The model is never asked to rate its own confidence.
 
-**Running both** is the recommended mode where AI is allowed. The deterministic answer fills the main columns, and the AI answer goes in columns beside it. The package measures every disagreement and flags it. The two are never blended.
+**Running both** is how the AI engine is meant to be used, where AI is allowed. The deterministic answer fills the main columns, and the AI answer goes in columns beside it. The package measures every disagreement and flags it. The two are never blended.
 
 ::: {.table-wrap}
 | Your situation | Use |
 |---|---|
+| A first run on your documents | Deterministic, with a graded random 50 |
 | Policy does not permit AI tools | Deterministic |
-| You want the most confidence and can use AI | Both |
-| Your documents include handwriting or unusual layouts | Both |
-| A first look at a new set of documents | Deterministic first, then look at the flags |
+| Your documents include handwriting or unusual layouts, and you can use AI | Both, with the AI columns treated as experimental |
 :::
 
 ## Flags {#flags}
@@ -109,7 +110,7 @@ The review page shows each document's page image beside what the engine read, wi
 
 A reviewer can correct any field, turn to the document's other pages, and move, reshape, or redraw a box. Every save is written to a file named `corrections.jsonl` on the reviewer's computer.
 
-The same page runs a grading round. Several people grade the same documents, the package reports how often they agree, and it scores each engine against their answers. The guide for graders is [`GRADING.md`](https://github.com/evictionresearch/extract-text/blob/main/GRADING.md){target="_blank" rel="noopener noreferrer"}.
+The same page runs a grading round. Several people grade the same documents, the package reports how often they agree, and it scores each engine against their answers. [`GRADING.md`](https://github.com/evictionresearch/extract-text/blob/main/GRADING.md){target="_blank" rel="noopener noreferrer"} says what belongs in each field, and [`grading_round.md`](https://github.com/evictionresearch/extract-text/blob/main/docs/grading_round.md){target="_blank" rel="noopener noreferrer"} is the guide for graders in a round.
 
 ## Form templates {#templates}
 
@@ -159,11 +160,13 @@ The Eviction Research Network designed extract-text for court documents that fol
 
 **What carries over.** The file handling, the removal of the line numbers printed down the margin of court paper, the address rules for "TO:" blocks and "premises located at", the AI engine, and the flags and review page.
 
-**What is tuned to Washington.** Three rules expect Washington forms. The city, state, and ZIP pattern looks for WA. The strict case-number format is the Washington superior court one. Attorney bar numbers are recognized by the Washington State Bar label. Each can be changed for another state, and [Changing the rules](https://github.com/evictionresearch/extract-text/blob/main/docs/changing_rules.md){target="_blank" rel="noopener noreferrer"} shows how.
+**What is tuned to Washington.** Three rules expect Washington forms. The city, state, and ZIP pattern looks for WA. The strict case-number format is the Washington superior court one. Attorney bar numbers are recognized by the Washington State Bar label.
+
+**What that means on a first run.** On a document from another state the engine reads the street, the unit, and the ZIP, leaves the city and the state blank, and raises no flag. That was the result on two made-up summonses, one with an Oregon address and one with a Texas address. Documents you grade carry the city and state you typed. [Documents from another state](https://github.com/evictionresearch/extract-text/blob/main/docs/changing_rules.md#documents-from-another-state){target="_blank" rel="noopener noreferrer"} gives the four-line change that makes the engine read your state.
 
 ## Status {#status}
 
-extract-text is under development. The current release is version 0.4.0, of November 9, 2026. Command options, output columns, and the default AI model can still change between releases, so install a specific version for work you need to repeat. The [changelog](https://github.com/evictionresearch/extract-text/blob/main/CHANGELOG.md){target="_blank" rel="noopener noreferrer"} lists every release and how to install one.
+extract-text is under development. The current release is version 0.4.1, of November 17, 2026. The rules engine is the released tool, and the local AI engine is experimental. Command options, output columns, and the default AI model can still change between releases, so install a specific version for work you need to repeat. The [changelog](https://github.com/evictionresearch/extract-text/blob/main/CHANGELOG.md){target="_blank" rel="noopener noreferrer"} lists every release and how to install one.
 
 Today the package reads the parties, the addresses, the attorney, and the case number. Future versions are planned to read the body of a filing, such as the reason for the eviction. The [development timeline](index.html#development) lists the three stages.
 

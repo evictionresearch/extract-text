@@ -2,162 +2,70 @@
 
 extract-text reads eviction court documents (e-filed PDFs, scanned PDFs, and TIFF images) and returns a table with one row per document: the plaintiffs, the defendants, the address where the defendants were served, the plaintiff's attorney, and the case number. It runs on your own computer, and your documents never leave it. The [Eviction Research Network](https://evictionresearch.net) built it for housing research and policy work. Thomas, Ramiller, Ren, and Toomet (2024) were the first to use this method on eviction case records, in "[Toward a National Eviction Data Collection Strategy Using Natural Language Processing](https://www.huduser.gov/portal/periodicals/cityscape/vol26num1/article12.html)," *Cityscape* 26(1). This package takes what that paper did and makes it available to the public.
 
+**Status (version 0.4.1, under development).** The rules engine is the released tool, and every instruction here uses it. The local AI engine runs as an option, but its test against hand-labeled documents is not finished, so treat it as experimental. Accuracy has been measured only on Washington documents. Command options and output columns can still change between releases, so pin the version you build on. [`CHANGELOG.md`](CHANGELOG.md) lists every release.
+
 ## How it works
 
-extract-text has two engines, and you choose one or both on each run.
+extract-text has two engines.
 
-- **The rules engine** reads a document with written rules and the layout of the page. It uses no AI and no internet connection, and the same document always gives the same answer. It exists largely because some agencies do not allow AI on their computers, and they can run it alone.
-- **The AI engine** is a language model that runs on your own computer and reads the page as an image. It can read what rules cannot, handwriting above all. It sends nothing to any cloud service.
-- **Both together.** When you run both, the package compares the two addresses on every document. Where the two disagree, at least one is wrong, so the package flags that document for a person to check.
+- **The rules engine** reads a document with written rules and the layout of the page. It uses no AI and no internet connection, and the same document always gives the same answer. It exists largely because some agencies do not allow AI on their computers, and they can run it alone. The code and the manual call it the deterministic engine.
+- **The local AI engine (experimental)** is a language model that runs on your own computer and reads the page as an image. It can read what rules cannot, handwriting above all, and it sends nothing to any cloud service. It needs its own setup (manual, [section 6](docs/manual.md#6-setting-up-the-ai-engine-optional)). When both engines run, the package compares the two addresses on every document and flags each disagreement for a person to check.
+
+A person checks the engine's work before anyone trusts it. You grade a random 50 of your own documents on a review page in your browser, and the score says how often each field was right. The rules were written and measured on Washington filings, and another court's forms can make them misread a field without raising a flag. On a random 50 King County summonses from 2017, the rules engine read the street right on about 85 percent and the plaintiff on about 40 percent (October 2026).
 
 ## Get started
 
-The [Get started page](https://evictionresearch.net/extract-text/get-started.html) walks through the install and a first run, one step at a time. The same steps are in [`getting_started_example_script.R`](getting_started_example_script.R), to open in RStudio and run a block at a time. [`docs/start_here.md`](docs/start_here.md) gives them in plain words on one page, with the terminal command for each.
-
-The steps in brief:
+The [Get started page](https://evictionresearch.net/extract-text/get-started.html) walks through the install and a first run in eight steps, in R, on Mac, Windows, or Linux.
 
 1. **Install four free programs:** poppler, tesseract, Python, and git.
 2. **Install extract-text** and run its checkup.
 3. **Read one made-up summons** to see what the engine returns.
 4. **Scan a random 50** of your own documents.
-5. **Grade those 50** on a review page in your browser, then read the score. It says how often each field was right.
+5. **Grade those 50** on a review page in your browser, then read the score.
 6. **Teach the engine your court's forms** from the boxes you fixed while grading (optional, no code).
 7. **Scan the whole folder** and grade a second random 50.
 8. **Build the final table**, with your graded answers in place of the engine's.
 
-These steps use the rules engine, which needs no AI and, once installed, no internet.
+The same eight steps, with the same numbers, are in [`getting_started_example_script.R`](getting_started_example_script.R), to open in RStudio and run a block at a time, and in [`docs/start_here.md`](docs/start_here.md), in plain words with the terminal command for each.
 
-**Status.** extract-text is under development; [`CHANGELOG.md`](CHANGELOG.md) lists every release and what changed. ERN is checking both engines against hand-labeled Washington filings, and command options, output fields, and the default AI model can still change between releases. Accuracy has been measured only on Washington documents, and the head-to-head test of the AI engine against the labeled sets is not finished. Versions below 1.0 promise no stable interface, so pin the version you build on.
+You can practice steps 4 to 8 on the package's made-up documents before you open a court record, and step 4 says what to expect from documents outside Washington.
 
-## The two engines in detail
+## Where to read what
 
-The Eviction Research Network validated extract-text on more than a million pages of Washington State filings. It was designed to work on any court documents that follow American conventions.
+| You want to | Read |
+|---|---|
+| Install it and run it, step by step | [Get started](https://evictionresearch.net/extract-text/get-started.html), or [`getting_started_example_script.R`](getting_started_example_script.R) |
+| See the whole procedure on one page, or use a terminal | [`docs/start_here.md`](docs/start_here.md) |
+| Know what belongs in each field when you grade | [`GRADING.md`](GRADING.md) |
+| Fix and draw the boxes on the review page | [`docs/grading_with_boxes.md`](docs/grading_with_boxes.md) |
+| Learn how the engines read a page, and what was measured | [How it works](https://evictionresearch.net/extract-text/how-it-works.html), and manual sections [12](docs/manual.md#12-how-it-works-under-the-hood) and [13](docs/manual.md#13-accuracy-measured-honestly) |
+| Look up an output column, a flag, or an error message | Manual sections [10](docs/manual.md#10-the-output-column-by-column), [11](docs/manual.md#11-flags-and-the-review-workflow), and [18](docs/manual.md#18-troubleshooting) |
+| Use it on documents from another state | Manual [section 16](docs/manual.md#16-using-this-outside-washington), and ["Documents from another state"](docs/changing_rules.md#documents-from-another-state) |
+| Make the engine read your documents better | [Improve it](https://evictionresearch.net/extract-text/improve.html), and [`docs/changing_rules.md`](docs/changing_rules.md) |
+| Set up the experimental AI engine | Manual [section 6](docs/manual.md#6-setting-up-the-ai-engine-optional) |
+| Run a grading round with several graders | Manual [section 11](docs/manual.md#11-flags-and-the-review-workflow), and [`docs/grading_round.md`](docs/grading_round.md) for the graders |
+| Follow what changed, and why | [`CHANGELOG.md`](CHANGELOG.md) and [`MAINTENANCE.md`](MAINTENANCE.md) |
 
-The package has two engines that read documents, and you choose one or both on each run.
+## Privacy
 
-- **Deterministic.** Written rules and the layout of the page, with no AI of any kind and no network connection. The same document always gives the same output, and every value records the rule and the region of the page it came from. It needs nothing from the AI engine, so agencies whose policies do not permit AI tools can use it alone.
-- **AI.** A language model that reads page images (qwen3.5 9B), running on your own computer through Ollama. It reads what rules and OCR cannot, handwriting above all, and it sends nothing to any cloud service.
+With the default engines, documents, page images, and extracted values never leave your computer. The package sends no usage data, and once installed it runs with the network unplugged. This repository holds no personal information. Every example and test document is synthetic (`CONTRIBUTING.md`), and `python/scripts/pii_sweep.py` checks the working tree and the full git history for real names and addresses.
 
-When you run both, the package compares the two addresses on every document, using the similarity measure from the validation work, and flags each disagreement for a person to review. Either engine also flags a value it is unsure of instead of guessing.
-
-**Privacy.** With the default engines, documents, page images, and extracted values never leave your computer. The package sends no usage data, and once installed it runs with the network unplugged. This repository holds no personal information. Every example and test document is synthetic (`CONTRIBUTING.md`), and `python/scripts/pii_sweep.py` checks the working tree and the full git history for real names and addresses.
-
-## Install
-
-**First, on Mac and Windows alike, install poppler and tesseract.** extract-text cannot read a document without these two free programs: poppler opens PDFs, and tesseract reads scanned pages (OCR). Neither R nor pip installs them.
-
-Before you install:
-
-- **Check whether you already have them.** Run `which pdftoppm tesseract` in Terminal on a Mac or Linux, or `where.exe pdftoppm tesseract` in PowerShell on Windows. If both print a path, skip the commands below. On a Mac, `brew install` on a program you already have upgrades it and every Homebrew program that depends on it, which can mean gigabytes of downloads.
-- **English is the only language data extract-text uses.** Homebrew's tesseract includes English, so you do not need the `tesseract-lang` package it mentions.
-- **You need Python 3.10 or newer** on the computer (from [python.org](https://www.python.org/downloads/) if you have none), for R as well as Python, because the engine is written in Python.
-- **You need the internet only to install.** After that, extract-text runs with the network unplugged.
-- **The rules engine needs no AI setup.** `doctor` will report Ollama as missing, and that is fine. The AI engine is optional and needs about 16 GB of memory (manual section 3).
-- **On a work computer, installs may need IT.** If your computer blocks them, ask IT for poppler, tesseract, and Python.
-
-On a Mac, install [Homebrew](https://brew.sh) if you don't have it, then run in Terminal:
-
-```bash
-brew install poppler tesseract
-```
-
-On Windows, run in PowerShell:
-
-```powershell
-winget install oschwartz10612.Poppler
-winget install UB-Mannheim.TesseractOCR
-```
-
-winget puts poppler on your PATH, but the tesseract installer does not. Add its folder (by default `C:\Program Files\Tesseract-OCR`) through Start, "Edit environment variables for your account", Path, Edit, New, and then restart R, RStudio, or the terminal. On Debian or Ubuntu, run `sudo apt install poppler-utils tesseract-ocr`. The `doctor` check below confirms that both were found.
-
-Python:
-
-```bash
-pip install "extract-text @ git+https://github.com/evictionresearch/extract-text#subdirectory=python"
-extract-text doctor        # checks your setup, says how to fix anything missing
-```
-
-```python
-from extract_text import extract, scan
-
-result = extract("summons.pdf")                     # rules only, no AI
-result.record.defendant_address.street
-result.flags                                        # empty means all checks passed
-
-rows = scan("documents/", engine="both",            # whole folder, both engines,
-            out_dir="results/")                     # disagreements flagged
-```
-
-R:
-
-```r
-remotes::install_github("evictionresearch/extract-text", subdir = "r")
-library(extracttext)
-extracttext_install()      # one time; then restart R
-extracttext_doctor()
-
-result <- extract_deterministic("summons.pdf")
-result$record$defendant_address$street
-
-results <- scan_documents("documents/", engine = "both",
-                          out_dir = "results/", review = TRUE)
-```
-
-[`getting_started_example_script.R`](getting_started_example_script.R) takes these steps one at a time with the rules engine: a made-up summons; a random 50 of your own documents, which you grade by hand and score; an optional step that learns where your court's forms print each field from that grading; the whole folder; a second random 50 graded from it; and a final table with one row per document (`case_table()`), your graded answers in place of the engine's wherever you gave one.
-
-Command line, no programming:
-
-```bash
-extract-text scan documents/ --engine deterministic --out results/ --review
-```
-
-Batch runs write `extracted.csv` (and `.parquet` when available), `extracted.jsonl` as the full audit trail, and a `review/index.html` page showing each flagged document's image beside what was extracted from it.
-
-**Grade a random 50 before you trust a run.** The rules were written and measured on Washington filings, and another court's forms, scan quality, or decade can make them misread a field without raising a flag. Accuracy also differs by field: on a random 50 King County summonses from 2017, the rules engine read the street right on about 85 percent and the plaintiff on about 40 percent (October 2026). So scan a random 50 of your documents first, grade them on the review page (`review_documents(res, correct = TRUE, n = 50, draw = "random")` in R), score the engine against your corrections (`score_documents(res)`), and scan the whole folder only when the fields you need are accurate enough. The getting-started script takes these steps in order. Fifty random documents put the share right within about 10 points; check 100 or more before publishing counts or sending anything to people. Your corrections do not change the engine's rules. They tell you which fields to trust, every graded document carries your answer in the final table, and the boxes you fix or draw while grading can teach the engine where your court's form prints each field, once you approve the template (step 8 of the script). Fixes to the rules themselves reach you through package updates. Manual section 11 has the full protocol.
-
-The manual, [`docs/manual.md`](docs/manual.md), is written for someone who uses R or Python and knows nothing about OCR or AI. It covers installation on every platform, each output column, the flags and how to review them, how the engines work, measured accuracy and its limits, and how to adapt the rules to another state. [`docs/changing_rules.md`](docs/changing_rules.md) shows how to change a rule on your own copy, measure the change against your graded documents, and keep it through package updates. Its last chapter covers form templates, which need no code. A template is learned from the boxes drawn while grading, and it tells the engine where your court's form prints each field. It changes where the engine looks, not how it reads. When the rules themselves need to change, work with the Eviction Research Network or follow the guide on your own copy.
-
-To grade the engines, people correct a folder of results on a review page served from their own computer. `extract-text review --graders` builds the page, `extract-text agree` reports how often graders agree, and `extract-text score` reports how often each engine is right. The organizer's guide is "Running a grading round" in section 11 of the manual, and the graders' guide is [`GRADING.md`](GRADING.md); [`docs/grading_with_boxes.md`](docs/grading_with_boxes.md) is the short guide for graders who run the getting-started script themselves. The answers hold names and addresses, so they stay in the project's protected storage, and only the masked reports in `reports/` are kept in this repository.
-
-## What to expect
-
-The deterministic engine found an address on 83.5 to 100 percent of documents, depending on corpus and era, in the July 2026 validation runs against 5,100+ hand-labeled Washington addresses. Its addresses had a mean similarity to the hand labels of 0.87 to 0.92, and roughly 1.5 percent were wrong, the worst of them flagged in advance. The published 2024 pipeline scored 0.82 on the same truth data. An August 2026 improvement pass, measured on the full 5,168-case truth set, raised address yield to 92.4 and 95.6 percent on the two large King County sets with mean similarity 0.91 to 0.93; `MAINTENANCE.md` holds the change-by-change evidence. The AI lane returned structured fields for all 300 pages of its bench corpus at about 17 seconds a page on a 16 GB laptop. Section 13 of the manual ([Accuracy](docs/manual.md#13-accuracy-measured-honestly)) gives the details, where each number came from, and its limits. The numbers describe Washington documents, and a new jurisdiction should be scored on its own documents.
-
-## Layout
+## In this repository
 
 ```
-schema/          Shared field contract (JSON Schema), generated from the Python models
-python/          The engine, the CLI, tests, and synthetic fixtures
-r/               The R package (full interface via reticulate)
-game/            Address Check, an earlier card game for checking addresses (not in current use)
+getting_started_example_script.R   The eight steps, in R
 docs/            Start here, the manual, and the guides to rules, templates, and grading
+GRADING.md       What belongs in each field when you grade
+python/          The engine, the command line, tests, and synthetic fixtures
+r/               The R package (full interface via reticulate)
+site/            The website, evictionresearch.net/extract-text
+schema/          Shared field contract (JSON Schema), generated from the Python models
 reports/         Grading-round reports (counts and masked shapes only)
-GRADING.md       Instructions for graders
+game/            Address Check, an earlier card game for checking addresses (not in current use)
 MAINTENANCE.md   The improvement schedule: model reviews, benchmarks, release checklist
 ```
 
-## Address Check, an earlier card game
-
-Address Check (`game/`) is a card game for phones that produced the package's first human ratings, in August 2026. It is not in current use. The grading rounds since October 2026 have used the review page, where a grader corrects every field of a document and the boxes that show where each value was read.
-
-A card shows a cropped picture of the address as printed on the filing and the address an engine read. The rater swipes: same, or not the same. Marking one wrong opens an optional box to type what the picture actually says, and a correction is worth more than a rejection because it says what the right answer was. About ten seconds a card on a phone.
-
-```bash
-python3 game/make_demo_deck.py          # synthetic, no real data
-cd game/demo && python3 -m http.server 8000
-```
-
-Then on a real corpus:
-
-```bash
-python3 python/scripts/build_card_deck.py --archive ARCHIVE --out DECK --n 700
-```
-
-**What comes out.** `score_ratings.py` weights each rater by their accuracy on hidden cards whose answer is already known, drops anyone at chance, and writes one row per card with a verdict, a confidence and the typed correction. It also breaks accuracy down **by county, state, year, anchor and text source**, which is the point: a rule that holds in one county can fail in the next, and averaging hides it. The first round of real ratings showed a 19-point gap between two Washington counties.
-
-**Names are never shown.** They are painted over before the crop is taken, and a card is withheld entirely unless a name was actually covered. Full reasoning in `game/README.md`.
-
-The game borrows two ideas from **braindr** by Anisha Keshavan, Jason D. Yeatman, and Ariel Rokem, *Combining Citizen Science and Deep Learning to Amplify Expertise in Neuroimaging*, Frontiers in Neuroinformatics 13:29 (2019), <https://doi.org/10.3389/fninf.2019.00029>. One is the one-tap judgement on a single image. The other is weighting raters against items whose answer is known. braindr fits a model to an expert-labeled set to do that, and Address Check uses each rater's accuracy on cards with an altered address. braindr then trained a deep learning model on its raters' labels. Address Check does not.
+Address Check produced the package's first human ratings, in August 2026, and borrows two ideas from braindr (Keshavan, Yeatman, and Rokem 2019). [`game/README.md`](game/README.md) describes it and gives the citation.
 
 ## Where the method comes from
 

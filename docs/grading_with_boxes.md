@@ -1,10 +1,10 @@
 # Grading with boxes
 
-A short guide to the boxes on the review page: what they are, how to fix and draw them, and where your grades are saved. It goes with step 6 of `getting_started_example_script.R` (stage 3 of [`start_here.md`](start_here.md)). [`GRADING.md`](../GRADING.md) says what belongs in each field.
+A short guide to the boxes on the review page: what they are, how to fix and draw them, and where your grades are saved. It goes with step 5 of the Get started page, `getting_started_example_script.R`, and [`start_here.md`](start_here.md). [`GRADING.md`](../GRADING.md) says what belongs in each field.
 
 ## Before you grade
 
-Put the court documents in a folder on your own computer, somewhere that does not sync or share. If they come to you in a Google Drive folder, download it first (Drive gives a zip; unzip it). Point `docs_dir` in step 4 of the script at that folder, then run the script a block at a time through step 6. Step 4 scans a random sample of the documents into the results folder you named, and step 6 opens the review page with saving on:
+Put the court documents in a folder on your own computer, somewhere that does not sync or share. If they come to you in a Google Drive folder, download it first (Drive gives a zip; unzip it). Point `docs_dir` in step 4 of the script at that folder, then run the script a block at a time through step 5. Step 4 scans a random sample of the documents into the results folder you named, and step 5 opens the review page with saving on:
 
 ```r
 review_documents(res, correct = TRUE, n = n_sample, draw = "random")
@@ -41,7 +41,7 @@ These files hold tenants' names and addresses. Keep them in the same protected s
 
 ## What happens to the boxes
 
-Step 8 of the script (stage 5 of `start_here.md`) groups the graded documents by printed form and writes a template for each form with at least five of them. You look at each template and approve the ones that are right. The engine then reads those places first on every document of that form.
+Step 6 groups the graded documents by printed form and writes a template for each form with at least five of them. You look at each template and approve the ones that are right. The engine then reads those places first on every document of that form.
 
 ## If something goes wrong
 

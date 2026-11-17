@@ -8,7 +8,7 @@ Most fixes are a line or two in a regular expression (a text pattern). You need 
 
 ## Before you start
 
-You need a scan with graded documents, from steps 4 to 7 of `getting_started_example_script.R`, because every change is measured against them. Two graded sets are better than one: develop a change on the first sample and test it on the second (step 10's sample from the full run). A change shaped on the documents it is measured on always looks better than it is.
+You need a scan with graded documents, from steps 4 and 5 of `getting_started_example_script.R`, because every change is measured against them. Two graded sets are better than one: develop a change on the first sample and test it on the second (step 7's sample from the full run). A change shaped on the documents it is measured on always looks better than it is.
 
 ## 1. Get your own copy of the code
 
@@ -30,7 +30,7 @@ extracttext_install(source = "~/extract-text/python")   # the folder from step 1
 
 Then restart R. From now on the engine runs from your copy. After every edit, run that line again and restart R; it takes about 20 seconds.
 
-Do not run `extracttext_install()` without `source`, or step 1 of the getting-started script, while you work this way: both install the package from GitHub and replace your rules with the published ones.
+Do not run `extracttext_install()` without `source`, or the install in step 2 of the getting-started script, while you work this way: both install the package from GitHub and replace your rules with the published ones.
 
 ## 3. Find what to fix
 
@@ -55,7 +55,7 @@ Every path below is inside the folder from step 1.
 - **`python/src/extract_text/deterministic/patterns.py`**: general patterns for other fields (court name, county, filing date, amounts, disposition).
 - **`python/src/extract_text/standardize.py`**: the USPS forms used in the `_std` address columns.
 
-Three rules are specific to Washington and marked where they are defined: the state name in the city, state, and ZIP pattern, the superior court case-number format, and the bar-number label (manual section 16).
+Three rules are specific to Washington and marked where they are defined: the state name in the city, state, and ZIP pattern, the superior court case-number format, and the bar-number label (manual section 16). [Documents from another state](#documents-from-another-state), below, changes the first of them.
 
 Most rules carry a comment saying why they exist, and many say what they must not catch. Read it before changing the rule.
 
@@ -103,7 +103,7 @@ Keep a change that fixes documents there and breaks none. A change that breaks a
 
 ## 7. Use it
 
-Re-scan the same documents into the same folder (getting-started step 12). Your graded answers are kept, `score_documents()` shows the new accuracy, and `case_table()` builds the table from the new readings.
+Re-scan the same documents into the same folder (the last block of the getting-started script, "Later"). Your graded answers are kept, `score_documents()` shows the new accuracy, and `case_table()` builds the table from the new readings.
 
 ## 8. Keep your changes through package updates
 
@@ -129,6 +129,36 @@ A fix that would help others is welcome as a pull request on GitHub; `CONTRIBUTI
 
 Do not attach documents, extracted values, corrections, or score reports from your records to an issue or pull request, even masked ones, because GitHub is public. If you want the Eviction Research Network to look at results from your records, ask first: that needs a data agreement between your organization and UC Berkeley before anything is sent.
 
+## Documents from another state
+
+The rules that read the city and the state were written for Washington. They look for "WA", "Wash.", or "Washington" after the city, and they write the state as WA. On a document from another state the engine still reads the street, the unit, and the ZIP, but it leaves the city and state blank and raises no flag. We saw this on two made-up summonses, one with a Portland, Oregon address and one with a Houston, Texas address, each otherwise the same as the package's example.
+
+The change is four lines in `python/src/extract_text/deterministic/summons.py`, in your copy (steps 1 and 2). The example is Texas.
+
+Two patterns name the state. One is `CITY_WA_RE`, under "Constants and patterns". The other is `NOSUFFIX_ADDR_RE`, further down. Each contains this piece:
+
+```
+(?:WA|WASH\.?|WASHINGTON)
+```
+
+Change it, in both, to the ways your state is written:
+
+```
+(?:TX|TEX\.?|TEXAS)
+```
+
+Two lines write the state into the result. Search the file for `"WA"` and you will find `state = "WA"` and `"state": "WA"`. Change each `WA` to your state's two letters.
+
+Reinstall (step 2), restart R, and read a document. With those four lines changed, the made-up Texas summons came back with Houston and TX, and the same change with `OR|ORE\.?|OREGON` read Portland and OR on the Oregon one. The engine then reads your state only. A Washington address comes back with a blank city and state, as yours did before.
+
+Three cautions.
+
+- **Measure it (step 6).** We tried this on one made-up page per state. Your graded documents are the test, and the city and state rows of the score should rise while no other row falls.
+- **A state code that is also a word needs care.** OR, IN, ME, OK, OH, and HI are English words, and the pattern ignores capital letters, so "or" in a sentence can pass for Oregon. If the score shows cities that are not cities, make the ZIP required in `CITY_WA_RE` by deleting the last `?` in the pattern, the one after the ZIP's closing parenthesis.
+- **The case number and the bar number are separate.** The strict case-number format is the Washington superior court one; elsewhere the general case-number patterns still apply. Bar numbers are recognized by the WSBA label. Leave both alone unless the score shows a problem.
+
+If you make this change for your state and it measures well, it would help others. Section 9 says how to share it.
+
 ## Teaching the engine a form, without code
 
 The rules above are general: they look for a "TO:" label, a street line over a city line, an attorney block at the bottom right. A court's own form can defeat them, printing the tenant's address under a label the rules do not know, in a column where they do not look, or on a page they do not read. A form template fixes that for one form at a time, with no code: it records where that form prints each field, and the engine looks there first on every document it recognizes as that form.
@@ -148,7 +178,7 @@ The file holds those words and coordinates and the row numbers it was learned fr
 
 ### Learn, look, approve, use
 
-In R, from the scan you graded (here `res`, the first sample, as in step 8 of the getting-started script):
+In R, from the scan you graded (here `res`, the first sample, as in step 6 of the getting-started script):
 
 ```r
 learn_templates(res)

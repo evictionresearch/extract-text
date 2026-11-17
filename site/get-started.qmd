@@ -12,7 +12,7 @@ current-start: true
 hero:
   eyebrow: "Get started"
   h1: "From install to a *table of cases*"
-  lede: "Eight steps in R, using the rules engine, which needs no AI setup. Each step is a few lines to copy and run."
+  lede: "Eight steps in R, using the rules engine, which needs no AI setup. Each step is a few lines to copy and run. The local AI engine is experimental and is not used here."
 ---
 
 <section>
@@ -37,7 +37,7 @@ hero:
 :::
 
 ::: {.note}
-**Prefer one file to copy from?** Every step on this page is in [`getting_started_example_script.R`](https://raw.githubusercontent.com/evictionresearch/extract-text/main/getting_started_example_script.R){target="_blank" rel="noopener noreferrer"}, with more explanation. Save it, open it in RStudio, and run it a block at a time.
+**Prefer one file to copy from?** Every step on this page is in [`getting_started_example_script.R`](https://raw.githubusercontent.com/evictionresearch/extract-text/main/getting_started_example_script.R){target="_blank" rel="noopener noreferrer"}, under the same eight numbers and with more explanation. Save it, open it in RStudio, and run it a block at a time.
 :::
 
 ## [1]{.num} Install four free programs {#before}
@@ -101,17 +101,22 @@ install.packages(c("remotes", "dplyr"))
 remotes::install_github("evictionresearch/extract-text", subdir = "r")
 
 library(extracttext)
+
+# Two checks before the engine is built. The first should print the path of
+# a Python, 3.10 or newer (NULL means R found none). The second should print
+# the path of git (an empty "" means it is missing). If either fails, go
+# back to step 1, restart RStudio, and run this block again.
+reticulate::virtualenv_starter(">=3.10")
+Sys.which("git")
+
 extracttext_install()
 ```
 
-**Restart R** so the package finds the engine. In RStudio, choose Session, then Restart R. Then check your setup.
+The install prints many lines as it downloads the engine's parts. On a fast connection it takes under a minute. **Restart R** when it finishes, so the package finds the engine. In RStudio, choose Session, then Restart R. Then check your setup.
 
 ```r
 library(extracttext)
 library(dplyr)
-
-# Point R at the engine. Run this line at the start of every R session.
-reticulate::use_virtualenv("r-extracttext", required = TRUE)
 
 extracttext_doctor()
 ```
@@ -150,6 +155,35 @@ one$flags
 ## [4]{.num} Scan a random 50 of your own documents {#sample}
 
 Start with a random sample, not the whole folder. It takes minutes, and you grade every document in it in the next step.
+
+::: {.note}
+**Which documents to put in the folder.** The engine reads one document at a time and writes one row for every file, whatever kind of document the file is. Its rules are built for the summons. If your folder holds whole case files (complaints, orders, returns of service), a case gets a row for each of them. When the file names say which documents are summonses, scan those alone, by giving `scan_documents()` a list of files in place of the folder.
+
+```r
+summonses <- list.files(docs_dir, pattern = "summons", ignore.case = TRUE,
+                        recursive = TRUE, full.names = TRUE)
+```
+:::
+
+::: {.note}
+**If your documents are not from Washington.** The rules that read the city and the state expect "WA" or "Washington" after the city. On a made-up Oregon summons and a made-up Texas one, the engine read the street, the unit, and the ZIP, left the city and state blank, and raised no flag. Every document you grade carries your city and state in the final table, and the others carry the street and ZIP alone. [Documents from another state](https://github.com/evictionresearch/extract-text/blob/main/docs/changing_rules.md#documents-from-another-state){target="_blank" rel="noopener noreferrer"} shows the four-line change that makes the engine read your state.
+:::
+
+::: {.note}
+**Practice first, on made-up documents.** Steps 4 to 8 run on the package's 15 made-up documents as well as on real ones, so you can learn the grading page before you open a court record. This block downloads the package's code (about 10 MB) into a folder in your home directory. Run it, skip the `docs_dir` and `results` lines below, and go on from `n_sample`. The documents are few and partly repeat one another, so the practice scores mean nothing. Delete the folder when you are done.
+
+```r
+practice <- path.expand("~/extract_text_practice")
+dir.create(practice, showWarnings = FALSE)
+download.file(paste0("https://github.com/evictionresearch/extract-text/",
+                     "archive/refs/heads/main.zip"),
+              file.path(practice, "extract-text.zip"), mode = "wb")
+unzip(file.path(practice, "extract-text.zip"), exdir = practice)
+docs_dir <- file.path(practice, "extract-text-main", "python", "tests",
+                      "fixtures")
+results  <- file.path(practice, "results")
+```
+:::
 
 `docs_dir` is the folder that holds your court documents (PDF or TIFF, subfolders included). `results` is a new folder where everything from here on is written. Type each path with forward slashes, on Windows too.
 
@@ -245,9 +279,17 @@ score_documents(res)
 7 zip              1     1     0     0     0
 ```
 
-This example is the one made-up document graded in the video, where the engine misread the city. It is shortened to the main columns. With 50 graded documents, `checked` reads 50. The score has one row per field and counts how many documents the engine got right, nearly right, left blank, or got wrong. Two more columns, `right_random` and `checked_random`, give the accuracy estimate for the whole folder when you divide the first by the second.
+This example is the one made-up document graded in the video, where the engine misread the city. It is shortened to the main columns. With 50 graded documents, `checked` reads 50. The score has one row per field and counts how many documents the engine got right, nearly right (the right content written differently, such as Ave for Avenue), left blank, or got wrong. Two more columns, `right_random` and `checked_random`, give the accuracy estimate for the whole folder when you divide the first by the second.
 
-Decide here whether the fields you need are accurate enough to scan everything. Fifty random documents put the share right within about 10 points. Grade 100 or more before you publish counts or send anything to people.
+**Reading the score.** Say the street row shows 43 right of 50 checked. The engine read the street right on 86 percent of your sample. Fifty documents is a small sample, so the share for the whole folder is probably between about 76 and 96 percent. Grade 100 or more before you publish counts or send anything to people.
+
+Decide here whether the fields you need are accurate enough to scan everything. No score is right for everyone, so ask what the table is for. A count of filings by ZIP code can live with a street that is wrong one time in seven, and a mailing to tenants cannot. Look only at the fields you will use, and grade those with care, because a field you leave as the engine filled it is counted as right.
+
+When a field you need is weak, there are three things to do.
+
+- **The engine looked in the wrong place.** Its box sat over the wrong part of the page, or the field had no box. Step 6 can fix that for your court's forms, with no code.
+- **The box was in the right place and the value was still wrong.** A rule has to change. [Improve it](improve.html) shows how to tell us what goes wrong and how to change a rule on your own copy.
+- **Grade more.** Whatever the score, every document you grade is right in the final table. For a small folder, grading all of it is a sound plan.
 
 Your corrections do not change the engine's rules. They tell you which fields to trust, every document you grade carries your answer in the final table, and your boxes teach the engine your court's forms in the next step. [How the rules improve](how-it-works.html#rules) says how the rules themselves get better.
 
@@ -318,14 +360,16 @@ The table has one row per document, with the case number, the plaintiff, the def
 - **The whole procedure on one page.** [Start here](https://github.com/evictionresearch/extract-text/blob/main/docs/start_here.md){target="_blank" rel="noopener noreferrer"} gives the same steps in plain words, with the terminal command for each.
 - **Make the engine read your documents better.** [Improve it](improve.html) shows how to tell us what goes wrong, with no programming, and how to change the rules on your own copy.
 - **More on form templates.** The guide is the last chapter of [Changing the rules](https://github.com/evictionresearch/extract-text/blob/main/docs/changing_rules.md){target="_blank" rel="noopener noreferrer"}.
-- **Set up the AI engine.** It is optional and needs about 16 GB of memory. [Section 6 of the manual](https://github.com/evictionresearch/extract-text/blob/main/docs/manual.md#6-setting-up-the-ai-engine-optional){target="_blank" rel="noopener noreferrer"} has the two steps.
+- **Try the local AI engine.** It is experimental: it runs, but its test against hand-labeled documents is not finished. It needs about 16 GB of memory. [Section 6 of the manual](https://github.com/evictionresearch/extract-text/blob/main/docs/manual.md#6-setting-up-the-ai-engine-optional){target="_blank" rel="noopener noreferrer"} has the two steps.
 - **Read the manual.** [The manual](https://github.com/evictionresearch/extract-text/blob/main/docs/manual.md){target="_blank" rel="noopener noreferrer"} covers every output column, the flags, and how to use the package outside Washington.
 
 ## If something goes wrong {#help}
 
 **Run the checkup first.** `extracttext_doctor()` in R looks at your computer and prints the command for anything missing.
 
-**The checkup says "The Python engine is not installed yet."** Restart R and run it again. If the message stays, R may be using another Python project on your computer, such as a `.venv` folder in your working directory. Point R at the engine's own environment, then run the checkup again.
+**The checkup says "The Python engine is not installed yet."** Restart R and run it again. If the message stays, the install in step 2 stopped early, most often because Python was missing or older than 3.10. Run the two checks in step 2, fix what they show, and install again.
+
+If the install finished and the message still stays, something has told R to use another Python. In a fresh R session, point R at the engine's own environment before anything else, then run the checkup.
 
 ```r
 library(extracttext)
@@ -341,12 +385,16 @@ extracttext_doctor()
 
 ## Python and the command line {#python}
 
-The eight steps above use R. The same engine runs from Python and from a terminal. Install the four programs from step 1 first.
+The eight steps above use R. The same engine runs from Python and from a terminal. Install the four programs from step 1 first. Then make a private Python environment for the engine and turn it on. Python from Homebrew on a Mac, and from Debian or Ubuntu, refuses a plain `pip install` outside one.
 
 ```bash
+python3 -m venv ~/extract-text-env
+source ~/extract-text-env/bin/activate
 pip install "extract-text @ git+https://github.com/evictionresearch/extract-text#subdirectory=python"
 extract-text doctor
 ```
+
+On Windows, skip the first two lines. On a Mac or Linux, run the `source` line again in every new terminal window. [Start here](https://github.com/evictionresearch/extract-text/blob/main/docs/start_here.md#the-same-steps-at-a-terminal){target="_blank" rel="noopener noreferrer"} gives the terminal command for each of the eight steps.
 
 ```python
 from extract_text import extract, scan

@@ -3,14 +3,39 @@
 # Author: Tim Thomas
 # Created: 2026-08-18
 # Reviewer:
-# Updated: 2026-08-18
+# Updated: 2026-11-17
 # =============================================================================
 
 # Module handle, populated lazily on first use so that loading the package
 # never requires a working Python environment.
 .et <- new.env(parent = emptyenv())
 
+# Point reticulate at the engine's own Python environment before Python
+# starts. Without this, reticulate prefers a ".venv" folder in the working
+# directory (or any other Python project it finds first) over the package's
+# environment, and the engine looks as if it were never installed. A Python
+# the user chose is left alone: RETICULATE_PYTHON, RETICULATE_PYTHON_ENV, or
+# options(extracttext.bind_python = FALSE) turn this off, and a
+# reticulate::use_virtualenv() or use_python() call made after the package
+# loads still wins.
+bind_engine_python <- function(envname = "r-extracttext") {
+  if (isFALSE(getOption("extracttext.bind_python", TRUE))) return(invisible(FALSE))
+  if (nzchar(Sys.getenv("RETICULATE_PYTHON")) ||
+      nzchar(Sys.getenv("RETICULATE_PYTHON_ENV"))) {
+    return(invisible(FALSE))
+  }
+  if (reticulate::py_available()) return(invisible(FALSE))
+  found <- tryCatch(reticulate::virtualenv_exists(envname), error = function(e) FALSE)
+  if (!isTRUE(found)) return(invisible(FALSE))
+  bound <- tryCatch({
+    reticulate::use_virtualenv(envname, required = TRUE)
+    TRUE
+  }, error = function(e) FALSE)
+  invisible(bound)
+}
+
 .onLoad <- function(libname, pkgname) {
+  bind_engine_python()
   .et$extract_text <- reticulate::import(
     "extract_text",
     delay_load = list(

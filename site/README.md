@@ -40,7 +40,9 @@ media/                           the two videos and their still images
 - `get-started.qmd` follows `getting_started_example_script.R`. When the script changes, change the page.
 - `improve.qmd` follows `docs/changing_rules.md` in its second half, and its example report was printed by `extract-text score --shapes` on made-up documents. When the guide or the report changes, change the page.
 - The version number appears in `index.qmd` (the badge), `how-it-works.qmd` (Status), and `about.qmd` (the citation). The release checklist in `MAINTENANCE.md` should include them.
-- The accuracy numbers in `how-it-works.qmd` and `index.qmd` come from `README.md` and section 13 of `docs/manual.md`. Change them there first.
+- The accuracy numbers in `how-it-works.qmd` and `index.qmd` come from section 13 of `docs/manual.md`. Change them there first.
+- The step numbers are shared. `get-started.qmd`, `getting_started_example_script.R`, and `docs/start_here.md` use the same eight steps, and other pages refer to them by number. Renumber all three together or not at all.
+- The status of the two engines (the rules engine released, the local AI engine experimental) is stated on `index.qmd`, `how-it-works.qmd`, `get-started.qmd`, the README, and section 2 of the manual. Change them together when the AI engine's test is finished.
 
 ## The videos
 

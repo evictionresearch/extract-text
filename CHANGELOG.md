@@ -4,6 +4,17 @@ Every user-facing change to extract-text is recorded here, newest first. A chang
 
 ## Unreleased
 
+- One walkthrough, one numbering. The getting-started script and `docs/start_here.md` now use the same eight steps as the website's Get started page, so step 5 (grade and score) means the same thing in all three. The script's old steps 5, 7, 10, and 11 are folded into the steps they belong to, and its "scan again" block follows step 8. `docs/quickstart.html`, an older page that nothing linked to, is removed.
+- The README, the home page, How it works, and the manual say up front that the rules engine is the released tool and the local AI engine is experimental, its test against hand-labeled documents not finished. Examples that ran both engines now run the rules engine.
+- The README is cut to what the package is, its status, the eight steps, and a table of where to read what. Install detail, accuracy figures, and the card game's description live in the Get started page, the manual, and `game/README.md`.
+- Step 4 says which documents to put in the folder (the rules are built for the summons, and every file gets a row), what documents from outside Washington return (street, unit, and ZIP, with the city and state blank and no flag, seen on made-up Oregon and Texas summonses), and how to practice steps 4 to 8 on the package's made-up documents first.
+- `docs/changing_rules.md` has a chapter, "Documents from another state": the four-line change that makes the engine read another state's city and state, tried on the same made-up summonses, with its cautions.
+- Step 5 shows how to read a score with a worked example, and what to do when a field is weak.
+- The terminal install uses a virtual environment. A plain `pip install` fails with "externally-managed-environment" on Python from Homebrew, Debian, and Ubuntu. The manual's troubleshooting section has the message.
+- The R package points R at the engine's own Python environment when it loads, so a `.venv` folder in the working directory no longer makes the engine look uninstalled, and the `reticulate::use_virtualenv()` line is gone from the steps. `RETICULATE_PYTHON`, or `options(extracttext.bind_python = FALSE)` before `library(extracttext)`, turns this off.
+- `GRADING.md` now says what belongs in each field for anyone grading. The logistics of a Network grading round (the zip, the Drive folder, sending answers back) moved to `docs/grading_round.md`.
+- After a scan, the terminal's closing message gives the review command with `--serve`, which is what lets the page save.
+- The Get started page checks for Python and git before building the engine, and the manual's install section names all four helper programs.
 - The website has an "Improve it" page: how to tell the Eviction Research Network what the engine gets wrong, with no programming and with what needs a data agreement first, and how to change the rules on your own copy.
 - The README has a short "How it works" section ahead of "Get started": the rules engine, the AI engine, and why the two are run together.
 - The README's first paragraph cites the *Cityscape* paper, the first to use this method on eviction case records. Address Check, the card game, is described as an earlier tool that is not in current use, and as borrowing two ideas from braindr, not following its whole design; the README no longer calls it the only source of ground truth.

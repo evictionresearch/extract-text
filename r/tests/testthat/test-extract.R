@@ -202,3 +202,14 @@ test_that("check_addresses adds the check to scan results", {
   expect_named(only, c("doc", "address_check", "address_suggested", "address_check_similarity"))
   expect_error(check_addresses(res, points), "preset")
 })
+
+test_that("the load-time Python binding stands down when the user chose a Python", {
+  old <- options(extracttext.bind_python = FALSE)
+  expect_false(bind_engine_python())
+  options(old)
+
+  had <- Sys.getenv("RETICULATE_PYTHON", unset = NA)
+  Sys.setenv(RETICULATE_PYTHON = "/a/python/the/user/chose")
+  expect_false(bind_engine_python())
+  if (is.na(had)) Sys.unsetenv("RETICULATE_PYTHON") else Sys.setenv(RETICULATE_PYTHON = had)
+})

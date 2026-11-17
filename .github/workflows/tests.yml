@@ -97,16 +97,17 @@ jobs:
     # The install a new user runs, on machines with R and nothing else: no
     # poppler, no tesseract, and no Python set up for the package.
     # extracttext_install() has to bring all three, and a fresh R session
-    # has to read a made-up scan with them. macos-14 is the version a tester
-    # could not install on through Homebrew, and macos-15-intel is an Intel
-    # Mac, which Homebrew no longer builds for.
+    # has to read a made-up scan with them. macos-15-intel is an Intel Mac,
+    # which Homebrew no longer builds for. GitHub no longer offers a macOS 14
+    # machine (the version a tester could not install on through Homebrew),
+    # so macOS 15 is the oldest Mac tested here.
     name: install (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
-        os: [windows-latest, windows-2022, macos-14, macos-15-intel, macos-latest, ubuntu-latest]
+        os: [windows-latest, windows-2022, macos-15, macos-15-intel, macos-latest, ubuntu-latest]
     steps:
       - uses: actions/checkout@v4
       - uses: r-lib/actions/setup-r@v2
@@ -117,7 +118,9 @@ jobs:
           working-directory: r
           pak-version: repo
       - name: Install the R package
-        run: R CMD INSTALL r
+        # Rscript, not "R CMD INSTALL": in PowerShell on Windows, R is a
+        # built-in shorthand for another command
+        run: Rscript -e "install.packages('r', repos = NULL, type = 'source')"
       - name: Build the engine's environment, as a new user does
         run: Rscript .github/scripts/install_check.R install
       - name: Read a made-up scan from a fresh R session

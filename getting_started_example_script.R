@@ -39,8 +39,10 @@
 # that begins with # is switched off; delete the # and the space after it
 # to switch it on.
 #
-# Which computers. extract-text installs on a Mac with macOS 11 or later (an
-# Apple or an Intel chip), on 64-bit Windows 10 or 11, and on Linux. The
+# Which computers. The parts extract-text installs are built for a Mac with
+# macOS 11 or later (an Apple or an Intel chip), for 64-bit Windows 10 or
+# 11, and for Linux. We test the install on macOS 15 and later, on Windows
+# Server, and on Linux. The
 # current R needs macOS 14 on an Apple chip, or Windows 10, and the current
 # RStudio lists macOS 15 and Windows 11; on an older system, use the R and
 # RStudio versions made for it.

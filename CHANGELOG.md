@@ -14,7 +14,7 @@ Every user-facing change to extract-text is recorded here, newest first. A chang
 - The install tells conda to use the computer's certificate store, as pip does, so it works where an office inspects web traffic with its own certificate.
 - A helper program that writes bytes that are not text to its error stream no longer stops a read.
 - Step 1 of Get started, the script, and `docs/start_here.md` is now "Install R and RStudio", and step 2 runs the check and the install. The terminal route's install line uses the zip, and a conda line is given beside it.
-- The repository's tests now run the install on Windows, macOS 14, an Intel Mac, the current macOS, and Linux, on machines with R and nothing else.
+- The repository's tests now run the install on Windows Server 2025 and 2022, macOS 15 on Apple and Intel chips, macOS 26, and Linux, on machines with R and nothing else. All six passed on 2026-11-17.
 - The install pages say which systems the installers need: on a Mac, macOS 15 (Sequoia) or later on an Apple chip, because Homebrew has ready-made poppler, tesseract, and Python for those only; on a PC, Windows 11, with what Windows 10 (version 1809 or later) can and cannot do. A tester on macOS 14 could not install poppler and tesseract.
 - On the review page, a box you draw is added to the boxes already there. Before, the first box drawn for a field hid the engine's own boxes of that field, and each had to be drawn again. A box in the wrong place is deleted with its cross, as before.
 - While a field is picked for drawing, the pointer is a crosshair on the enlarged page too, and the tooltip says what a drag will do. Before, the enlarged page kept the zoom-out pointer and "Click to shrink".

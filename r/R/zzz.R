@@ -200,8 +200,24 @@ extracttext_install <- function(method = c("conda", "virtualenv"),
     }
   } else {
     if (is.null(own_conda())) {
+      root <- reticulate::miniconda_path()
+      if (grepl(" ", root, fixed = TRUE)) {
+        stop(
+          "The install folder has a space in its name, which the installer cannot use:\n  ",
+          root, "\nChoose a folder without a space that you can write to, tell R about it ",
+          "with this line (change the folder to yours), and run extracttext_install() again:\n",
+          "  Sys.setenv(RETICULATE_MINICONDA_PATH = \"C:/extracttext\")\n",
+          "R forgets that line when it closes. docs/it_checklist.md (point 4 under ",
+          "\"What can stop it\") says how to make R remember it.",
+          call. = FALSE
+        )
+      }
+      # a folder with no conda in it is what an install that was stopped
+      # partway leaves behind; the installer refuses it unless told to start over
+      leftover <- dir.exists(root)
+      if (leftover) message("An earlier install stopped partway. Starting it again.")
       message("Downloading Miniforge (conda-forge's installer) into your user folder, once.")
-      reticulate::install_miniconda(update = FALSE)
+      reticulate::install_miniconda(update = FALSE, force = leftover)
     }
     conda <- own_conda()
     if (is.null(conda)) {

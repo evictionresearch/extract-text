@@ -132,16 +132,8 @@ Sections 3 to 9 of this manual are the reference behind those steps.
 Windows. The deterministic engine is light. The AI engine needs about 16 GB of
 memory to run comfortably.
 
-**From R, nothing else to install.** `extracttext_install()` brings the
-helper programs below with the engine, from conda-forge, into a folder of
-its own inside your user folder ([section 5](#5-installation-for-r-users)).
-It needs macOS 11 or later (an Apple or an Intel chip), 64-bit Windows 10 or
-11, or Linux, and no administrator rights. The rest of this section is for
-Python and terminal users, and for anyone who would rather install the
-programs themselves.
-
-**A recent system, if you install the programs yourself** (checked November
-2026).
+**A recent system.** The engine itself asks little, but the installers of
+the helper programs below do (checked November 2026).
 
 - **Mac: macOS 15 (Sequoia) or later, on an Apple chip (M1 or later).**
   Homebrew supports macOS 15 through 27 on Apple chips and calls macOS 11
@@ -149,15 +141,18 @@ programs themselves.
   tesseract, and Python for macOS 15, 26, and 27 on Apple chips only, and no
   longer builds them for Intel Macs. On an older or Intel Mac, Homebrew
   warns and tries to build each program from source code, which is slow and
-  can fail; it did for one of our testers on macOS 14. On such a Mac, use
-  the R install, or conda (the last row of the table below).
-- **Windows.** The `winget` installer needs Windows 10 version 1809 or
-  later, and Python 3.12 needs Windows 8.1 or later.
+  can fail; it did for one of our testers on macOS 14. Update macOS first.
+  Homebrew's own advice for a Mac that cannot be updated is MacPorts, which
+  this project has not tested. RStudio also lists macOS 15 or later.
+- **Windows: Windows 11.** The `winget` installer needs Windows 10 version
+  1809 or later, R needs Windows 10 or later, and Python 3.12 needs
+  Windows 8.1 or later, so the four programs and R install on an up-to-date
+  Windows 10. The current RStudio lists Windows 11 only.
 - **To check.** On a Mac, Apple menu, About This Mac. On Windows, press the
   Windows key, type `winver`, and press Enter.
 
-**Three helper programs**, all free and open source, and a fourth that only
-the AI engine needs.
+**Three helper programs**, all free and open source, installed once from your
+system's package manager, and a fifth that only the AI engine needs.
 
 - **poppler** opens PDF files. It provides the small programs extract-text
   uses to pull digital text out of e-filed PDFs and to turn scanned pages
@@ -184,8 +179,7 @@ Install commands for the helper programs, by operating system.
 |---|---|---|---|---|
 | macOS (Homebrew) | `brew install poppler` | `brew install tesseract` | `brew install python` | `brew install ollama`, or the installer at ollama.com |
 | Debian/Ubuntu | `sudo apt install poppler-utils` | `sudo apt install tesseract-ocr` | `sudo apt install python3 python3-venv` | installer at ollama.com |
-| Windows | `winget install oschwartz10612.Poppler` | `winget install UB-Mannheim.TesseractOCR`, then add `C:\Program Files\Tesseract-OCR` to PATH | `winget install Python.Python.3.12` | installer at ollama.com |
-| Any, with conda | `conda create -n extract-text -c conda-forge python=3.12 poppler tesseract` brings all three | | | installer at ollama.com |
+| Windows | `winget install oschwartz10612.Poppler` | `winget install UB-Mannheim.TesseractOCR`, then add `C:\Program Files\Tesseract-OCR` to PATH | `winget install Python.Python.3.12` and `winget install Git.Git` | installer at ollama.com |
 
 If any of that sounds unfamiliar, install what you can, then run the checkup
 in [section 7](#7-checking-your-setup). It looks at your machine and prints
@@ -241,49 +235,22 @@ library(extracttext)
 extracttext_install()   # one time: sets up the Python engine behind the scenes
 ```
 
-`extracttext_install()` builds a private environment named `r-extracttext`
-and installs the engine into it. The environment comes from conda-forge and
-carries its own Python, poppler, and tesseract, so nothing else has to be
-installed first. If the computer has no conda that R manages, the install
-first downloads Miniforge, conda-forge's installer, into your user folder.
-The whole install takes about 1.5 GB and asks for no administrator rights.
-You do not need to know Python or conda or manage either afterward; the
-reticulate package carries R calls across to the engine automatically.
-Restart R after the install, then run `extracttext_doctor()` to confirm
-everything is in place. The checkup names the copy of each program the
-engine will run, and each should read "installed with extract-text".
+`extracttext_install()` creates a private Python environment named
+`r-extracttext` and installs the engine into it. You do not need to know
+Python or manage it afterward; the reticulate package carries R calls across
+to the engine automatically. Restart R after the install, then run
+`extracttext_doctor()` to confirm everything is in place.
 
-On a computer your organization manages, run `extracttext_preflight()`
-before the install. It installs nothing. It reports the folder the install
-writes to, the free disk space, and whether R can reach the web addresses
-the install downloads from. [`it_checklist.md`](it_checklist.md) is written
-for the IT department: what is installed, where, from which addresses, and
-what can stop it.
-
-Each download has an alternative, for an organization that blocks an address
-or keeps its own copies: `channel` names where the conda packages come from
-(a mirror of conda-forge, or an internal repository), `conda` a conda program
-already on the computer, `pip_index` where the Python libraries come from,
-and `source` a copy of the engine's code on disk. The first three can be set
-once for a computer as environment variables. [`it_checklist.md`](it_checklist.md)
-has the table and an example.
-
-A computer that already has Python 3.10 or newer, poppler, and tesseract can
-use them instead: `extracttext_install(method = "virtualenv")` builds a
-plain Python environment, as versions before 0.4.2 did. When both kinds of
-environment exist, the package uses the conda one.
-
-Each time the package loads, it points R at its environment, so a `.venv`
+Each time the package loads, it points R at that environment, so a `.venv`
 folder in your working directory, or another Python project, does not get
 in the way. A Python you chose yourself is left alone: the
 `RETICULATE_PYTHON` environment variable, or
 `options(extracttext.bind_python = FALSE)` set before `library(extracttext)`,
 turns this off.
 
-The engine calls the helper programs in
-[section 3](#3-what-you-need-before-installing) no matter which language you
-work from. It runs the copies in its own environment first, and the
-computer's own copies when the environment has none.
+The helper programs in [section 3](#3-what-you-need-before-installing) are
+still needed, because the engine calls them no matter which language you work
+from.
 
 ## 6. Setting up the AI engine (optional)
 
@@ -337,9 +304,7 @@ R:
 extracttext_doctor()
 ```
 
-The report covers the helper programs and which copy of each the engine will
-run (one installed with extract-text, or one installed on the computer), the
-Python engine, whether ollama is
+The report covers the helper programs, the Python engine, whether ollama is
 running, and whether the model is pulled. It reads none of your documents and
 touches no network beyond asking the ollama program on your own machine what
 models it has. When the last line says the deterministic engine can run, you
@@ -1250,22 +1215,15 @@ restart R."** Exactly that. If it persists after a restart, run
 `reticulate::py_config()` and check that the `r-extracttext` environment is
 the one selected. If another Python is selected, something told R to use it
 (a `RETICULATE_PYTHON` setting, or a `reticulate::use_python()` line run
-earlier in the session). Remove that setting, restart R, and run
-`library(extracttext)` before anything else that uses Python; the package
-points R at its own environment as it loads.
+earlier in the session). In a fresh R session, run
+`reticulate::use_virtualenv("r-extracttext", required = TRUE)` before any
+other extract-text function.
 
 **`brew install poppler tesseract` warns that your macOS version is not
 supported, starts compiling, or fails.** Homebrew has ready-made copies of
-these programs only for macOS 15 (Sequoia) and later on Apple chips. From R
-you do not need Homebrew: `extracttext_install()` brings both programs with
-the engine and works on macOS 11 and later.
+these programs only for macOS 15 (Sequoia) and later on Apple chips. Update
+macOS (System Settings, General, Software Update) and run the line again.
 [Section 3](#3-what-you-need-before-installing) has the detail.
-
-**`extracttext_install()` stops with an error.** Read its last lines. A web
-address that cannot be reached, a certificate error, or a program that is
-not allowed to run all come from the computer's security settings. Run
-`extracttext_preflight()` and take its report, with
-[`it_checklist.md`](it_checklist.md), to your IT department.
 
 **"error: externally-managed-environment" from `pip install`.** Your Python
 does not allow installs outside a virtual environment. Make one and install
@@ -1293,11 +1251,6 @@ paths must be on PATH (the doctor checks). Everything else is identical.
 
 - **anchor** A named extraction rule tied to a place or phrasing on the
   page. Recorded with every value it produces.
-- **conda-forge** A community collection of ready-made programs for Mac,
-  Windows, and Linux. `extracttext_install()` takes Python, poppler, and
-  tesseract from it. **Miniforge** is its installer, and a **conda
-  environment** is a folder holding one set of those programs, kept apart
-  from everything else on the computer.
 - **deterministic** Producing the same output for the same input, every
   time. Rules are deterministic; AI models are not.
 - **e-filed PDF** A PDF whose text is digital, selectable, and exact. The

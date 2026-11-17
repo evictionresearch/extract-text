@@ -41,7 +41,6 @@ media/                           the two videos and their still images
 - `improve.qmd` follows `docs/changing_rules.md` in its second half, and its example report was printed by `extract-text score --shapes` on made-up documents. When the guide or the report changes, change the page.
 - The version number appears in `index.qmd` (the badge), `how-it-works.qmd` (Status), and `about.qmd` (the citation). The release checklist in `MAINTENANCE.md` should include them.
 - The accuracy numbers in `how-it-works.qmd` and `index.qmd` come from section 13 of `docs/manual.md`. Change them there first.
-- Step 1 is "Install R and RStudio" since 0.4.2, when `extracttext_install()` began to bring Python, poppler, and tesseract with it. The manual keeps the lines for installing them by hand (section 3).
 - The step numbers are shared. `get-started.qmd`, `getting_started_example_script.R`, and `docs/start_here.md` use the same eight steps, and other pages refer to them by number. Renumber all three together or not at all.
 - The status of the two engines (the rules engine released, the local AI engine experimental) is stated on `index.qmd`, `how-it-works.qmd`, `get-started.qmd`, the README, and section 2 of the manual. Change them together when the AI engine's test is finished.
 

@@ -133,6 +133,28 @@ def test_review_page_links_the_grading_rules_and_says_what_comes_next(tmp_path):
     assert "When you have saved every document" not in graders
 
 
+def test_a_helper_programs_stray_bytes_do_not_stop_the_read(tmp_path):
+    # a program that writes bytes that are not text to its error stream
+    import sys
+
+    from extract_text import documents
+
+    script = tmp_path / "noisy.py"
+    script.write_text("import sys\nsys.stderr.buffer.write(b'\\x89PNG\\xff')\nprint('ok')\n")
+    r = documents.run([sys.executable, str(script)])
+    assert r.stdout.strip() == "ok"
+
+
+@needs_system_tools
+def test_review_page_shows_a_png_documents_page(tmp_path):
+    # a document that is itself an image (PNG, JPEG) is its own page; the
+    # review page keeps a numbered copy to show beside the form
+    scan([FIXTURES / "synthetic_summons_page1.png"], out_dir=tmp_path, progress=False)
+    html = write_review(tmp_path, n=5).read_text()
+    assert 'src="doc_0001.png"' in html
+    assert (tmp_path / "review" / "doc_0001.png").stat().st_size > 0
+
+
 @needs_system_tools
 def test_review_page_script_parses(tmp_path):
     # the page's script is written inside a Python string, where one wrong

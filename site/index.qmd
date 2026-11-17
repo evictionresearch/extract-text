@@ -148,7 +148,7 @@ The Get started page has eight steps, each a few lines of R to copy and run. The
 [Steps 1 and 2]{.kicker}
 
 ### Install
-Install R and RStudio, then extract-text, which brings with it the programs that open PDFs and read scanned pages. No administrator password is asked for. A checkup looks at your computer and names anything missing.
+Install three free programs that open PDFs, read scanned pages, and run the engine (poppler, tesseract, and Python), then extract-text itself. A checkup looks at your computer and names anything missing.
 :::
 
 ::: {.card}

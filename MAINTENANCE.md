@@ -1081,7 +1081,15 @@ A tester on macOS 14 could not install poppler and tesseract. Checked the same d
 
 So the floor is macOS 15 on an Apple chip, set by Homebrew and RStudio, and Windows 10 version 1809 for the programs and R, with Windows 11 for the current RStudio. The Homebrew floor moves up one macOS version each autumn; check these pages again at each release. Not tested here: any install on macOS 14, on an Intel Mac, or on Windows. Issue #37 (poppler and tesseract from conda-forge) would take Homebrew out of the path.
 
-## 0.4.2: poppler, tesseract, and Python come with the package (2026-11-17)
+## Issue #37 built, tested, and withdrawn the same day (2026-11-17)
+
+The entry below records an install that brought Python, poppler, and tesseract with the package, from conda-forge. It was built, passed its tests, and was on `main` for about an hour (`22ba96d` to `8c0afd1`). Tim then withdrew it before any release: conda has given him trouble before, and a failure inside it would be hard for a new user, or for us, to work out. Users install poppler, tesseract, and Python themselves, as before. The code is in the history at those commits if the question comes back, and issue #37 stays open with this record.
+
+What stayed from that work, because it has nothing to do with conda: the engine comes as GitHub's zip, so git is not needed; a helper program's stray bytes no longer stop a read; the checkup says where it found each program; the review page shows the page of a PNG or JPEG document; steps 1 and 2 of the walkthroughs in plainer words; and a page for an IT department, rewritten for the programs a user installs. What went: the conda route in `extracttext_install()`, `extracttext_preflight()`, the engine's lookup in its own environment, and the `install` job in the tests workflow.
+
+Checked after the withdrawal, on this Mac: the Python and R suites, and the R install into a fresh virtualenv in a scratch folder. Not tested: the install on Windows by any route, on any version.
+
+## The withdrawn build: poppler, tesseract, and Python with the package (2026-11-17)
 
 Issue #37, built after a tester on macOS 14 could not install poppler and tesseract through Homebrew, and because the install has to work for an analyst at an agency who cannot install programs without IT.
 

@@ -17,8 +17,8 @@ A person checks the engine's work before anyone trusts it. You grade a random 50
 
 The [Get started page](https://evictionresearch.net/extract-text/get-started.html) walks through the install and a first run in eight steps, in R, on Mac, Windows, or Linux.
 
-1. **Install R and RStudio.** They are the only programs you install yourself.
-2. **Install extract-text** and run its checkup. It brings its own Python, poppler, and tesseract, and asks for no administrator password.
+1. **Install three free programs:** poppler, tesseract, and Python.
+2. **Install extract-text** and run its checkup.
 3. **Read one made-up summons** to see what the engine returns.
 4. **Scan a random 50** of your own documents.
 5. **Grade those 50** on a review page in your browser, then read the score.
@@ -37,7 +37,7 @@ You can practice steps 4 to 8 on the package's made-up documents before you open
 | Install it and run it, step by step | [Get started](https://evictionresearch.net/extract-text/get-started.html), or [`getting_started_example_script.R`](getting_started_example_script.R) |
 | See the whole procedure on one page, or use a terminal | [`docs/start_here.md`](docs/start_here.md) |
 | Know what belongs in each field when you grade | [`GRADING.md`](GRADING.md) |
-| Get it approved or installed on a computer your organization manages | [`docs/it_checklist.md`](docs/it_checklist.md) |
+| Get the programs approved or installed on a computer your organization manages | [`docs/it_checklist.md`](docs/it_checklist.md) |
 | Fix and draw the boxes on the review page | [`docs/grading_with_boxes.md`](docs/grading_with_boxes.md) |
 | Learn how the engines read a page, and what was measured | [How it works](https://evictionresearch.net/extract-text/how-it-works.html), and manual sections [12](docs/manual.md#12-how-it-works-under-the-hood) and [13](docs/manual.md#13-accuracy-measured-honestly) |
 | Look up an output column, a flag, or an error message | Manual sections [10](docs/manual.md#10-the-output-column-by-column), [11](docs/manual.md#11-flags-and-the-review-workflow), and [18](docs/manual.md#18-troubleshooting) |

@@ -2,26 +2,17 @@
 % Please edit documentation in R/zzz.R
 \name{extracttext_install}
 \alias{extracttext_install}
-\title{Install the Python engine, with poppler and tesseract}
+\title{Install the Python engine}
 \usage{
 extracttext_install(
-  method = c("conda", "virtualenv"),
   anthropic = FALSE,
   parquet = TRUE,
   source = NULL,
   envname = "r-extracttext",
-  ref = "main",
-  channel = Sys.getenv("EXTRACTTEXT_CONDA_CHANNEL", "conda-forge"),
-  conda = Sys.getenv("EXTRACTTEXT_CONDA", ""),
-  pip_index = Sys.getenv("EXTRACTTEXT_PIP_INDEX", "")
+  ref = "main"
 )
 }
 \arguments{
-\item{method}{\code{"conda"} (default) builds the environment from conda-forge,
-with Python, poppler, and tesseract inside it. \code{"virtualenv"} builds a
-plain Python environment instead, for a computer that already has
-Python 3.10 or newer, poppler, and tesseract.}
-
 \item{anthropic}{Also install the SDK for the cloud API backend. Leave
 \code{FALSE} for a local-only setup, which is the right default for records
 that must not leave the machine.}
@@ -36,43 +27,15 @@ from disk instead of from GitHub. Default \code{NULL} installs from GitHub.}
 
 \item{ref}{Git branch, tag, or commit to install when installing from
 GitHub. Default \code{"main"}.}
-
-\item{channel}{Where the conda packages (Python, poppler, tesseract) come
-from. The default, \code{"conda-forge"}, is the community channel at
-conda.anaconda.org. Give a full address for a mirror of it, such as
-\code{"https://prefix.dev/conda-forge"}, or for your organization's own
-repository.}
-
-\item{conda}{Path to a conda program already on the computer (Miniforge,
-Miniconda, or Anaconda, installed by you or your IT department). The
-default uses the Miniforge that reticulate keeps for itself and
-downloads it when absent. Whichever conda is used, the environment is
-built in your own user folder and from \code{channel} only.}
-
-\item{pip_index}{Where the Python libraries come from: the address of a
-package index, such as your organization's mirror of PyPI. The default
-is PyPI itself.}
 }
 \value{
 Invisibly, the environment name.
 }
 \description{
-Builds the \code{r-extracttext} environment the package runs on. Run once per
-computer, then restart R. By default nothing else has to be installed
-first: the environment comes from conda-forge and carries its own Python,
-poppler (which opens PDFs), and tesseract (which reads scanned pages).
-If the computer has no conda that reticulate manages, Miniforge is
-downloaded into your user folder first; no administrator rights are
-asked for. \code{\link[=extracttext_doctor]{extracttext_doctor()}} then says what was found.
-}
-\details{
-Every download has an alternative, for an organization that blocks an
-address or keeps its own copies. \code{channel} names where the conda packages
-come from, \code{conda} a conda program already on the computer, \code{pip_index}
-where the Python libraries come from, and \code{source} a copy of the engine's
-code on disk. Each of the first three can also be set once for a computer
-with an environment variable (\code{EXTRACTTEXT_CONDA_CHANNEL},
-\code{EXTRACTTEXT_CONDA}, \code{EXTRACTTEXT_PIP_INDEX}), so an IT department can
-set them and users run \code{extracttext_install()} with no arguments.
-\code{docs/it_checklist.md} in the repository walks through the choices.
+Creates the \code{r-extracttext} Python environment and installs the engine
+into it, straight from the project repository. Run once per machine, then
+restart R. This installs Python code only; the two helper programs the
+engine shells out to (poppler for PDFs, tesseract for scanned pages) come
+from your system package manager, and \code{\link[=extracttext_doctor]{extracttext_doctor()}} tells you
+exactly what to install if they are missing.
 }

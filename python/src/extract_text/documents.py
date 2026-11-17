@@ -25,11 +25,9 @@ Ported from the ERN Washington scanner (`wa_doc_scan.py`).
 
 from __future__ import annotations
 
-import os
 import re
 import shutil
 import subprocess
-import sys
 import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -50,59 +48,14 @@ class MissingDependencyError(RuntimeError):
     """A required system program is not installed. The message says which."""
 
 
-def own_tool_dirs() -> list[Path]:
-    """The folders of the engine's own Python environment that can hold
-    helper programs. An environment built from conda-forge (what
-    `extracttext_install()` builds by default) carries poppler and tesseract
-    there: `bin` on Mac and Linux, `Library/bin` on Windows."""
-    prefix = Path(sys.prefix)
-    return [prefix / "bin", prefix / "Library" / "bin"]
-
-
-def tool_path(binary: str) -> str | None:
-    """Where a helper program is: the copy inside the engine's own
-    environment first, then the system's. The engine runs the path this
-    returns, so the environment never has to be activated or put on PATH."""
-    for folder in own_tool_dirs():
-        found = shutil.which(binary, path=str(folder))
-        if found:
-            return found
-    return shutil.which(binary)
-
-
-def tool_is_own(binary: str) -> bool:
-    """Whether the copy `tool_path` finds is the environment's own."""
-    found = tool_path(binary)
-    return bool(found) and any(Path(found).parent == folder for folder in own_tool_dirs())
-
-
-def _tool_env(binary: str) -> dict | None:
-    """The environment for running a helper program. The environment's own
-    tesseract is told where its language data is, since nothing has
-    activated the environment; a setting the user made is left alone."""
-    if binary != "tesseract" or "TESSDATA_PREFIX" in os.environ or not tool_is_own(binary):
-        return None
-    prefix = Path(sys.prefix)
-    for data in (prefix / "share" / "tessdata", prefix / "Library" / "share" / "tessdata"):
-        if data.is_dir():
-            return {**os.environ, "TESSDATA_PREFIX": str(data)}
-    return None
-
-
 def run(cmd, **kw):
-    cmd = [str(c) for c in cmd]
-    binary = cmd[0]
-    cmd[0] = tool_path(binary) or binary
-    env = _tool_env(binary)
-    if env is not None:
-        kw.setdefault("env", env)
     # a helper program can write bytes that are not text to its error stream;
     # they are replaced, never allowed to stop the read
     return subprocess.run(cmd, capture_output=True, text=True, errors="replace", **kw)
 
 
 def have(binary: str) -> bool:
-    return tool_path(binary) is not None
+    return shutil.which(binary) is not None
 
 
 def _require(binary: str, purpose: str) -> None:
@@ -271,6 +224,7 @@ def render_page(doc_path, page=1, dpi=150, out_path=None):
     """
     doc_path = Path(doc_path)
     suffix = doc_path.suffix.lower()
+    named = out_path is not None
     if out_path is None:
         out_path = Path(tempfile.mkdtemp(prefix="extract_text_")) / "page.png"
     out_path = Path(out_path)
@@ -292,7 +246,19 @@ def render_page(doc_path, page=1, dpi=150, out_path=None):
             im.convert("L").save(out_path)
         return out_path
     if suffix in IMAGE_SUFFIXES:
-        return doc_path
+        # an image is its own page. A caller that named where the page goes
+        # (the review page keeps numbered copies) gets a copy written there;
+        # before 0.4.2 nothing was written, and the review page showed no
+        # image for a PNG or JPEG document
+        if not named:
+            return doc_path
+        if page != 1:
+            return None
+        from PIL import Image
+
+        with Image.open(doc_path) as im:
+            im.save(out_path)
+        return out_path
     return None
 
 

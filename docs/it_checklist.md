@@ -1,90 +1,50 @@
 # For your IT department
 
-This page is for the person who manages the computer extract-text will run on. It says what the install puts on the computer, where, and from which web addresses, so the install can be approved, or done for the user, without reading the code.
+This page is for the person who manages the computer extract-text will run on. It lists the programs the user needs, where each comes from, what the rest of the install does, and the web addresses it uses, so the install can be approved, or done for the user, without reading the code.
 
 extract-text reads court documents on the user's own computer. After the install it uses no network. It runs no service, opens no port to other computers, and sends no usage data.
 
-## What the user installs
+## What has to be on the computer
 
-1. **R**, and usually **RStudio**. R installs for one user without administrator rights (into the user's Program Files folder on Windows). RStudio's installer may ask for them.
-2. **The extract-text R package**, from GitHub, into the user's R library.
-3. **The engine's environment**, built by one R command, `extracttext_install()`. This is the part to look at.
+| Program | What it is for | Where it comes from |
+|---|---|---|
+| R, and usually RStudio | The user works in these | [cran.r-project.org](https://cran.r-project.org/) and [posit.co](https://posit.co/download/rstudio-desktop/) |
+| poppler | Opens PDF files | Mac: Homebrew (`brew install poppler`). Windows: `winget install oschwartz10612.Poppler`, a build of poppler for Windows. Linux: the `poppler-utils` package |
+| tesseract | Reads scanned pages (OCR) | Mac: Homebrew (`brew install tesseract`). Windows: `winget install UB-Mannheim.TesseractOCR`, the University of Mannheim's build. Linux: the `tesseract-ocr` package |
+| Python 3.10 or newer | Runs the engine | Mac: Homebrew (`brew install python`). Windows: `winget install Python.Python.3.12`, or the installer from [python.org](https://www.python.org/downloads/). Linux: `python3` and `python3-venv` |
 
-## What `extracttext_install()` does
+All are free and open source. You can install them by these means or by your own (a software center, a package you build), as long as the folders that hold `pdftoppm`, `pdftotext`, `pdfinfo`, and `tesseract` are on the user's PATH. On Windows the tesseract installer does not add its folder (by default `C:\Program Files\Tesseract-OCR`) to PATH; add it. Some of these installers may ask for administrator rights.
 
-- It downloads **Miniforge**, the conda-forge project's installer, and runs it for the current user only. On Windows the installer runs silently with `/InstallationType=JustMe /AddToPath=0 /RegisterPython=0 /NoRegistry=1`: no administrator rights, no change to PATH, no registry entries.
-- It creates one conda environment named `r-extracttext`, from the conda-forge channel only, holding Python 3.12, **poppler** (opens PDF files), and **tesseract** (reads scanned pages, with its language data).
-- It installs the engine's Python code and a handful of Python libraries with pip: pydantic, Pillow, numpy, pyarrow, and what they depend on.
+Which systems: on a Mac, Homebrew has ready-made copies of these programs for macOS 15 and later on Apple chips only. On Windows, `winget` needs Windows 10 version 1809 or later.
 
-Nothing is installed outside one folder:
+## What the user then runs in R
 
-| System | Folder |
-|---|---|
-| Windows | `r-miniconda` under the user's local application data folder (`%LOCALAPPDATA%`) |
-| Mac | `~/Library/r-miniconda-arm64` (Apple chip) or `~/Library/r-miniconda` (Intel) |
-| Linux | `r-miniconda` under the user's data folder (`~/.local/share`) |
+Two commands, neither of which asks for administrator rights.
 
-`extracttext_preflight()` in R prints the exact folder on a given computer. The folder takes about 1.5 GB, most of it a download cache. To put it somewhere else, set the environment variable `RETICULATE_MINICONDA_PATH` to a folder the user can write to, before the install and in every R session after.
+1. `remotes::install_github("evictionresearch/extract-text", subdir = "r")` installs the R package into the user's R library.
+2. `extracttext_install()` makes a Python virtual environment named `r-extracttext` in the user's own folder (the folder R prints for `reticulate::virtualenv_root()`, by default `.virtualenvs` in the user's home folder). It installs into it, with pip, the engine's Python code and the Python libraries it needs: pydantic, Pillow, numpy, pyarrow, and what they depend on.
 
-To remove everything, delete that folder and run `remove.packages("extracttext")` in R.
+Nothing is added to PATH, and nothing is written outside the R library and that folder. To remove it, run `reticulate::virtualenv_remove("r-extracttext")` and `remove.packages("extracttext")` in R.
 
-## Your choices
+`extracttext_doctor()` in R then reports what it found: each helper program and the folder it is in, the engine, and what is missing.
 
-Every download has an alternative. Each choice is an argument to `extracttext_install()`, and the first three can be set once for a computer as an environment variable, so users run the install with no arguments.
-
-| What | Default | Your choice | Argument, and environment variable |
-|---|---|---|---|
-| Where Python, poppler, and tesseract come from | The conda-forge channel at `conda.anaconda.org` | A mirror of conda-forge, such as `https://prefix.dev/conda-forge`, or your organization's own conda repository | `channel`, `EXTRACTTEXT_CONDA_CHANNEL` |
-| Which conda builds the environment | Miniforge, downloaded from GitHub into the user's folder | A conda you installed (Miniforge, Miniconda, or Anaconda): give the path to `conda`, or `conda.bat` on Windows | `conda`, `EXTRACTTEXT_CONDA` |
-| Where the Python libraries come from | PyPI | Your organization's package index | `pip_index`, `EXTRACTTEXT_PIP_INDEX` |
-| Where the engine's code comes from | GitHub's zip of the repository | A copy on disk: download the repository yourself and give its `python` folder | `source` |
-| Where the environment is built | The folder in the table above | Any folder the user can write to | `RETICULATE_MINICONDA_PATH` (environment variable only) |
-
-Whichever conda does the work, the environment is built in the user's own folder and from the one channel named, never from Anaconda's "defaults" channel.
-
-For example, with a mirror, a conda IT installed, and an internal package index:
-
-```r
-extracttext_install(channel   = "https://prefix.dev/conda-forge",
-                    conda     = "C:/ProgramData/miniforge3/condabin/conda.bat",
-                    pip_index = "https://packages.example.org/simple")
-```
-
-`extracttext_preflight()` takes the same three arguments and checks those places in place of the defaults.
-
-Two more routes need no download by the user at all.
-
-- **You build the environment, the user points at it.** Build a conda environment anywhere with Python 3.12, poppler, tesseract, and the engine (`pip install` of the repository's `python` folder), by whatever means you use. The user sets the environment variable `RETICULATE_PYTHON` to that environment's Python, and the package uses it as it is.
-- **You install the programs, the package installs only the engine.** See "If you would rather install the programs yourself" below.
-
-## The web addresses it needs, once
+## The web addresses the R commands need, once
 
 | Address | What comes from it |
 |---|---|
 | `cran.r-project.org`, or the CRAN mirror R is set to use | R packages the R package depends on |
-| `github.com`, `api.github.com`, `codeload.github.com` | The R package and the engine's code; the Miniforge installer (GitHub release files are served from a `githubusercontent.com` address) |
-| `conda.anaconda.org` | The conda-forge packages: Python, poppler, tesseract |
+| `github.com`, `api.github.com`, `codeload.github.com` | The R package, and the engine's code as a zip |
 | `pypi.org`, `files.pythonhosted.org` | The Python libraries |
 
-These are the defaults. Each row but the first two changes with the choices above.
-
-`conda.anaconda.org` is run by Anaconda, Inc., but the install uses the community conda-forge channel only, never Anaconda's own "defaults" channel, whose terms some organizations must license. If your organization blocks that address, the same packages are served by the mirror at `prefix.dev`: `extracttext_install(channel = "https://prefix.dev/conda-forge")`.
+The programs in the first table come from wherever you install them from.
 
 ## What can stop it on a managed computer
 
-1. **Web filtering.** Any address above that is blocked stops the install. `extracttext_preflight()` tries each from R and marks the ones it cannot reach.
-2. **Traffic inspection.** Where the organization inspects encrypted traffic with its own certificate, R and pip use the computer's certificate store and work. The install tells conda to use the computer's certificate store too (`CONDA_SSL_VERIFY=truststore`), unless that variable or `REQUESTS_CA_BUNDLE` is already set. If the install still fails with a certificate error, point `REQUESTS_CA_BUNDLE` at your organization's certificate file.
-3. **Rules that stop programs from running out of a user's folder** (application allowlisting, such as AppLocker or App Control for Business). The engine runs `python.exe`, `pdftoppm.exe`, `pdftotext.exe`, `pdfinfo.exe`, and `tesseract.exe` from the folder above. Either allow that folder, or set `RETICULATE_MINICONDA_PATH` to a folder where programs are allowed to run.
-4. **A user folder with a space in its path** (a Windows account named with two words). The installer refuses such a path, and `extracttext_install()` stops and says so. Set `RETICULATE_MINICONDA_PATH` to a folder without a space that the user can write to, such as `C:\extracttext`. To make R remember it, put one line, `RETICULATE_MINICONDA_PATH=C:/extracttext`, in a plain text file named `.Renviron` in the user's home folder (the folder R prints for `path.expand("~")`), and restart R.
-5. **An install that was stopped partway** (a dropped connection, a closed laptop). Run `extracttext_install()` again. It sees the unfinished folder and starts over.
-6. **Antivirus scanning** can slow the install, which writes many small files. It does not stop it.
-
-## If you would rather install the programs yourself
-
-Install Python 3.10 or newer, poppler, and tesseract by your usual means, with poppler's and tesseract's folders on PATH. The user then runs `extracttext_install(method = "virtualenv")`, which builds a plain Python environment and downloads only the engine's code and the Python libraries (GitHub and PyPI). `extracttext_doctor()` reports what it found and what is missing.
+1. **The three programs.** If users cannot install programs, poppler, tesseract, and Python are yours to install. This is the step most likely to need you.
+2. **Web filtering.** Any address in the table above that is blocked stops the R commands. If your organization keeps its own Python package index, pip uses it when the environment variable `PIP_INDEX_URL` names it.
+3. **Traffic inspection.** Where the organization inspects encrypted traffic with its own certificate, R and current versions of pip use the computer's certificate store. If pip fails with a certificate error, point the environment variable `PIP_CERT` at your organization's certificate file.
+4. **Rules that stop programs from running out of a user's folder** (application allowlisting). The engine runs the Python inside the virtual environment folder above. Allow that folder, or set the environment variable `WORKON_HOME` to a folder where programs are allowed to run, before the install and in every R session after.
 
 ## What we have and have not tested
 
-The install was built and run by hand on one Mac (macOS 26, Apple chip), with Homebrew taken off the search path: with its defaults; with the `prefix.dev` mirror, a conda already on the computer, and a named package index together; and with an environment built elsewhere and named by `RETICULATE_PYTHON`. The repository also runs the install as a test on every change, on machines that have R and nothing else: Windows Server 2025 and 2022, macOS 15 on an Apple chip and on an Intel chip, macOS 26, and Ubuntu. On 2026-11-17 it passed on all six: each built the environment, and a fresh R session read a made-up scanned document with the copies of poppler and tesseract installed with the package. On Windows the install took about two minutes and went to `C:\Users\<name>\AppData\Local\r-miniconda`. The results of each run are on the repository's Actions page.
-
-Not tested: Windows 10 or 11 themselves (the test machines run Windows Server), macOS 11 through 14 (conda-forge builds its packages for macOS 11 and later, and GitHub offers no test machine older than macOS 15), and any locked-down office computer. The test machines have administrator rights and open internet access, so the points above are not tested there. If the install fails on your computers, write to evictions@berkeley.edu with the last lines of the install's output and the report from `extracttext_preflight()`. Neither holds anything from court documents.
+The R commands were run on a Mac (macOS 26, Apple chip) with the programs from Homebrew. The repository's tests check the R package and the engine on Ubuntu on every change. The install has not been tested by us on Windows, or on a locked-down office computer. If it fails on your computers, write to evictions@berkeley.edu with the last lines of the install's output and what `extracttext_doctor()` prints. Neither holds anything from court documents.

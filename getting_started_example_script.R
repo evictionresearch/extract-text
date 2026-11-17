@@ -8,8 +8,9 @@
 # This script is the quick start script for the extract-text package using the
 # rules engine only (no AI, no network). It installs the package, reads a
 # made-up summons, scans a random 50 of your own documents, has you grade
-# those 50 by hand, scans the whole folder, has you grade a second random
-# 50 from it, and builds the final table of cases, names, and addresses. The
+# those 50 by hand, learns where your court's forms print each field from
+# that grading, scans the whole folder, has you grade a second random 50
+# from it, and builds the final table of cases, names, and addresses. The
 # grading is not optional: until it is done, how often the scan is right on
 # your documents is unknown (step 6 says why). Run it a line or a block at a
 # time, not with source(), because step 1 ends by restarting R.
@@ -72,7 +73,9 @@
 # install_github() fetches the R package. extracttext_install() then builds
 # the Python engine the package runs on, once per computer.
 # install.packages(c("remotes", "dplyr")) # if you don't have them yet
-remove.packages("extracttext") # if you have an older version installed
+# Only if you have an older version installed (it stops with an error on a
+# computer that has never had the package):
+# remove.packages("extracttext")
 remotes::install_github("evictionresearch/extract-text", subdir = "r")
 library(extracttext)
 
@@ -202,15 +205,23 @@ View(select(res, doc, defendant_names, defendant_street, defendant_city,
 # the plaintiff about 40 percent (October 2026). Grading a random 50 puts
 # the share right within about 10 points; grade 100 or more before
 # publishing counts or sending anything to people (manual section 11).
-# Your corrections do not change the engine. They tell you which fields to
-# trust, and every document you grade carries your answer in the final
-# table (step 13).
+# Your corrections do not change the engine's rules. They do three things.
+# The score in step 7 tells you which fields to trust. Every document you
+# grade carries your answer in the final table (step 13). And the boxes on
+# the page image can teach the engine where your court's form prints each
+# field (step 8).
 #
-# This opens a page in your browser with each
-# document beside what the engine read. Change only what is wrong, leave a
-# field blank when the document does not have it, and save. Each save goes
-# to corrections.jsonl in sample_dir. Press Esc in RStudio (Ctrl-C at a
-# terminal) when done; running it again picks up where you left off.
+# This opens a page in your browser with each document beside what the
+# engine read. Check each field against the page, change only what is
+# wrong, and leave a field blank when the document does not have it. Then
+# look at the colored boxes on the page image, which show where the engine
+# read each value. Where a box sits over the wrong place, drag it to the
+# right one. Where a field has no box, press the field's button under the
+# image and drag across the value. docs/grading_with_boxes.md has the
+# details. Save every document, even when the engine got everything right.
+# Each save goes to corrections.jsonl in sample_dir. Press Esc in RStudio
+# (Ctrl-C at a terminal) when done; running it again picks up where you
+# left off.
 review_documents(res, correct = TRUE, n = n_sample, draw = "random")
 
 # --------------------------------------------------------------------------
@@ -226,25 +237,73 @@ review_documents(res, correct = TRUE, n = n_sample, draw = "random")
 # Eviction Research Network from its own graded documents. You can also
 # change the rules on your own copy of the code: docs/changing_rules.md
 # shows how, with a worked example. Grading alone does not change them.
+# Where the engine looked in the wrong place on your court's forms, step 8
+# can help before you scan everything.
 score_documents(res)
 
 # --------------------------------------------------------------------------
-# Step 8. Scan the whole folder
+# Step 8. Teach the engine your forms (optional, no code)
+# --------------------------------------------------------------------------
+# The boxes from step 6 can improve how the engine reads your court's own
+# forms, with no change to any code. learn_templates() groups the documents
+# you graded by printed form. For each form with at least five graded
+# documents it writes a template: the form's printed words, which identify
+# it, and a region of a page for each field. A template holds no names or
+# addresses.
+#
+# Expect templates only for the forms your court uses most. A random 50
+# rarely holds five of a rare form. The report names every form that had too
+# few, and the engine reads those with its rules alone. If your court uses
+# many forms, a larger first sample (n_sample in step 4) covers more of them.
+learn_templates(res)
+
+# Opens a page showing each template's regions over a page it was learned
+# from. Check that each region sits where the form prints that field.
+review_templates(res)
+
+# Approve each template whose regions are right, by the name on that page.
+# Nothing learned is used until you approve it.
+# approve_template("form-1", res)
+
+# The templates and whether each is approved
+list_templates(sample_dir)
+
+# A template changes where the engine looks, not how it reads. The rules
+# still do the reading inside each region. When a value is in the right
+# place and still read wrong, a rule needs to change: check for a newer
+# version of the package (rerun step 1), or see docs/changing_rules.md. Its
+# last chapter, "Teaching the engine a form, without code", is the full
+# guide to templates.
+
+# --------------------------------------------------------------------------
+# Step 9. Scan the whole folder
 # --------------------------------------------------------------------------
 # The full run goes to its own folder, so the sample and its corrections
 # stay as they are. At about 5 seconds a document, 4,000 documents take five
 # or six hours; it needs no attention while it runs.
-res_all <- scan_documents(docs_dir, engine = "deterministic", out_dir = all_dir)
+#
+# The run uses the templates you approved in step 8, and the rules alone if
+# you approved none.
+templates_dir <- file.path(sample_dir, "templates")
+use_templates <- dir.exists(templates_dir) &&
+  any(list_templates(templates_dir)$approved)
+
+res_all <- scan_documents(docs_dir, engine = "deterministic", out_dir = all_dir,
+                          templates = if (use_templates) templates_dir)
+
+# How many documents matched each template (blank means none)
+count(res_all, template)
 
 # --------------------------------------------------------------------------
-# Step 9. Grade a second random sample, from the full run
+# Step 10. Grade a second random sample, from the full run
 # --------------------------------------------------------------------------
 # The first sample told you whether to run everything. This one measures the
-# run that becomes your table, and it can catch kinds of documents the first
-# sample happened to miss. Grade it the same way as step 6. A document you
-# already graded may come up again; grade it again, and the later answer is
-# the one kept. The draw is seeded, so building the page again shows the
-# same documents; give seed another value for a fresh draw.
+# run that becomes your table, templates included, and it can catch kinds of
+# documents the first sample happened to miss. Grade it the same way as
+# step 6. A document you already graded may come up again; grade it again,
+# and the later answer is the one kept. The draw is seeded, so building the
+# page again shows the same documents; give seed another value for a fresh
+# draw.
 review_documents(res_all, correct = TRUE, n = n_sample, draw = "random", seed = 1)
 
 # Optional: also fix every document the engine flagged, so the table
@@ -253,57 +312,25 @@ review_documents(res_all, correct = TRUE, n = n_sample, draw = "random", seed = 
 #                  draw = "flagged")
 
 # --------------------------------------------------------------------------
-# Step 10. Score the full run
+# Step 11. Score the full run
 # --------------------------------------------------------------------------
 # right_random / checked_random here is the accuracy of the full run, the
 # figure to report with the table.
 score_documents(res_all)
 
 # --------------------------------------------------------------------------
-# Step 11. Teach the engine your forms (optional, no code)
-# --------------------------------------------------------------------------
-# Your graded documents can improve how the engine reads your own forms,
-# with no change to any code. Where the engine's box on the review page was
-# wrong or missing, you drew one (pick the field under the page, drag across
-# the image, on whichever page the value is printed; a box can be moved,
-# reshaped, deleted, or joined by another). learn_templates() groups the
-# graded documents by printed form and writes, for each form with enough of
-# them, a template: the form's printed words, which identify it, and a
-# region of a page per field. It holds no names or addresses. Look at each
-# template over a page it was learned from, approve the ones whose regions
-# sit where the form prints those fields, and re-scan with the templates
-# folder. The engine then looks there first on every document of that form,
-# tagged "template:<name>" in defendant_anchor, and uses its own rules
-# everywhere else. Nothing learned is used until you approve it.
-#
-# A template changes where the engine looks, not how it reads. The rules
-# still do the reading inside each box. When a value is in the right box and
-# still read wrong, a rule needs to change. Work with the Eviction Research
-# Network on that (nothing from your records is sent; masked shapes from
-# score_documents(res, save = ...) are enough), or change the rule on your
-# own copy by docs/changing_rules.md. Ten to twenty graded documents per
-# form is the figure the method comes from; the review page says when a
-# template is thinner. The guide is "Teaching the engine a form, without
-# code", the last chapter of docs/changing_rules.md.
-# learn_templates(res_all)                      # writes results/all/templates/
-# review_templates(res_all)                     # look, then approve the right ones
-# approve_template("form-1", res_all)
-# res_all <- scan_documents(docs_dir, engine = "deterministic", out_dir = all_dir,
-#                           templates = file.path(all_dir, "templates"))
-# score_documents(res_all)                      # what the templates fixed and broke
-
-# --------------------------------------------------------------------------
-# Step 12. Re-scan, only after the rules change
+# Step 12. Re-scan, only after something changes
 # --------------------------------------------------------------------------
 # Grading does not change the rules engine: run it again on the same
-# documents and it gives the same answers. The rules change only when you
+# documents and it gives the same answers. Its readings change only when you
 # update the package (rerun step 1), which brings the fixes the Eviction
 # Research Network makes from its own graded documents, or when you change
-# them yourself (docs/changing_rules.md), or when you approve a form
-# template (step 11). Re-scan only then. Re-scanning
-# the same documents into the same folder keeps your corrections, and
-# scoring again shows what the change fixed or broke.
-# res_all <- scan_documents(docs_dir, engine = "deterministic", out_dir = all_dir)
+# the rules yourself (docs/changing_rules.md), or when you approve or
+# withdraw a form template (step 8). Re-scan only then. Re-scanning the same
+# documents into the same folder keeps your corrections, and scoring again
+# shows what the change fixed or broke.
+# res_all <- scan_documents(docs_dir, engine = "deterministic", out_dir = all_dir,
+#                           templates = if (use_templates) templates_dir)
 # score_documents(res_all)
 
 # --------------------------------------------------------------------------

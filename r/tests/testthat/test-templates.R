@@ -50,3 +50,17 @@ test_that("a scan refuses a templates folder with nothing approved", {
     "no approved"
   )
 })
+
+test_that("approving a template reports its file and marks it approved", {
+  skip_if_not(extracttext_available(), "Python engine not installed")
+
+  tdir <- file.path(tempdir(), paste0("templates_", as.integer(Sys.time()), "c"))
+  dir.create(tdir)
+  writeLines(jsonlite_free_json(), file.path(tdir, "form-1.json"))
+  path <- approve_template("form-1", templates = tdir)
+  expect_type(path, "character")
+  expect_true(file.exists(path))
+  expect_true(list_templates(tdir)$approved)
+  approve_template("form-1", templates = tdir, approved = FALSE)
+  expect_false(list_templates(tdir)$approved)
+})

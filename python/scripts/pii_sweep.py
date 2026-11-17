@@ -58,6 +58,9 @@ SYNTHETIC_WHITELIST = [
     "PUYALLUP, WA 98374",          # OCR-repair regression probe city line
     "9876 SAMPLE AVE",             # direction-boundary regression probe
     "1234 Example Ave",             # anchor-B docstring example, synthetic (replaced 2026-10-20)
+    "629 court",                   # site prose: "772,629 court files", a count from the dissertation
+    "3 street",                    # site example: the street row of a made-up score table
+    "26-2-01234-1",                # made-up case number in the site diagram as first published (bc0c28d); replaced 2026-11-17
     "1234 North Street",            # standardizer test: a directional that is the street's name (invented)
     "1234 NORTH ST",                # same, its standardized form
     "1234 West Avenue",             # standardizer test: a directional that is the street's name (invented)

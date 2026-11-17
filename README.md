@@ -17,6 +17,8 @@ A third part, **Address Check** (`game/`), is a card game for phones that measur
 
 ## Quick start
 
+**New here?** [`docs/start_here.md`](docs/start_here.md) is the whole procedure on one page, in plain words: what to bring, the eight stages from a folder of documents to a table, and what each one is for. Follow it with the R script or at a terminal.
+
 **First, on Mac and Windows alike, install poppler and tesseract.** extract-text cannot read a document without these two free programs: poppler opens PDFs, and tesseract reads scanned pages (OCR). Neither R nor pip installs them.
 
 Before you install:
@@ -76,7 +78,7 @@ results <- scan_documents("documents/", engine = "both",
                           out_dir = "results/", review = TRUE)
 ```
 
-[`getting_started_example_script.R`](getting_started_example_script.R) takes these steps one at a time with the rules engine: a made-up summons; a random 50 of your own documents, which you grade by hand and score; the whole folder; a second random 50 graded from it; and a final table with one row per document (`case_table()`), your graded answers in place of the engine's wherever you gave one.
+[`getting_started_example_script.R`](getting_started_example_script.R) takes these steps one at a time with the rules engine: a made-up summons; a random 50 of your own documents, which you grade by hand and score; an optional step that learns where your court's forms print each field from that grading; the whole folder; a second random 50 graded from it; and a final table with one row per document (`case_table()`), your graded answers in place of the engine's wherever you gave one.
 
 Command line, no programming:
 
@@ -86,7 +88,7 @@ extract-text scan documents/ --engine deterministic --out results/ --review
 
 Batch runs write `extracted.csv` (and `.parquet` when available), `extracted.jsonl` as the full audit trail, and a `review/index.html` page showing each flagged document's image beside what was extracted from it.
 
-**Grade a random 50 before you trust a run.** The rules were written and measured on Washington filings, and another court's forms, scan quality, or decade can make them misread a field without raising a flag. Accuracy also differs by field: on a random 50 King County summonses from 2017, the rules engine read the street right on about 85 percent and the plaintiff on about 40 percent (October 2026). So scan a random 50 of your documents first, grade them on the review page (`review_documents(res, correct = TRUE, n = 50, draw = "random")` in R), score the engine against your corrections (`score_documents(res)`), and scan the whole folder only when the fields you need are accurate enough. The getting-started script takes these steps in order. Fifty random documents put the share right within about 10 points; check 100 or more before publishing counts or sending anything to people. Your corrections do not change the engine. They tell you which fields to trust, and every graded document carries your answer in the final table; fixes to the rules themselves reach you through package updates. Manual section 11 has the full protocol.
+**Grade a random 50 before you trust a run.** The rules were written and measured on Washington filings, and another court's forms, scan quality, or decade can make them misread a field without raising a flag. Accuracy also differs by field: on a random 50 King County summonses from 2017, the rules engine read the street right on about 85 percent and the plaintiff on about 40 percent (October 2026). So scan a random 50 of your documents first, grade them on the review page (`review_documents(res, correct = TRUE, n = 50, draw = "random")` in R), score the engine against your corrections (`score_documents(res)`), and scan the whole folder only when the fields you need are accurate enough. The getting-started script takes these steps in order. Fifty random documents put the share right within about 10 points; check 100 or more before publishing counts or sending anything to people. Your corrections do not change the engine's rules. They tell you which fields to trust, every graded document carries your answer in the final table, and the boxes you fix or draw while grading can teach the engine where your court's form prints each field, once you approve the template (step 8 of the script). Fixes to the rules themselves reach you through package updates. Manual section 11 has the full protocol.
 
 The manual, [`docs/manual.md`](docs/manual.md), is written for someone who uses R or Python and knows nothing about OCR or AI. It covers installation on every platform, each output column, the flags and how to review them, how the engines work, measured accuracy and its limits, and how to adapt the rules to another state. [`docs/changing_rules.md`](docs/changing_rules.md) shows how to change a rule on your own copy, measure the change against your graded documents, and keep it through package updates. Its last chapter covers form templates, which need no code. A template is learned from the boxes drawn while grading, and it tells the engine where your court's form prints each field. It changes where the engine looks, not how it reads. When the rules themselves need to change, work with the Eviction Research Network or follow the guide on your own copy.
 
@@ -103,7 +105,7 @@ schema/          Shared field contract (JSON Schema), generated from the Python 
 python/          The engine, the CLI, tests, and synthetic fixtures
 r/               The R package (full interface via reticulate)
 game/            Address Check, for building a human-verified training set
-docs/            The manual
+docs/            Start here, the manual, and the guides to rules, templates, and grading
 reports/         Grading-round reports (counts and masked shapes only)
 GRADING.md       Instructions for graders
 MAINTENANCE.md   The improvement schedule: model reviews, benchmarks, release checklist

@@ -94,7 +94,8 @@ learn_templates <- function(out_dir, templates = NULL, min_pages = 5, rows = NUL
 review_templates <- function(out_dir, templates = NULL, open = interactive()) {
   out_dir <- scan_folder(out_dir)
   tdir <- templates_folder(templates, out_dir)
-  page <- templates_module()$write_templates_review(tdir, out_dir)
+  # the engine returns a Python path object; R needs the path as text
+  page <- as.character(templates_module()$write_templates_review(tdir, out_dir))
   if (open) utils::browseURL(page)
   cli::cli_inform(c("i" = "Templates page: {.file {page}}"))
   invisible(page)
@@ -122,7 +123,7 @@ approve_template <- function(name, out_dir = NULL, templates = NULL, approved = 
   } else {
     templates_folder(templates, if (!is.null(out_dir)) scan_folder(out_dir))
   }
-  path <- templates_module()$approve_template(name, tdir, approved = isTRUE(approved))
+  path <- as.character(templates_module()$approve_template(name, tdir, approved = isTRUE(approved)))
   cli::cli_inform(c("v" = "{if (isTRUE(approved)) 'Approved' else 'Withdrawn'}: {.file {path}}"))
   invisible(path)
 }

@@ -1036,6 +1036,16 @@ spot runs, not measured rates; quantifying them is part of that milestone.
   against the deterministic answer, comfortably over the same-street
   threshold; the difference is trimming, not content.
 
+## 0.4.1: the instructions in one order, and two R fixes (2026-11-17)
+
+Tim asked whether a new user can go from their own files to a table by following the instructions, and for the answer to be yes before the package goes to King County. A check of the docs against the code on 2026-11-16 found that the getting-started script learned form templates last, from the second graded sample only, after the full scan; that step 6 never told the grader to fix or draw boxes; that no single page gave the procedure without R; and that `review_templates()` and `approve_template()` in R stopped with a Python path error after doing their work (both released in 0.4.0, neither covered by an R test).
+
+What changed: templates are step 8 of the script, learned from the first graded sample, and the full scan (step 9) uses the approved ones; `docs/start_here.md` gives the procedure in eight stages with the terminal command for each; the site's Get started page, `docs/changing_rules.md`, `docs/grading_with_boxes.md`, and the README follow the same order; the two R functions return their path as text, with a test for approval.
+
+Checked on made-up documents only. The script's calls from step 4 on and the terminal route were each run end to end on eight pages of the test suite's 'Served upon:' form, a helper standing in for the person at the review page. By the rules alone the engine read defendants and street on 0 of 6 graded pages; with the template learned from those 6 and approved, all 8 pages matched it and scored 8 of 8. That shows the mechanism on one made-up form and says nothing about real accuracy. The review page in a browser was not exercised in this check. No real-document measurement of templates exists yet.
+
+Open: `test_a_shifted_scan_of_the_form_is_recognized` has failed on the Ubuntu runner since 0.4.0 at its OCR-scanned half and passes on macOS; the cause is not diagnosed. The terminal gained `extract-text case-table` for the final table, so the terminal route finishes without Python code. The PII sweep's three hits in `site/` were shapes in prose and a drawing, now whitelisted with comments, and the diagram's case number is the documented synthetic one.
+
 ## Release checklist
 
 1. `pytest` green in `python/` (including the live model test on a machine

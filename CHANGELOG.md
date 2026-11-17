@@ -4,7 +4,15 @@ Every user-facing change to extract-text is recorded here, newest first. A chang
 
 ## Unreleased
 
-- `docs/grading_with_boxes.md`: a short guide for graders who run the getting-started script and grade with boxes, and where their grades land.
+## 0.4.1 (2026-11-17)
+
+- `docs/start_here.md`: the whole procedure on one page in plain words, eight stages from a folder of documents to a table, followed with the R script or at a terminal.
+- The getting-started script learns form templates right after the first sample is graded and scored (step 8), before the whole folder is scanned (step 9), so one full scan uses them and the second graded sample measures them. Before, templates came after the full run, learned from the second sample only, and needed a second full scan.
+- `extract-text case-table` builds the final table at a terminal (the same table as `case_table()` in R), so every stage can be run without R or Python code. It prints counts only.
+- `review_templates()` and `approve_template()` in R no longer stop with "'PosixPath' object is not subscriptable" after doing their work.
+- Step 6 of the getting-started script tells the grader to fix and draw boxes while grading, which the templates step depends on, and the script and README say the three things grading does. Step 1 no longer starts with `remove.packages()`, which stopped with an error on a computer that had never had the package.
+- The website's Get started page follows the same order in eight steps: it has the grader fix and draw boxes, adds the forms step before the full scan, and points R at the engine before the checkup.
+- `docs/grading_with_boxes.md`: a short guide to grading with boxes and where the grades land, written for any grader.
 - Step 4 of the getting-started script says how to bring documents down from a Google Drive folder, and its sample folder and seed are generic again (the 0.4.0 copy carried a test path and seed from Tim's walk-through).
 
 ## 0.4.0 (2026-11-09)

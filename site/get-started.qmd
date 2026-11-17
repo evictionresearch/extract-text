@@ -6,13 +6,13 @@
 # python/tests/fixtures/corpus/ (2026-11-10); print them again when the
 # output changes shape.
 pagetitle: "Get started with extract-text"
-description: "Install extract-text, read an example document, grade a random 50 of your own documents, and build a table of cases, step by step."
+description: "Install extract-text, read an example document, grade a random 50 of your own documents, teach the engine your court's forms, and build a table of cases, step by step."
 format: extract-text-html
 current-start: true
 hero:
   eyebrow: "Get started"
   h1: "From install to a *table of cases*"
-  lede: "Seven steps in R, using the rules engine, which needs no AI setup. Each step is a few lines to copy and run."
+  lede: "Eight steps in R, using the rules engine, which needs no AI setup. Each step is a few lines to copy and run."
 ---
 
 <section>
@@ -24,8 +24,9 @@ hero:
 <li><a href="#example"><b>3</b> Example document</a></li>
 <li><a href="#sample"><b>4</b> Scan a random 50</a></li>
 <li><a href="#grade"><b>5</b> Grade and score</a></li>
-<li><a href="#full"><b>6</b> Whole folder</a></li>
-<li><a href="#table"><b>7</b> Final table</a></li>
+<li><a href="#forms"><b>6</b> Teach your forms</a></li>
+<li><a href="#full"><b>7</b> Whole folder</a></li>
+<li><a href="#table"><b>8</b> Final table</a></li>
 <li><a href="#next">Go further</a></li>
 <li><a href="#help">If something goes wrong</a></li>
 <li><a href="#python">Python and the command line</a></li>
@@ -104,6 +105,9 @@ extracttext_install()
 ```r
 library(extracttext)
 library(dplyr)
+
+# Point R at the engine. Run this line at the start of every R session.
+reticulate::use_virtualenv("r-extracttext", required = TRUE)
 
 extracttext_doctor()
 ```
@@ -187,7 +191,7 @@ This example comes from six made-up documents, so your counts will differ. `foun
 
 Grading is required. Until you grade a sample, you do not know how often the scan is right on your documents.
 
-This line opens a page in your browser that shows each document beside what the engine read. Change only what is wrong, leave a field blank when the document does not have it, and save. Fifty documents take about an hour. You can stop at any point by pressing Esc in RStudio, and running the line again picks up where you left off.
+This line opens a page in your browser that shows each document beside what the engine read. Check each field against the page, change only what is wrong, and leave a field blank when the document does not have it. Then look at the colored boxes on the page image, which show where the engine read each value. Drag a box that sits over the wrong place to the right one. Where a field has no box, press the field's button under the image and drag across the value. Save every document, even when the engine got everything right. Fifty documents take about an hour. You can stop at any point by pressing Esc in RStudio, and running the line again picks up where you left off.
 
 ```r
 review_documents(res, correct = TRUE, n = n_sample, draw = "random")
@@ -241,17 +245,40 @@ This example is the one made-up document graded in the video, where the engine m
 
 Decide here whether the fields you need are accurate enough to scan everything. Fifty random documents put the share right within about 10 points. Grade 100 or more before you publish counts or send anything to people.
 
-Your corrections do not change the engine's rules. They tell you which fields to trust, and every document you grade carries your answer in the final table. [How the rules improve](how-it-works.html#rules) says how the rules themselves get better.
+Your corrections do not change the engine's rules. They tell you which fields to trust, every document you grade carries your answer in the final table, and your boxes teach the engine your court's forms in the next step. [How the rules improve](how-it-works.html#rules) says how the rules themselves get better.
 
-## [6]{.num} Scan the whole folder and grade a second 50 {#full}
+## [6]{.num} Teach the engine your court's forms {#forms}
 
-The full run goes to its own folder, so the sample and its corrections stay as they are. It needs no attention while it runs. At about 5 seconds a document, 4,000 documents take five or six hours.
+This step is optional and needs no code. Courts print their own forms, and a form can put the tenant's address where the engine's rules do not look. The boxes you fixed and drew while grading show where your court's forms print each field. From them the package writes a template for each form that has at least five graded documents.
 
 ```r
-res_all <- scan_documents(docs_dir, engine = "deterministic", out_dir = all_dir)
+learn_templates(res)
+
+# Opens a page showing each template over a page it was learned from
+review_templates(res)
+
+# Approve each template whose regions sit where the form prints that field
+approve_template("form-1", res)
 ```
 
-The first sample told you whether to run everything. A second sample measures the run that becomes your table.
+Nothing learned is used until you approve it. A template holds the form's printed words and a region of the page for each field. It holds no names or addresses.
+
+Expect templates only for the forms your court uses most. A random 50 rarely holds five documents of a rare form, and the engine reads those with its rules alone. A template changes where the engine looks, not how it reads. [Form templates](how-it-works.html#templates) says more.
+
+## [7]{.num} Scan the whole folder and grade a second 50 {#full}
+
+The full run goes to its own folder, so the sample and its corrections stay as they are. It uses the templates you approved in step 6, and the rules alone if you approved none. It needs no attention while it runs. At about 5 seconds a document, 4,000 documents take five or six hours.
+
+```r
+templates_dir <- file.path(sample_dir, "templates")
+use_templates <- dir.exists(templates_dir) &&
+  any(list_templates(templates_dir)$approved)
+
+res_all <- scan_documents(docs_dir, engine = "deterministic", out_dir = all_dir,
+                          templates = if (use_templates) templates_dir)
+```
+
+The first sample told you whether to run everything. A second sample measures the run that becomes your table, templates included.
 
 ```r
 review_documents(res_all, correct = TRUE, n = n_sample, draw = "random", seed = 1)
@@ -261,7 +288,7 @@ score_documents(res_all)
 
 The share right in this score is the accuracy of the full run. Report it with the table.
 
-## [7]{.num} Build the final table {#table}
+## [8]{.num} Build the final table {#table}
 
 ```r
 cases <- case_table(res_all, graded = sample_dir,
@@ -283,8 +310,9 @@ The table has one row per document, with the case number, the plaintiff, the def
 
 ## Go further {#next}
 
-- **The full script.** [`getting_started_example_script.R`](https://github.com/evictionresearch/extract-text/blob/main/getting_started_example_script.R){target="_blank" rel="noopener noreferrer"} holds every step on this page with more explanation, plus two optional ones.
-- **Teach the engine your forms, without code.** While you grade, you can draw a box where your court's form prints each field. The package learns a template from those boxes, and nothing learned is used until you approve it. The guide is the last chapter of [Changing the rules](https://github.com/evictionresearch/extract-text/blob/main/docs/changing_rules.md){target="_blank" rel="noopener noreferrer"}.
+- **The full script.** [`getting_started_example_script.R`](https://github.com/evictionresearch/extract-text/blob/main/getting_started_example_script.R){target="_blank" rel="noopener noreferrer"} holds every step on this page with more explanation, and says when to scan again.
+- **The whole procedure on one page.** [Start here](https://github.com/evictionresearch/extract-text/blob/main/docs/start_here.md){target="_blank" rel="noopener noreferrer"} gives the same steps in plain words, with the terminal command for each.
+- **More on form templates.** The guide is the last chapter of [Changing the rules](https://github.com/evictionresearch/extract-text/blob/main/docs/changing_rules.md){target="_blank" rel="noopener noreferrer"}.
 - **Set up the AI engine.** It is optional and needs about 16 GB of memory. [Section 6 of the manual](https://github.com/evictionresearch/extract-text/blob/main/docs/manual.md#6-setting-up-the-ai-engine-optional){target="_blank" rel="noopener noreferrer"} has the two steps.
 - **Read the manual.** [The manual](https://github.com/evictionresearch/extract-text/blob/main/docs/manual.md){target="_blank" rel="noopener noreferrer"} covers every output column, the flags, and how to use the package outside Washington.
 
@@ -308,7 +336,7 @@ extracttext_doctor()
 
 ## Python and the command line {#python}
 
-The seven steps above use R. The same engine runs from Python and from a terminal. Install the four programs from step 1 first.
+The eight steps above use R. The same engine runs from Python and from a terminal. Install the four programs from step 1 first.
 
 ```bash
 pip install "extract-text @ git+https://github.com/evictionresearch/extract-text#subdirectory=python"

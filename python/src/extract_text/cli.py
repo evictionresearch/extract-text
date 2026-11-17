@@ -259,6 +259,20 @@ def cmd_templates(args):
     return 2
 
 
+def cmd_case_table(args):
+    from collections import Counter
+
+    from .casetable import case_table
+
+    table = case_table(args.out, graded=args.graded or (), save=args.save)
+    # counts only: the table itself holds names and addresses
+    by_source = Counter(r["source"] for r in table)
+    print(f"Documents in the table: {len(table)} (" + ", ".join(
+        f"{n} {source}" for source, n in sorted(by_source.items())) + ")")
+    print(f"Table saved to {args.save}", file=sys.stderr)
+    return 0
+
+
 def cmd_cases(args):
     from .casefile import report, scan_cases
 
@@ -431,6 +445,18 @@ def main(argv=None):
     b = what.add_parser("list", help="the templates in a folder and their status")
     b.add_argument("--templates", required=True, metavar="DIR")
     a.set_defaults(fn=cmd_templates)
+
+    a = sub.add_parser("case-table",
+                       help="the final table: one row per document, graded "
+                            "answers in place of the engine's")
+    a.add_argument("--out", required=True, help="the scan's output directory")
+    a.add_argument("--graded", action="append", metavar="DIR",
+                   help="another scan folder whose graded answers apply too "
+                        "(the sample graded before the full run); repeatable")
+    a.add_argument("--save", required=True, metavar="FILE",
+                   help="write the table to this CSV file (it holds names and "
+                        "addresses; keep it with the court documents)")
+    a.set_defaults(fn=cmd_case_table)
 
     a = sub.add_parser("cases", help="roll case folders up to their outcomes")
     a.add_argument("inputs", nargs="+", help="directories of case folders")

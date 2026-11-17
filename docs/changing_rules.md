@@ -148,29 +148,29 @@ The file holds those words and coordinates and the row numbers it was learned fr
 
 ### Learn, look, approve, use
 
-In R, from the scan you graded (here `res_all`, the full run):
+In R, from the scan you graded (here `res`, the first sample, as in step 8 of the getting-started script):
 
 ```r
-learn_templates(res_all)
+learn_templates(res)
 ```
 
-This reads every graded document that has a box again (the text is cached beside the scan), groups the documents by the printed form of their first page, and writes one template per form that has at least five graded documents, as `form-1.json`, `form-2.json`, and so on in `results/all/templates/`. The report says how many graded documents had a labeled position, how they grouped, and for each region how many drawn and confirmed boxes it came from. A form on fewer than five documents is named in the report and gets no template. Grade more of its documents, or lower `min_pages` if you accept a thinner template. Ten to twenty per form is the figure from the method this follows, Cheng Ren's dissertation, where a layout model is trained per form. The review page says when a template has fewer than ten.
+This reads every graded document that has a box again (the text is cached beside the scan), groups the documents by the printed form of their first page, and writes one template per form that has at least five graded documents, as `form-1.json`, `form-2.json`, and so on in `results/sample/templates/`. The report says how many graded documents had a labeled position, how they grouped, and for each region how many drawn and confirmed boxes it came from. A form on fewer than five documents is named in the report and gets no template. Grade more of its documents, or lower `min_pages` if you accept a thinner template. Ten to twenty per form is the figure from the method this follows, Cheng Ren's dissertation, where a layout model is trained per form. The review page says when a template has fewer than ten.
 
 ```r
-review_templates(res_all)
+review_templates(res)
 ```
 
 This opens a page showing each template's regions drawn over the pages of one document it was learned from, with the printed words that identify the form as small dots. Check two things: that each region sits over the part of the form where that field is printed, and that no dot sits on a name or an address. The page renders a document's pages, so its folder stays with the scan.
 
 ```r
-approve_template("form-1", res_all)
+approve_template("form-1", res)
 ```
 
-Nothing learned is used until a person approves it. Approval writes your login name and the date into the file, and `approve_template("form-1", res_all, approved = FALSE)` takes it back. Then re-scan with the folder:
+Nothing learned is used until a person approves it. Approval writes your login name and the date into the file, and `approve_template("form-1", res, approved = FALSE)` takes it back. Then scan the whole folder with the templates:
 
 ```r
 res_all <- scan_documents(docs_dir, out_dir = all_dir,
-                          templates = file.path(all_dir, "templates"))
+                          templates = file.path(sample_dir, "templates"))
 table(res_all$template)
 score_documents(res_all)
 ```
@@ -182,7 +182,7 @@ The `template` column names the form each document matched (blank for none), and
 `rules_eval.py` (step 6) takes `--templates`:
 
 ```r
-system2(py, c("-I", eval_script, "--out", all_dir, "--templates", file.path(all_dir, "templates")))
+system2(py, c("-I", eval_script, "--out", all_dir, "--templates", file.path(sample_dir, "templates")))
 ```
 
 The report counts, field by field, what the templates fixed and broke against your graded answers, and how many documents matched each template. The same rule as for a rule change applies: measure on documents the template was not learned from (the second graded sample, or `--rows` for the rows you held out), and keep a template that fixes documents there and breaks none.
@@ -193,7 +193,7 @@ The report counts, field by field, what the templates fixed and broke against yo
 - **A region is too narrow.** A region is the union of the boxes it was learned from, so a value longer than any of them, a fourth defendant where every graded document had two, can fall outside it. Grade and box a document that has the longer value, and learn again.
 - **The value is on a page nobody boxed.** The engine reads the pages that have regions. If the address of some documents sits on page 3 and no graded document was boxed there, turn to page 3 on the review page, draw the box, and learn again. The template then carries a page-3 region beside the page-1 one.
 - **The right place is read wrong.** The region is where the value is, but the reading is still wrong or blank. A rule, not a position, is the problem. Say so to the Eviction Research Network with the masked shapes from `score_documents(res, save = ...)`, or change the rule on your own copy (steps 1 to 8).
-- **Two forms were grouped as one, or one as two.** The grouping uses the words two pages share at the same positions. `learn_templates(res_all, rows = c(...), name = "county-summons-2017")` learns one template from exactly the documents you name.
+- **Two forms were grouped as one, or one as two.** The grouping uses the words two pages share at the same positions. `learn_templates(res, rows = c(...), name = "county-summons-2017")` learns one template from exactly the documents you name.
 - **The same words fall in a region on every document**, as on a form that prints a fixed line inside the address block. They are left out of the fingerprint by design, since the region is where values live, and the rules that parse the region ignore printed labels at its head.
 
 ### Where templates live

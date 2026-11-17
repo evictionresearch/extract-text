@@ -1112,3 +1112,17 @@ def test_answers_for_documents_no_longer_at_their_row_are_left_out(tmp_path, cap
          out_dir=tmp_path, progress=False)
     assert list(load_corrections(tmp_path)) == [1] and stale_corrections(tmp_path) == 0
     assert 'id="stale"' not in write_review(tmp_path, n=5).read_text()
+
+
+@needs_system_tools
+def test_case_table_command_writes_the_table_and_prints_counts_only(tmp_path, capsys):
+    from extract_text.cli import main
+
+    out = tmp_path / "scan"
+    scan([FIXTURES / "synthetic_summons_efiled.pdf"], out_dir=out, progress=False)
+    saved = tmp_path / "case_table.csv"
+    assert main(["case-table", "--out", str(out), "--save", str(saved)]) == 0
+    printed = capsys.readouterr().out
+    assert printed.strip() == "Documents in the table: 1 (1 engine)"
+    assert saved.read_text().splitlines()[0].startswith("doc,file,case_number")
+    assert len(saved.read_text().splitlines()) == 2

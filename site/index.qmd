@@ -10,7 +10,7 @@ hero:
   h1: "`extract-text` reads eviction court documents into a *table*."
   lede: "Many courts keep eviction filings only as page images, and a filing cannot be counted or mapped until it is in a table. extract-text reads e-filed PDFs, scanned PDFs, and TIFF images and returns one row per document, with the plaintiffs, the defendants, the address where the defendants were served, the plaintiff's attorney, and the case number."
   note: "Free and open source. It runs on your own computer, from R or Python, on Mac, Windows, and Linux."
-  badge: "[Under development · version 0.4.0](#development)"
+  badge: "[Under development · version 0.4.1](#development)"
   image: "images/extract-text.svg"
   image-alt: "A scanned court summons with a handwritten address, an arrow, and the same case as rows of digital text"
   buttons:
@@ -139,7 +139,7 @@ Grading does not change the rules that read the text. A person changes them, in 
 
 ## Getting started, *in outline*
 
-The Get started page has seven steps, each a few lines of R to copy and run. They fall into three stages.
+The Get started page has eight steps, each a few lines of R to copy and run. They fall into three stages.
 
 ::::: {.cards}
 ::: {.card}
@@ -163,10 +163,10 @@ Read a made-up summons, scan a random 50 of your own documents, grade them on th
 ::: {.card}
 [3]{.n}
 
-[Steps 6 and 7]{.kicker}
+[Steps 6 to 8]{.kicker}
 
 ### Run the whole folder
-Scan every document, grade a second random 50, and build the final table of cases.
+Teach the engine your court's forms from your grading, scan every document, grade a second random 50, and build the final table of cases.
 :::
 :::::
 

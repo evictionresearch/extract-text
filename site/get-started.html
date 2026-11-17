@@ -2,12 +2,12 @@
 <html lang="en"><head><meta charset="utf-8">
   <meta content="width=device-width, initial-scale=1.0" name="viewport">
   <title>Get started with extract-text</title>
-  <meta name="description" content="Install extract-text, read an example document, grade a random 50 of your own documents, and build a table of cases, step by step.">
+  <meta name="description" content="Install extract-text, read an example document, grade a random 50 of your own documents, teach the engine your court’s forms, and build a table of cases, step by step.">
   <meta name="author" content="Eviction Research Network, UC Berkeley">
 
   <!-- Open Graph / social -->
   <meta property="og:title" content="Get started with extract-text">
-  <meta property="og:description" content="Install extract-text, read an example document, grade a random 50 of your own documents, and build a table of cases, step by step.">
+  <meta property="og:description" content="Install extract-text, read an example document, grade a random 50 of your own documents, teach the engine your court’s forms, and build a table of cases, step by step.">
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="Eviction Research Network">
 
@@ -59,7 +59,7 @@
       <div class="hero-in">
         <p class="eyebrow">Get started</p>
         <h1>From install to a <em>table of cases</em></h1>
-        <p class="lede">Seven steps in R, using the rules engine, which needs no AI setup. Each step is a few lines to copy and run.</p>
+        <p class="lede">Eight steps in R, using the rules engine, which needs no AI setup. Each step is a few lines to copy and run.</p>
       </div>
     </section>
 
@@ -82,10 +82,13 @@
 <a href="#grade"><b>5</b> Grade and score</a>
 </li>
 <li>
-<a href="#full"><b>6</b> Whole folder</a>
+<a href="#forms"><b>6</b> Teach your forms</a>
 </li>
 <li>
-<a href="#table"><b>7</b> Final table</a>
+<a href="#full"><b>7</b> Whole folder</a>
+</li>
+<li>
+<a href="#table"><b>8</b> Final table</a>
 </li>
 <li>
 <a href="#next">Go further</a>
@@ -150,6 +153,9 @@ extracttext_install()</code></pre>
 <pre class="r"><code>library(extracttext)
 library(dplyr)
 
+# Point R at the engine. Run this line at the start of every R session.
+reticulate::use_virtualenv("r-extracttext", required = TRUE)
+
 extracttext_doctor()</code></pre>
 <p>The last line of the checkup should be this one.</p>
 <pre class="output"><code>Ready: the deterministic engine can run.</code></pre>
@@ -203,7 +209,7 @@ res &lt;- scan_documents(docs_dir, engine = "deterministic", sample = n_sample,
 </div>
 <h2 id="grade"><span class="num">5</span> Grade the sample, then score the engine</h2>
 <p>Grading is required. Until you grade a sample, you do not know how often the scan is right on your documents.</p>
-<p>This line opens a page in your browser that shows each document beside what the engine read. Change only what is wrong, leave a field blank when the document does not have it, and save. Fifty documents take about an hour. You can stop at any point by pressing Esc in RStudio, and running the line again picks up where you left off.</p>
+<p>This line opens a page in your browser that shows each document beside what the engine read. Check each field against the page, change only what is wrong, and leave a field blank when the document does not have it. Then look at the colored boxes on the page image, which show where the engine read each value. Drag a box that sits over the wrong place to the right one. Where a field has no box, press the field's button under the image and drag across the value. Save every document, even when the engine got everything right. Fifty documents take about an hour. You can stop at any point by pressing Esc in RStudio, and running the line again picks up where you left off.</p>
 <pre class="r"><code>review_documents(res, correct = TRUE, n = n_sample, draw = "random")</code></pre>
 <figure class="video">
 <video controls="" preload="metadata" poster="media/grading-poster.jpg" width="1600" height="1080" aria-label="Grading one made-up document on the review page">
@@ -241,16 +247,32 @@ res &lt;- scan_documents(docs_dir, engine = "deterministic", sample = n_sample,
 7 zip              1     1     0     0     0</code></pre>
 <p>This example is the one made-up document graded in the video, where the engine misread the city. It is shortened to the main columns. With 50 graded documents, <code>checked</code> reads 50. The score has one row per field and counts how many documents the engine got right, nearly right, left blank, or got wrong. Two more columns, <code>right_random</code> and <code>checked_random</code>, give the accuracy estimate for the whole folder when you divide the first by the second.</p>
 <p>Decide here whether the fields you need are accurate enough to scan everything. Fifty random documents put the share right within about 10 points. Grade 100 or more before you publish counts or send anything to people.</p>
-<p>Your corrections do not change the engine's rules. They tell you which fields to trust, and every document you grade carries your answer in the final table. <a href="how-it-works.html#rules">How the rules improve</a> says how the rules themselves get better.</p>
-<h2 id="full"><span class="num">6</span> Scan the whole folder and grade a second 50</h2>
-<p>The full run goes to its own folder, so the sample and its corrections stay as they are. It needs no attention while it runs. At about 5 seconds a document, 4,000 documents take five or six hours.</p>
-<pre class="r"><code>res_all &lt;- scan_documents(docs_dir, engine = "deterministic", out_dir = all_dir)</code></pre>
-<p>The first sample told you whether to run everything. A second sample measures the run that becomes your table.</p>
+<p>Your corrections do not change the engine's rules. They tell you which fields to trust, every document you grade carries your answer in the final table, and your boxes teach the engine your court's forms in the next step. <a href="how-it-works.html#rules">How the rules improve</a> says how the rules themselves get better.</p>
+<h2 id="forms"><span class="num">6</span> Teach the engine your court's forms</h2>
+<p>This step is optional and needs no code. Courts print their own forms, and a form can put the tenant's address where the engine's rules do not look. The boxes you fixed and drew while grading show where your court's forms print each field. From them the package writes a template for each form that has at least five graded documents.</p>
+<pre class="r"><code>learn_templates(res)
+
+# Opens a page showing each template over a page it was learned from
+review_templates(res)
+
+# Approve each template whose regions sit where the form prints that field
+approve_template("form-1", res)</code></pre>
+<p>Nothing learned is used until you approve it. A template holds the form's printed words and a region of the page for each field. It holds no names or addresses.</p>
+<p>Expect templates only for the forms your court uses most. A random 50 rarely holds five documents of a rare form, and the engine reads those with its rules alone. A template changes where the engine looks, not how it reads. <a href="how-it-works.html#templates">Form templates</a> says more.</p>
+<h2 id="full"><span class="num">7</span> Scan the whole folder and grade a second 50</h2>
+<p>The full run goes to its own folder, so the sample and its corrections stay as they are. It uses the templates you approved in step 6, and the rules alone if you approved none. It needs no attention while it runs. At about 5 seconds a document, 4,000 documents take five or six hours.</p>
+<pre class="r"><code>templates_dir &lt;- file.path(sample_dir, "templates")
+use_templates &lt;- dir.exists(templates_dir) &amp;&amp;
+  any(list_templates(templates_dir)$approved)
+
+res_all &lt;- scan_documents(docs_dir, engine = "deterministic", out_dir = all_dir,
+                          templates = if (use_templates) templates_dir)</code></pre>
+<p>The first sample told you whether to run everything. A second sample measures the run that becomes your table, templates included.</p>
 <pre class="r"><code>review_documents(res_all, correct = TRUE, n = n_sample, draw = "random", seed = 1)
 
 score_documents(res_all)</code></pre>
 <p>The share right in this score is the accuracy of the full run. Report it with the table.</p>
-<h2 id="table"><span class="num">7</span> Build the final table</h2>
+<h2 id="table"><span class="num">8</span> Build the final table</h2>
 <pre class="r"><code>cases &lt;- case_table(res_all, graded = sample_dir,
                     save = file.path(results, "case_table.csv"))
 
@@ -264,8 +286,9 @@ count(cases, source)</code></pre>
 <p>The table has one row per document, with the case number, the plaintiff, the defendants, and the defendants' address. Your graded answers from both samples replace the engine's wherever you gave one, and the <code>source</code> column says which each row carries. In this example, from the six made-up documents, one row carries a graded answer and five carry the engine's reading. The table is saved as <code>case_table.csv</code> in your results folder.</p>
 <h2 id="next">Go further</h2>
 <ul>
-<li><strong>The full script.</strong> <a href="https://github.com/evictionresearch/extract-text/blob/main/getting_started_example_script.R" target="_blank" rel="noopener noreferrer"><code>getting_started_example_script.R</code></a> holds every step on this page with more explanation, plus two optional ones.</li>
-<li><strong>Teach the engine your forms, without code.</strong> While you grade, you can draw a box where your court's form prints each field. The package learns a template from those boxes, and nothing learned is used until you approve it. The guide is the last chapter of <a href="https://github.com/evictionresearch/extract-text/blob/main/docs/changing_rules.md" target="_blank" rel="noopener noreferrer">Changing the rules</a>.</li>
+<li><strong>The full script.</strong> <a href="https://github.com/evictionresearch/extract-text/blob/main/getting_started_example_script.R" target="_blank" rel="noopener noreferrer"><code>getting_started_example_script.R</code></a> holds every step on this page with more explanation, and says when to scan again.</li>
+<li><strong>The whole procedure on one page.</strong> <a href="https://github.com/evictionresearch/extract-text/blob/main/docs/start_here.md" target="_blank" rel="noopener noreferrer">Start here</a> gives the same steps in plain words, with the terminal command for each.</li>
+<li><strong>More on form templates.</strong> The guide is the last chapter of <a href="https://github.com/evictionresearch/extract-text/blob/main/docs/changing_rules.md" target="_blank" rel="noopener noreferrer">Changing the rules</a>.</li>
 <li><strong>Set up the AI engine.</strong> It is optional and needs about 16 GB of memory. <a href="https://github.com/evictionresearch/extract-text/blob/main/docs/manual.md#6-setting-up-the-ai-engine-optional" target="_blank" rel="noopener noreferrer">Section 6 of the manual</a> has the two steps.</li>
 <li><strong>Read the manual.</strong> <a href="https://github.com/evictionresearch/extract-text/blob/main/docs/manual.md" target="_blank" rel="noopener noreferrer">The manual</a> covers every output column, the flags, and how to use the package outside Washington.</li>
 </ul>
@@ -280,7 +303,7 @@ extracttext_doctor()</code></pre>
 <p><strong>Never paste a real document, name, address, or case number into an issue or an email.</strong> Describe the problem, or reproduce it with the made-up example document from step 3.</p>
 </div>
 <h2 id="python">Python and the command line</h2>
-<p>The seven steps above use R. The same engine runs from Python and from a terminal. Install the four programs from step 1 first.</p>
+<p>The eight steps above use R. The same engine runs from Python and from a terminal. Install the four programs from step 1 first.</p>
 <pre class="bash"><code>pip install "extract-text @ git+https://github.com/evictionresearch/extract-text#subdirectory=python"
 extract-text doctor</code></pre>
 <pre class="python"><code>from extract_text import extract, scan

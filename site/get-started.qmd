@@ -33,7 +33,7 @@ hero:
 </ul>
 
 ::: {.note}
-**Before step 1.** You need R and RStudio on your computer, both free, and your court documents (PDF or TIFF files) in a folder on it. R is the program that runs the code on this page, and RStudio is the window you work in.
+**Before step 1.** You need R and RStudio on your computer, both free, and your court documents (PDF or TIFF files) in a folder on it. If your computer's system is old, update it first: step 1 needs macOS 15 or later on an Apple chip, or Windows 10 version 1809 or later, and says how to check. R is the program that runs the code on this page, and RStudio is the window you work in.
 
 1. **Install R.** Go to [cran.r-project.org](https://cran.r-project.org/){target="_blank" rel="noopener noreferrer"} and choose your system (Windows, macOS, or Linux). On Windows, choose "base" and then the download link at the top. On a Mac, there are two files: one for Apple chips (its name has "arm64") and one for Intel chips. The Apple menu, About This Mac, says which chip you have. Open the downloaded file and accept what the installer suggests.
 2. **Install RStudio.** Go to [posit.co/download/rstudio-desktop](https://posit.co/download/rstudio-desktop/){target="_blank" rel="noopener noreferrer"}, download the installer for your system, open it, and accept what it suggests.
@@ -45,7 +45,7 @@ hero:
 :::
 
 ::: {.note}
-**Prefer one file to copy from?** Every step on this page is in [`getting_started_example_script.R`](https://raw.githubusercontent.com/evictionresearch/extract-text/main/getting_started_example_script.R){target="_blank" rel="noopener noreferrer"}, under the same eight numbers and with more explanation. Save it, open it in RStudio, and run it a block at a time.
+**Prefer one file to copy from?** Every step on this page is in [`getting_started_example_script.R`](https://raw.githubusercontent.com/evictionresearch/extract-text/main/getting_started_example_script.R){target="_blank" rel="noopener noreferrer"}, under the same eight numbers, as code with one-line notes. Save it, open it in RStudio, and run it a block at a time. This page explains each step.
 :::
 
 ## [1]{.num} Install three free programs {#before}
@@ -102,6 +102,8 @@ Run this line in a terminal.
 sudo apt install poppler-utils tesseract-ocr python3 python3-venv
 ```
 :::
+
+**If you already have some of these,** check before you install. Run `which pdftoppm tesseract python3` in Terminal on a Mac or Linux, or `where.exe pdftoppm tesseract python` in PowerShell on Windows. A program you have prints a path. On a Mac, `brew install` on a program you already have upgrades it and everything that depends on it, which can be a large download.
 
 On a work computer of any kind, these installs may need your IT department. Ask for poppler, tesseract, and Python 3.10 or newer, and send them [For your IT department](https://github.com/evictionresearch/extract-text/blob/main/docs/it_checklist.md){target="_blank" rel="noopener noreferrer"}, which lists each program, where it comes from, and what the rest of the install does.
 
@@ -196,7 +198,7 @@ results  <- file.path(practice, "results")
 ```
 :::
 
-`docs_dir` is the folder that holds your court documents (PDF or TIFF, subfolders included). `results` is a new folder where everything from here on is written. Type each path with forward slashes, on Windows too.
+`docs_dir` is the folder that holds your court documents (PDF or TIFF, subfolders included). If the documents come to you in a Google Drive folder, download the folder to your own computer first (Drive gives a zip; unzip it). `results` is a new folder where everything from here on is written. Type each path with forward slashes, on Windows too.
 
 ```r
 # Mac:     "/Users/yourname/Documents/court_documents"
@@ -335,7 +337,7 @@ res_all <- scan_documents(docs_dir, engine = "deterministic", out_dir = all_dir,
                           templates = if (use_templates) templates_dir)
 ```
 
-The first sample told you whether to run everything. A second sample measures the run that becomes your table, templates included.
+The first sample told you whether to run everything. A second sample measures the run that becomes your table, templates included. A document you already graded may come up again; grade it again, and the later answer is the one kept.
 
 ```r
 review_documents(res_all, correct = TRUE, n = n_sample, draw = "random", seed = 1)
@@ -344,6 +346,13 @@ score_documents(res_all)
 ```
 
 The share right in this score is the accuracy of the full run. Report it with the table.
+
+You can also fix every document the engine flagged, so the table carries a person's answer wherever the engine was unsure.
+
+```r
+review_documents(res_all, correct = TRUE, n = sum(res_all$flags != ""),
+                 draw = "flagged")
+```
 
 ## [8]{.num} Build the final table {#table}
 
@@ -367,7 +376,8 @@ The table has one row per document, with the case number, the plaintiff, the def
 
 ## Go further {#next}
 
-- **The full script.** [`getting_started_example_script.R`](https://github.com/evictionresearch/extract-text/blob/main/getting_started_example_script.R){target="_blank" rel="noopener noreferrer"} holds every step on this page with more explanation, and says when to scan again.
+- **The script.** [`getting_started_example_script.R`](https://github.com/evictionresearch/extract-text/blob/main/getting_started_example_script.R){target="_blank" rel="noopener noreferrer"} holds the code of every step on this page in one file.
+- **When to scan again.** Grading does not change the engine, so scan again only after you update the package, change a rule, or approve a template. [Start here](https://github.com/evictionresearch/extract-text/blob/main/docs/start_here.md#what-grading-does){target="_blank" rel="noopener noreferrer"} says more.
 - **The whole procedure on one page.** [Start here](https://github.com/evictionresearch/extract-text/blob/main/docs/start_here.md){target="_blank" rel="noopener noreferrer"} gives the same steps in plain words, with the terminal command for each.
 - **Make the engine read your documents better.** [Improve it](improve.html) shows how to tell us what goes wrong, with no programming, and how to change the rules on your own copy.
 - **More on form templates.** The guide is the last chapter of [Changing the rules](https://github.com/evictionresearch/extract-text/blob/main/docs/changing_rules.md){target="_blank" rel="noopener noreferrer"}.
@@ -378,7 +388,7 @@ The table has one row per document, with the case number, the plaintiff, the def
 
 **Run the checkup first.** `extracttext_doctor()` in R looks at your computer and prints the command for anything missing.
 
-**The checkup says "The Python engine is not installed yet."** Restart R and run it again. If the message stays, the install in step 2 stopped early, most often because Python was missing or older than 3.10. Run the two checks in step 2, fix what they show, and install again.
+**The checkup says "The Python engine is not installed yet."** Restart R and run it again. If the message stays, the install in step 2 stopped early, most often because Python was missing or older than 3.10. Run the Python check in step 2 and fix what it shows. Then remove the half-built environment with `reticulate::virtualenv_remove("r-extracttext")` and run `extracttext_install()` again.
 
 If the install finished and the message still stays, something has told R to use another Python. In a fresh R session, point R at the engine's own environment before anything else, then run the checkup.
 

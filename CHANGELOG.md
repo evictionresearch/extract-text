@@ -7,7 +7,8 @@ Every user-facing change to extract-text is recorded here, newest first. A chang
 ## 0.4.2 (2026-11-17)
 
 - The install no longer needs git. The engine is downloaded as GitHub's zip of the repository, so step 1 asks for three programs (poppler, tesseract, and Python), where it asked for four.
-- Steps 1 and 2 of Get started and the script are written for a reader with little computing background: how to install R and RStudio, how to run a line of code, what the install prints, and how to tell when it has finished. `extracttext_install()` ends with "Done. Restart R, then run extracttext_doctor()."
+- The getting-started script is stripped to its code and one-line notes, 160 lines where it was over 400. The Get started page and `docs/start_here.md` carry the explanation, and what only the script said (checking what is already installed, documents that arrive in a Google Drive folder, fixing every flagged document) moved to the page.
+- Steps 1 and 2 of Get started are written for a reader with little computing background: how to install R and RStudio, how to run a line of code, what the install prints, and how to tell when it has finished. `extracttext_install()` ends with "Done. Restart R, then run extracttext_doctor()."
 - `docs/it_checklist.md` is a page for an IT department: the three programs and where each comes from, what the rest of the install does and where it goes, the web addresses it needs, and what can stop it on a managed computer.
 - `extracttext_doctor()` and `extract-text doctor` say which folder each helper program was found in.
 - The review page shows the page of a document that is itself an image (PNG or JPEG). Before, it showed no image for those, which left a grader nothing to check against.

@@ -102,7 +102,7 @@
 </li>
 </ul>
 <div class="note">
-<p><strong>Before step 1.</strong> You need R and RStudio on your computer, both free, and your court documents (PDF or TIFF files) in a folder on it. R is the program that runs the code on this page, and RStudio is the window you work in.</p>
+<p><strong>Before step 1.</strong> You need R and RStudio on your computer, both free, and your court documents (PDF or TIFF files) in a folder on it. If your computer's system is old, update it first: step 1 needs macOS 15 or later on an Apple chip, or Windows 10 version 1809 or later, and says how to check. R is the program that runs the code on this page, and RStudio is the window you work in.</p>
 <ol type="1">
 <li><strong>Install R.</strong> Go to <a href="https://cran.r-project.org/" target="_blank" rel="noopener noreferrer">cran.r-project.org</a> and choose your system (Windows, macOS, or Linux). On Windows, choose "base" and then the download link at the top. On a Mac, there are two files: one for Apple chips (its name has "arm64") and one for Intel chips. The Apple menu, About This Mac, says which chip you have. Open the downloaded file and accept what the installer suggests.</li>
 <li><strong>Install RStudio.</strong> Go to <a href="https://posit.co/download/rstudio-desktop/" target="_blank" rel="noopener noreferrer">posit.co/download/rstudio-desktop</a>, download the installer for your system, open it, and accept what it suggests.</li>
@@ -113,7 +113,7 @@
 <p><strong>How to run the code on this page.</strong> Each dark box below is code, and the strip above it says where it goes. A box marked R goes in RStudio: press Copy at its top right, click in the Console pane, paste, and press Return. A box marked Terminal or PowerShell goes in that program, which step 1 shows how to open. A light box shows what you should see afterward and is not for typing. A line that begins with <code>#</code> is a note to you, and the computer ignores it.</p>
 </div>
 <div class="note">
-<p><strong>Prefer one file to copy from?</strong> Every step on this page is in <a href="https://raw.githubusercontent.com/evictionresearch/extract-text/main/getting_started_example_script.R" target="_blank" rel="noopener noreferrer"><code>getting_started_example_script.R</code></a>, under the same eight numbers and with more explanation. Save it, open it in RStudio, and run it a block at a time.</p>
+<p><strong>Prefer one file to copy from?</strong> Every step on this page is in <a href="https://raw.githubusercontent.com/evictionresearch/extract-text/main/getting_started_example_script.R" target="_blank" rel="noopener noreferrer"><code>getting_started_example_script.R</code></a>, under the same eight numbers, as code with one-line notes. Save it, open it in RStudio, and run it a block at a time. This page explains each step.</p>
 </div>
 <h2 id="before"><span class="num">1</span> Install three free programs</h2>
 <p>extract-text needs three programs that R does not install.</p>
@@ -158,6 +158,7 @@ winget install Python.Python.3.12</code></pre>
 <p>Run this line in a terminal.</p>
 <pre class="bash"><code>sudo apt install poppler-utils tesseract-ocr python3 python3-venv</code></pre>
 </section>
+<p><strong>If you already have some of these,</strong> check before you install. Run <code>which pdftoppm tesseract python3</code> in Terminal on a Mac or Linux, or <code>where.exe pdftoppm tesseract python</code> in PowerShell on Windows. A program you have prints a path. On a Mac, <code>brew install</code> on a program you already have upgrades it and everything that depends on it, which can be a large download.</p>
 <p>On a work computer of any kind, these installs may need your IT department. Ask for poppler, tesseract, and Python 3.10 or newer, and send them <a href="https://github.com/evictionresearch/extract-text/blob/main/docs/it_checklist.md" target="_blank" rel="noopener noreferrer">For your IT department</a>, which lists each program, where it comes from, and what the rest of the install does.</p>
 <h2 id="install"><span class="num">2</span> Install extract-text</h2>
 <p>In RStudio, run these lines. They install extract-text, check that R can find Python, and then install the engine, the part of extract-text that reads the documents. You do this once per computer.</p>
@@ -220,7 +221,7 @@ docs_dir &lt;- file.path(practice, "extract-text-main", "python", "tests",
                       "fixtures")
 results  &lt;- file.path(practice, "results")</code></pre>
 </div>
-<p><code>docs_dir</code> is the folder that holds your court documents (PDF or TIFF, subfolders included). <code>results</code> is a new folder where everything from here on is written. Type each path with forward slashes, on Windows too.</p>
+<p><code>docs_dir</code> is the folder that holds your court documents (PDF or TIFF, subfolders included). If the documents come to you in a Google Drive folder, download the folder to your own computer first (Drive gives a zip; unzip it). <code>results</code> is a new folder where everything from here on is written. Type each path with forward slashes, on Windows too.</p>
 <pre class="r"><code># Mac:     "/Users/yourname/Documents/court_documents"
 # Windows: "C:/Users/yourname/Documents/court_documents"
 docs_dir &lt;- "path/to/your/documents"
@@ -314,11 +315,14 @@ use_templates &lt;- dir.exists(templates_dir) &amp;&amp;
 
 res_all &lt;- scan_documents(docs_dir, engine = "deterministic", out_dir = all_dir,
                           templates = if (use_templates) templates_dir)</code></pre>
-<p>The first sample told you whether to run everything. A second sample measures the run that becomes your table, templates included.</p>
+<p>The first sample told you whether to run everything. A second sample measures the run that becomes your table, templates included. A document you already graded may come up again; grade it again, and the later answer is the one kept.</p>
 <pre class="r"><code>review_documents(res_all, correct = TRUE, n = n_sample, draw = "random", seed = 1)
 
 score_documents(res_all)</code></pre>
 <p>The share right in this score is the accuracy of the full run. Report it with the table.</p>
+<p>You can also fix every document the engine flagged, so the table carries a person's answer wherever the engine was unsure.</p>
+<pre class="r"><code>review_documents(res_all, correct = TRUE, n = sum(res_all$flags != ""),
+                 draw = "flagged")</code></pre>
 <h2 id="table"><span class="num">8</span> Build the final table</h2>
 <pre class="r"><code>cases &lt;- case_table(res_all, graded = sample_dir,
                     save = file.path(results, "case_table.csv"))
@@ -333,7 +337,8 @@ count(cases, source)</code></pre>
 <p>The table has one row per document, with the case number, the plaintiff, the defendants, and the defendants' address. Your graded answers from both samples replace the engine's wherever you gave one, and the <code>source</code> column says which each row carries. In this example, from the six made-up documents, one row carries a graded answer and five carry the engine's reading. The table is saved as <code>case_table.csv</code> in your results folder.</p>
 <h2 id="next">Go further</h2>
 <ul>
-<li><strong>The full script.</strong> <a href="https://github.com/evictionresearch/extract-text/blob/main/getting_started_example_script.R" target="_blank" rel="noopener noreferrer"><code>getting_started_example_script.R</code></a> holds every step on this page with more explanation, and says when to scan again.</li>
+<li><strong>The script.</strong> <a href="https://github.com/evictionresearch/extract-text/blob/main/getting_started_example_script.R" target="_blank" rel="noopener noreferrer"><code>getting_started_example_script.R</code></a> holds the code of every step on this page in one file.</li>
+<li><strong>When to scan again.</strong> Grading does not change the engine, so scan again only after you update the package, change a rule, or approve a template. <a href="https://github.com/evictionresearch/extract-text/blob/main/docs/start_here.md#what-grading-does" target="_blank" rel="noopener noreferrer">Start here</a> says more.</li>
 <li><strong>The whole procedure on one page.</strong> <a href="https://github.com/evictionresearch/extract-text/blob/main/docs/start_here.md" target="_blank" rel="noopener noreferrer">Start here</a> gives the same steps in plain words, with the terminal command for each.</li>
 <li><strong>Make the engine read your documents better.</strong> <a href="improve.html">Improve it</a> shows how to tell us what goes wrong, with no programming, and how to change the rules on your own copy.</li>
 <li><strong>More on form templates.</strong> The guide is the last chapter of <a href="https://github.com/evictionresearch/extract-text/blob/main/docs/changing_rules.md" target="_blank" rel="noopener noreferrer">Changing the rules</a>.</li>
@@ -342,7 +347,7 @@ count(cases, source)</code></pre>
 </ul>
 <h2 id="help">If something goes wrong</h2>
 <p><strong>Run the checkup first.</strong> <code>extracttext_doctor()</code> in R looks at your computer and prints the command for anything missing.</p>
-<p><strong>The checkup says "The Python engine is not installed yet."</strong> Restart R and run it again. If the message stays, the install in step 2 stopped early, most often because Python was missing or older than 3.10. Run the two checks in step 2, fix what they show, and install again.</p>
+<p><strong>The checkup says "The Python engine is not installed yet."</strong> Restart R and run it again. If the message stays, the install in step 2 stopped early, most often because Python was missing or older than 3.10. Run the Python check in step 2 and fix what it shows. Then remove the half-built environment with <code>reticulate::virtualenv_remove("r-extracttext")</code> and run <code>extracttext_install()</code> again.</p>
 <p>If the install finished and the message still stays, something has told R to use another Python. In a fresh R session, point R at the engine's own environment before anything else, then run the checkup.</p>
 <pre class="r"><code>library(extracttext)
 reticulate::use_virtualenv("r-extracttext", required = TRUE)

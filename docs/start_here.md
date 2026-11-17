@@ -7,7 +7,7 @@ This page is the whole procedure in plain words. It uses the rules engine, which
 ## Three places, the same eight steps
 
 - **The [Get started page](https://evictionresearch.net/extract-text/get-started.html)** has the R code for each step, to copy and run, and a one-minute video of grading.
-- **[`getting_started_example_script.R`](../getting_started_example_script.R)** is the same code in one file, with more explanation. Open it in RStudio and run it a block at a time.
+- **[`getting_started_example_script.R`](../getting_started_example_script.R)** is the same code in one file, with one-line notes. Open it in RStudio and run it a block at a time.
 - **This page** says what each step does and why, and ends with the same steps as terminal commands.
 
 Step 5 means the same thing in all three, and so do the files each step writes.

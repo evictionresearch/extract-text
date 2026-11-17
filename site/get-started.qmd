@@ -36,6 +36,10 @@ hero:
 **Before step 1.** You need [R](https://cran.r-project.org/){target="_blank" rel="noopener noreferrer"} and [RStudio](https://posit.co/download/rstudio-desktop/){target="_blank" rel="noopener noreferrer"} on your computer, both free, and your court documents (PDF or TIFF files) in a folder on it.
 :::
 
+::: {.note}
+**Prefer one file to copy from?** Every step on this page is in [`getting_started_example_script.R`](https://raw.githubusercontent.com/evictionresearch/extract-text/main/getting_started_example_script.R){target="_blank" rel="noopener noreferrer"}, with more explanation. Save it, open it in RStudio, and run it a block at a time.
+:::
+
 ## [1]{.num} Install four free programs {#before}
 
 extract-text needs four programs that R does not install.

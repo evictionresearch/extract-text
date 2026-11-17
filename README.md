@@ -1,8 +1,29 @@
 # extract-text
 
-extract-text is a court document reader (e-filed PDFs, scanned PDFs, and TIFF images) trained on eviction court records. It returns a table with one row per document. Each row holds the names of the plaintiffs and defendants, the address where the defendants were served, the plaintiff's attorney, the case number, and other details of the case. The [Eviction Research Network](https://evictionresearch.net) built it for housing research and policy work and validated it on more than a million pages of Washington State filings. It was designed to work on any court documents that follow American conventions.
+extract-text reads eviction court documents (e-filed PDFs, scanned PDFs, and TIFF images) and returns a table with one row per document: the plaintiffs, the defendants, the address where the defendants were served, the plaintiff's attorney, and the case number. It runs on your own computer, and your documents never leave it. The [Eviction Research Network](https://evictionresearch.net) built it for housing research and policy work.
+
+## Get started
+
+The [Get started page](https://evictionresearch.net/extract-text/get-started.html) walks through the install and a first run, one step at a time. The same steps are in [`getting_started_example_script.R`](getting_started_example_script.R), to open in RStudio and run a block at a time. [`docs/start_here.md`](docs/start_here.md) gives them in plain words on one page, with the terminal command for each.
+
+The steps in brief:
+
+1. **Install four free programs:** poppler, tesseract, Python, and git.
+2. **Install extract-text** and run its checkup.
+3. **Read one made-up summons** to see what the engine returns.
+4. **Scan a random 50** of your own documents.
+5. **Grade those 50** on a review page in your browser, then read the score. It says how often each field was right.
+6. **Teach the engine your court's forms** from the boxes you fixed while grading (optional, no code).
+7. **Scan the whole folder** and grade a second random 50.
+8. **Build the final table**, with your graded answers in place of the engine's.
+
+These steps use the rules engine, which needs no AI and, once installed, no internet.
 
 **Status.** extract-text is under development; [`CHANGELOG.md`](CHANGELOG.md) lists every release and what changed. ERN is checking both engines against hand-labeled Washington filings, and command options, output fields, and the default AI model can still change between releases. Accuracy has been measured only on Washington documents, and the head-to-head test of the AI engine against the labeled sets is not finished. Versions below 1.0 promise no stable interface, so pin the version you build on.
+
+## The two engines
+
+The Eviction Research Network validated extract-text on more than a million pages of Washington State filings. It was designed to work on any court documents that follow American conventions.
 
 The package has two engines that read documents, and you choose one or both on each run.
 
@@ -15,9 +36,7 @@ A third part, **Address Check** (`game/`), is a card game for phones that measur
 
 **Privacy.** With the default engines, documents, page images, and extracted values never leave your computer. The package sends no usage data, and once installed it runs with the network unplugged. This repository holds no personal information. Every example and test document is synthetic (`CONTRIBUTING.md`), and `python/scripts/pii_sweep.py` checks the working tree and the full git history for real names and addresses.
 
-## Quick start
-
-**New here?** [`docs/start_here.md`](docs/start_here.md) is the whole procedure on one page, in plain words: what to bring, the eight stages from a folder of documents to a table, and what each one is for. Follow it with the R script or at a terminal.
+## Install
 
 **First, on Mac and Windows alike, install poppler and tesseract.** extract-text cannot read a document without these two free programs: poppler opens PDFs, and tesseract reads scanned pages (OCR). Neither R nor pip installs them.
 

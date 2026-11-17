@@ -4,6 +4,8 @@ Every user-facing change to extract-text is recorded here, newest first. A chang
 
 ## Unreleased
 
+- The README opens with a short description, a pointer to the website's Get started page and the script, and the eight steps in brief. The Get started page names the script at the top.
+
 ## 0.4.1 (2026-11-17)
 
 - `docs/start_here.md`: the whole procedure on one page in plain words, eight stages from a folder of documents to a table, followed with the R script or at a terminal.

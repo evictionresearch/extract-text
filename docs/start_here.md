@@ -14,7 +14,7 @@ The stages are the same either way, and so are the files they write.
 ## What you need
 
 - A Mac, Windows, or Linux computer that you are allowed to keep court records on.
-- Four free programs, installed once: poppler, tesseract, Python 3.10 or newer, and git. The top of the script and the [README](../README.md#quick-start) give the install lines for each system. To follow the script you also need R and RStudio.
+- Four free programs, installed once: poppler, tesseract, Python 3.10 or newer, and git. The top of the script and the [README](../README.md#install) give the install lines for each system. To follow the script you also need R and RStudio.
 - Your documents in one folder on that computer. Subfolders are fine.
 - An empty folder for the results. Everything written there holds names and addresses, so keep it where you keep the documents. Keep both folders out of Dropbox, iCloud Drive, OneDrive, and any Google Drive folder that syncs.
 

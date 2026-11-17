@@ -4,8 +4,9 @@
 Ratings are not counted equally. Each rater is scored against the attention
 probes, which are cards whose correct answer is known because the address was
 deliberately altered by one digit, and their votes are weighted by how well
-they did. This follows braindr, which weighted citizen scientists by agreement
-with an expert-labeled gold standard:
+they did. The idea is borrowed from braindr, which weighted citizen scientists
+by agreement with an expert-labeled gold standard, using a fitted model where
+this script uses probe accuracy:
 
     Keshavan A, Yeatman JD, Rokem A (2019). "Combining Citizen Science and Deep
     Learning to Amplify Expertise in Neuroimaging." Frontiers in Neuroinformatics

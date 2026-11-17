@@ -1,19 +1,27 @@
 # Address Check
 
+**Status: not in current use.** Address Check produced the package's first
+human ratings, in August 2026. The grading rounds since October 2026 have
+used the review page (`GRADING.md`, `docs/grading_with_boxes.md`).
+
 A card game for building a human-verified training set of address
 extractions. Each card shows a cropped picture of an address as it appears on
 a court filing, next to the address the extractor typed out. A person says
 whether the two say the same thing, and can optionally type what the picture
 actually says.
 
-The design follows **braindr** (https://braindr.us) by Anisha Keshavan,
+The design borrows two ideas from **braindr** (https://braindr.us) by Anisha Keshavan,
 Jason D. Yeatman, and Ariel Rokem, described in *Combining Citizen Science and
 Deep Learning to Amplify Expertise in Neuroimaging*, Frontiers in
 Neuroinformatics 13:29 (2019), https://doi.org/10.3389/fninf.2019.00029.
-Two ideas are borrowed directly. The first is reducing the judgement to one
+The first is reducing the judgement to one
 tap on one image, which is what makes volume possible. The second matters
 more: rating people against items whose answer is already known, and weighting
 their votes by how well they do, rather than counting every vote equally.
+braindr does that with a model fitted to an expert-labeled set; this game
+uses each rater's accuracy on cards with an altered address. braindr then
+trained a deep learning model on its raters' labels, which this game does
+not do.
 
 ## Try it without any real data
 

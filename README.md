@@ -1,6 +1,6 @@
 # extract-text
 
-extract-text reads eviction court documents (e-filed PDFs, scanned PDFs, and TIFF images) and returns a table with one row per document: the plaintiffs, the defendants, the address where the defendants were served, the plaintiff's attorney, and the case number. It runs on your own computer, and your documents never leave it. The [Eviction Research Network](https://evictionresearch.net) built it for housing research and policy work.
+extract-text reads eviction court documents (e-filed PDFs, scanned PDFs, and TIFF images) and returns a table with one row per document: the plaintiffs, the defendants, the address where the defendants were served, the plaintiff's attorney, and the case number. It runs on your own computer, and your documents never leave it. The [Eviction Research Network](https://evictionresearch.net) built it for housing research and policy work. Thomas, Ramiller, Ren, and Toomet (2024) first published the method in "[Toward a National Eviction Data Collection Strategy Using Natural Language Processing](https://www.huduser.gov/portal/periodicals/cityscape/vol26num1/article12.html)," *Cityscape* 26(1). This package takes what that paper did and makes it available to the public.
 
 ## Get started
 
@@ -31,8 +31,6 @@ The package has two engines that read documents, and you choose one or both on e
 - **AI.** A language model that reads page images (qwen3.5 9B), running on your own computer through Ollama. It reads what rules and OCR cannot, handwriting above all, and it sends nothing to any cloud service.
 
 When you run both, the package compares the two addresses on every document, using the similarity measure from the validation work, and flags each disagreement for a person to review. Either engine also flags a value it is unsure of instead of guessing.
-
-A third part, **Address Check** (`game/`), is a card game for phones that measures how often the engines are right. Each card shows an address as printed on a filing beside the address an engine read, and the player says whether they match, in about ten seconds a card. The answers become labeled data, broken down by county, year, the rule that found the address, and whether the text came from the PDF or from OCR, so a weakness in one county shows up instead of being averaged away. It is the only part of the package that produces ground truth.
 
 **Privacy.** With the default engines, documents, page images, and extracted values never leave your computer. The package sends no usage data, and once installed it runs with the network unplugged. This repository holds no personal information. Every example and test document is synthetic (`CONTRIBUTING.md`), and `python/scripts/pii_sweep.py` checks the working tree and the full git history for real names and addresses.
 
@@ -123,16 +121,16 @@ The deterministic engine found an address on 83.5 to 100 percent of documents, d
 schema/          Shared field contract (JSON Schema), generated from the Python models
 python/          The engine, the CLI, tests, and synthetic fixtures
 r/               The R package (full interface via reticulate)
-game/            Address Check, for building a human-verified training set
+game/            Address Check, an earlier card game for checking addresses (not in current use)
 docs/            Start here, the manual, and the guides to rules, templates, and grading
 reports/         Grading-round reports (counts and masked shapes only)
 GRADING.md       Instructions for graders
 MAINTENANCE.md   The improvement schedule: model reviews, benchmarks, release checklist
 ```
 
-## Address Check: the human validation game
+## Address Check, an earlier card game
 
-Every accuracy number in this package that is worth anything came from a person looking at a page. `game/` is the tool that makes that cheap enough to do at volume.
+Address Check (`game/`) is a card game for phones that produced the package's first human ratings, in August 2026. It is not in current use. The grading rounds since October 2026 have used the review page, where a grader corrects every field of a document and the boxes that show where each value was read.
 
 A card shows a cropped picture of the address as printed on the filing and the address an engine read. The rater swipes: same, or not the same. Marking one wrong opens an optional box to type what the picture actually says, and a correction is worth more than a rejection because it says what the right answer was. About ten seconds a card on a phone.
 
@@ -151,9 +149,11 @@ python3 python/scripts/build_card_deck.py --archive ARCHIVE --out DECK --n 700
 
 **Names are never shown.** They are painted over before the crop is taken, and a card is withheld entirely unless a name was actually covered. Full reasoning in `game/README.md`.
 
-The design follows **braindr** by Anisha Keshavan, Jason D. Yeatman, and Ariel Rokem, *Combining Citizen Science and Deep Learning to Amplify Expertise in Neuroimaging*, Frontiers in Neuroinformatics 13:29 (2019), <https://doi.org/10.3389/fninf.2019.00029>. Two ideas are taken directly: the one-tap judgement on a single image, and weighting raters against known-answer items rather than counting every vote equally.
+The game borrows two ideas from **braindr** by Anisha Keshavan, Jason D. Yeatman, and Ariel Rokem, *Combining Citizen Science and Deep Learning to Amplify Expertise in Neuroimaging*, Frontiers in Neuroinformatics 13:29 (2019), <https://doi.org/10.3389/fninf.2019.00029>. One is the one-tap judgement on a single image. The other is weighting raters against items whose answer is known. braindr fits a model to an expert-labeled set to do that, and Address Check uses each rater's accuracy on cards with an altered address. braindr then trained a deep learning model on its raters' labels. Address Check does not.
 
-The method is peer reviewed: Thomas, Ramiller, Ren, and Toomet (2024), "Toward a National Eviction Data Collection Strategy Using Natural Language Processing," *Cityscape* 26(1) ([HUD USER](https://www.huduser.gov/portal/periodicals/cityscape/vol26num1/article12.html)). This package is the successor to that paper's pipeline, rebuilt around word-coordinate zoning, which structurally removes the line-number-rail errors the paper documents.
+## Where the method comes from
+
+The method is peer reviewed, in the *Cityscape* paper cited at the top of this page. This package is the successor to that paper's pipeline, rebuilt around word-coordinate zoning, which structurally removes the line-number-rail errors the paper documents.
 
 This package improves on a schedule rather than by accident: a monthly automated review issue tracks whether a better local model exists, and `MAINTENANCE.md` holds the procedure and the decision log.
 

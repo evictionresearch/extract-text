@@ -132,7 +132,7 @@ Grading does not change the rules that read the text. A person changes them, in 
 
 **A check against a list of real addresses.** The package compares each address with a list you supply, such as a county's public address points, and reports the ones that match no real address. A preset is included for King County, Washington.
 
-**Address Check, a card game for phones.** Each card shows a picture of an address as printed on a filing beside the address an engine read. The player says whether they match, in about ten seconds a card. The game paints over the names before it takes the picture. The answers become labeled data, broken down by county, year, and the rule that found the address, so a weakness in one county shows up and is not averaged away.
+**Address Check, an earlier card game for phones.** It produced the package's first human ratings, in August 2026, and is not in current use; grading now happens on the review page. Each card shows a picture of an address as printed on a filing beside the address an engine read. The player said whether they matched, in about ten seconds a card. The game painted over the names before it took the picture. The answers became labeled data, broken down by county, year, and the rule that found the address, so a weakness in one county showed up and was not averaged away.
 
 ## What the measurements show {#accuracy}
 

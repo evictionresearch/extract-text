@@ -1,6 +1,14 @@
 # extract-text
 
-extract-text reads eviction court documents (e-filed PDFs, scanned PDFs, and TIFF images) and returns a table with one row per document: the plaintiffs, the defendants, the address where the defendants were served, the plaintiff's attorney, and the case number. It runs on your own computer, and your documents never leave it. The [Eviction Research Network](https://evictionresearch.net) built it for housing research and policy work. Thomas, Ramiller, Ren, and Toomet (2024) first published the method in "[Toward a National Eviction Data Collection Strategy Using Natural Language Processing](https://www.huduser.gov/portal/periodicals/cityscape/vol26num1/article12.html)," *Cityscape* 26(1). This package takes what that paper did and makes it available to the public.
+extract-text reads eviction court documents (e-filed PDFs, scanned PDFs, and TIFF images) and returns a table with one row per document: the plaintiffs, the defendants, the address where the defendants were served, the plaintiff's attorney, and the case number. It runs on your own computer, and your documents never leave it. The [Eviction Research Network](https://evictionresearch.net) built it for housing research and policy work. Thomas, Ramiller, Ren, and Toomet (2024) were the first to use this method on eviction case records, in "[Toward a National Eviction Data Collection Strategy Using Natural Language Processing](https://www.huduser.gov/portal/periodicals/cityscape/vol26num1/article12.html)," *Cityscape* 26(1). This package takes what that paper did and makes it available to the public.
+
+## How it works
+
+extract-text has two engines, and you choose one or both on each run.
+
+- **The rules engine** reads a document with written rules and the layout of the page. It uses no AI and no internet connection, and the same document always gives the same answer. It exists largely because some agencies do not allow AI on their computers, and they can run it alone.
+- **The AI engine** is a language model that runs on your own computer and reads the page as an image. It can read what rules cannot, handwriting above all. It sends nothing to any cloud service.
+- **Both together.** When you run both, the package compares the two addresses on every document. Where the two disagree, at least one is wrong, so the package flags that document for a person to check.
 
 ## Get started
 
@@ -21,7 +29,7 @@ These steps use the rules engine, which needs no AI and, once installed, no inte
 
 **Status.** extract-text is under development; [`CHANGELOG.md`](CHANGELOG.md) lists every release and what changed. ERN is checking both engines against hand-labeled Washington filings, and command options, output fields, and the default AI model can still change between releases. Accuracy has been measured only on Washington documents, and the head-to-head test of the AI engine against the labeled sets is not finished. Versions below 1.0 promise no stable interface, so pin the version you build on.
 
-## The two engines
+## The two engines in detail
 
 The Eviction Research Network validated extract-text on more than a million pages of Washington State filings. It was designed to work on any court documents that follow American conventions.
 

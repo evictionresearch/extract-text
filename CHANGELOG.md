@@ -4,7 +4,8 @@ Every user-facing change to extract-text is recorded here, newest first. A chang
 
 ## Unreleased
 
-- The README's first paragraph cites the *Cityscape* paper the method was first published in. Address Check, the card game, is described as an earlier tool that is not in current use, and as borrowing two ideas from braindr, not following its whole design; the README no longer calls it the only source of ground truth.
+- The README has a short "How it works" section ahead of "Get started": the rules engine, the AI engine, and why the two are run together.
+- The README's first paragraph cites the *Cityscape* paper, the first to use this method on eviction case records. Address Check, the card game, is described as an earlier tool that is not in current use, and as borrowing two ideas from braindr, not following its whole design; the README no longer calls it the only source of ground truth.
 - The README opens with a short description, a pointer to the website's Get started page and the script, and the eight steps in brief. The Get started page names the script at the top.
 
 ## 0.4.1 (2026-11-17)

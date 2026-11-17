@@ -4,7 +4,7 @@ Four pages in the Eviction Research Network's 2026 design: the home page, Get st
 
 ## Edit a page
 
-Each page is one `.qmd` file: `index.qmd`, `get-started.qmd`, `how-it-works.qmd`, `about.qmd`. The text is plain markdown. The block between the `---` lines at the top holds the page title and the opening section (`hero`). Lines that start with `:::` open and close the boxes of the layout (a card, a row of cards, a notice); leave them in place and edit the text between them.
+Each page is one `.qmd` file: `index.qmd`, `get-started.qmd`, `how-it-works.qmd`, `improve.qmd`, `about.qmd`. The text is plain markdown. The block between the `---` lines at the top holds the page title and the opening section (`hero`). Lines that start with `:::` open and close the boxes of the layout (a card, a row of cards, a notice); leave them in place and edit the text between them.
 
 The header, the footer, and the fonts live in one file, `_extensions/ern/extract-text/template.html`, so a change there reaches all four pages.
 
@@ -22,7 +22,7 @@ This rewrites the four `.html` files beside the `.qmd` files. Open `index.html` 
 ## Files
 
 ```
-index.qmd, get-started.qmd, how-it-works.qmd, about.qmd   the pages
+index.qmd, get-started.qmd, how-it-works.qmd, improve.qmd, about.qmd   the pages
 *.html                                                     the rendered pages
 _extensions/ern/extract-text/template.html                 header, footer, page frame
 assets/css/ern-2026.css          copy of the ERN design system (do not edit here)
@@ -38,6 +38,7 @@ media/                           the two videos and their still images
 
 - The example output blocks on `get-started.qmd` (the light boxes) were printed by the package on the made-up test documents. Print them again when the output changes shape.
 - `get-started.qmd` follows `getting_started_example_script.R`. When the script changes, change the page.
+- `improve.qmd` follows `docs/changing_rules.md` in its second half, and its example report was printed by `extract-text score --shapes` on made-up documents. When the guide or the report changes, change the page.
 - The version number appears in `index.qmd` (the badge), `how-it-works.qmd` (Status), and `about.qmd` (the citation). The release checklist in `MAINTENANCE.md` should include them.
 - The accuracy numbers in `how-it-works.qmd` and `index.qmd` come from `README.md` and section 13 of `docs/manual.md`. Change them there first.
 

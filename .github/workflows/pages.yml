@@ -34,7 +34,7 @@ jobs:
         run: |
           mkdir _site
           cd site
-          cp -R index.html get-started.html how-it-works.html about.html \
+          cp -R index.html get-started.html how-it-works.html improve.html about.html \
                 assets images media ../_site/
       - uses: actions/upload-pages-artifact@v3
         with:

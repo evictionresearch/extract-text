@@ -8,7 +8,7 @@ Most fixes are a line or two in a regular expression (a text pattern). You need 
 
 ## Before you start
 
-You need a scan with graded documents, from steps 4 to 7 of `getting_started_example_script.R`, because every change is measured against them. Two graded sets are better than one: develop a change on the first sample and test it on the second (step 9's sample from the full run). A change shaped on the documents it is measured on always looks better than it is.
+You need a scan with graded documents, from steps 4 to 7 of `getting_started_example_script.R`, because every change is measured against them. Two graded sets are better than one: develop a change on the first sample and test it on the second (step 10's sample from the full run). A change shaped on the documents it is measured on always looks better than it is.
 
 ## 1. Get your own copy of the code
 

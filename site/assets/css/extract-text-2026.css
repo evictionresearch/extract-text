@@ -323,3 +323,7 @@
 .timeline .done .status { color: var(--ink); }
 .timeline h3 { font-size: 20px; font-weight: 600; line-height: 1.35; color: var(--ink); margin: 0 0 6px; }
 .timeline p { font-size: 15.5px; line-height: 1.6; margin: 0; }
+
+/* Long file paths in running text break across lines, so they cannot push a
+   phone's page wider than its screen. */
+.page :not(pre) > code { overflow-wrap: anywhere; }

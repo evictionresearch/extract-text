@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+  <meta content="width=device-width, initial-scale=1.0" name="viewport">
+  <title>Improve extract-text</title>
+  <meta name="description" content="Two ways to make extract-text read your court’s documents better: tell the Eviction Research Network what goes wrong, or change the rules on your own copy.">
+  <meta name="author" content="Eviction Research Network, UC Berkeley">
+
+  <!-- Open Graph / social -->
+  <meta property="og:title" content="Improve extract-text">
+  <meta property="og:description" content="Two ways to make extract-text read your court’s documents better: tell the Eviction Research Network what goes wrong, or change the rules on your own copy.">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Eviction Research Network">
+
+  <link href="https://evictionresearch.net/assets/img/favicon.png" rel="icon">
+  <link href="https://evictionresearch.net/assets/img/apple-touch-icon.png" rel="apple-touch-icon">
+
+  <!-- Inter is the ERN brand font. -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500;600;700;800&amp;display=swap" rel="stylesheet">
+
+  <!-- ern-2026.css is a copy of the main site's design system
+       (evictionresearch.github.io/assets/css/ern-2026.css). This site is a
+       separate deploy, so nothing keeps the two in sync; when the main
+       site's file changes, copy it here again. extract-text-2026.css holds
+       what only these pages need. -->
+  <link href="assets/css/ern-2026.css" rel="stylesheet">
+  <link href="assets/css/extract-text-2026.css" rel="stylesheet">
+</head>
+
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+
+  <!-- ─────────── Header ───────────
+       The ERN logo goes to the main site. "/ extract-text" beside it is
+       this site's home page. The links are this site's other three pages
+       and the code on GitHub. -->
+  <header class="head">
+    <div class="wrap head-in">
+      <div class="brandline">
+        <a href="https://evictionresearch.net/" aria-label="Eviction Research Network, main site">
+          <img src="images/EvictionStudy_logo_v09_1A_LOGO_BANNER.png" alt="Eviction Research Network">
+        </a>
+        <span class="sep" aria-hidden="true">/</span>
+        <a class="tool-name" href="index.html" aria-label="extract-text, home">extract-text</a>
+      </div>
+      <nav class="nav" aria-label="extract-text pages">
+        <a href="get-started.html">Get started</a>
+        <a href="how-it-works.html">How it works</a>
+        <a href="improve.html" aria-current="page">Improve it</a>
+        <a href="about.html">About</a>
+        <a class="btn sm" href="https://github.com/evictionresearch/extract-text" target="_blank" rel="noopener noreferrer">GitHub</a>
+      </nav>
+    </div>
+  </header>
+
+  <div id="main" role="main" class="page">
+
+    <section class="wrap sec-hero">
+      <div class="hero-in">
+        <p class="eyebrow">Improve it</p>
+        <h1>Make the engine <em>read your documents better</em></h1>
+        <p class="lede">Tell us what goes wrong and we fix it for every user, or change the rules on your own copy. The first needs no programming.</p>
+      </div>
+    </section>
+
+<section>
+<div class="wrap sec article" style="padding-top: 0;">
+<ul class="jump">
+<li>
+<a href="#what">What can change</a>
+</li>
+<li>
+<a href="#which">Wrong place or wrong reading</a>
+</li>
+<li>
+<a href="#tell-us"><b>Route 1</b> Tell us</a>
+</li>
+<li>
+<a href="#yourself"><b>Route 2</b> Change it yourself</a>
+</li>
+<li>
+<a href="#never">What never to send</a>
+</li>
+</ul>
+<h2 id="what">What can change, and who changes it</h2>
+<p>Grading does not change the engine. It shows you what the engine gets wrong on your documents. Three things can then make it better.</p>
+<div class="table-wrap">
+<table class="caption-top">
+<thead>
+<tr class="header">
+<th></th>
+<th>What it fixes</th>
+<th>Who does it</th>
+<th>What it takes</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>A form template</td>
+<td>The engine looks in the wrong place on one of your court's forms</td>
+<td>You</td>
+<td>No code. It is <a href="get-started.html#forms">step 6 of Get started</a></td>
+</tr>
+<tr class="even">
+<td>A rule change by us</td>
+<td>The engine looks in the right place and reads the value wrong</td>
+<td>The Eviction Research Network, from what you tell us</td>
+<td>An email. No programming</td>
+</tr>
+<tr class="odd">
+<td>A rule change by you</td>
+<td>The same</td>
+<td>You, on your own copy of the code</td>
+<td>Editing short text patterns</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>A rule change we make goes into the package, so every user gets it. A rule change you make stays on your computer unless you choose to share it.</p>
+<p>This page is about the rules engine. The AI engine comes next in the <a href="index.html#development">development timeline</a>.</p>
+<h2 id="which">First, tell a wrong place from a wrong reading</h2>
+<p>Open the review page and find a document the engine got wrong. Look at the colored box for the field that is wrong.</p>
+<ul>
+<li><strong>The box sits over the wrong part of the page, or the field has no box.</strong> The engine looked in the wrong place. Move the box or draw one, save, and let a form template carry the fix to every document of that form. That is <a href="get-started.html#forms">step 6 of Get started</a>, and it needs no code.</li>
+<li><strong>The box sits over the right words and the value is still wrong.</strong> A rule misread what it found. It may have kept a phrase that is not a name, cut a street short, or missed a unit. That takes a rule change, by one of the two routes below.</li>
+<li><strong>The page itself is too faint, skewed, or handwritten to read.</strong> No rule fixes that. Your graded answer still goes into the final table for that document.</li>
+</ul>
+<h2 id="tell-us"><span class="num">1</span> Tell us, and we fix it for everyone</h2>
+<p>This route needs no programming. You grade, as you already do, and tell the Eviction Research Network what the engine gets wrong. We write the rule change, measure it, and release it in the package.</p>
+<h3 id="describe">The quickest report needs no agreement</h3>
+<p>Write to <a href="mailto:evictions@berkeley.edu?Subject=extract-text">evictions@berkeley.edu</a>, or <a href="https://github.com/evictionresearch/extract-text/issues" target="_blank" rel="noopener noreferrer">open an issue on GitHub</a>, and describe what goes wrong in your own words. Say which court the documents come from, which field is wrong, and what the form looks like where that field is printed. For example:</p>
+<blockquote>
+<p>On our county's summons the tenant's address is printed under the words "Served upon", halfway down the first page. The engine leaves the street blank.</p>
+</blockquote>
+<p>If the made-up summons from <a href="get-started.html#example">step 3 of Get started</a> shows the same mistake, say so. We can then see it on our own computers.</p>
+<div class="note">
+<p><strong>Describe, do not attach.</strong> Leave out every real name, address, and case number, and attach no document and no file made from your records.</p>
+</div>
+<h3 id="agreement">To send more, write to us first</h3>
+<p>A description is sometimes enough. Often we need to see the shape of what the engine got wrong, and that comes from your records. Anything made from your records needs a data agreement between your organization and UC Berkeley before it is sent. That holds for all three items below, the masked report included. UC Berkeley signs the agreement for the Network.</p>
+<p>Write to <a href="mailto:evictions@berkeley.edu?Subject=extract-text%20data%20agreement">evictions@berkeley.edu</a> and say you would like to share results. We will tell you how to start the agreement.</p>
+<h3 id="send">What you would send, from least to most</h3>
+<p><strong>1. The score report.</strong> One line of R writes it, from a sample you have graded.</p>
+<pre class="r"><code>score_documents(res, save = file.path(results, "score_report.txt"))</code></pre>
+<p>The report counts, field by field, how often the engine was right. It then shows each wrong value in masked form, where every letter becomes A or a and every digit becomes 9. The report shows the shape of a mistake without the name or the address.</p>
+<pre class="output"><code>deterministic engine, share of fields right, then right or near
+  plaintiff        100.0% 100.0% of    6
+  defendants         0.0%   0.0% of    6   wrong: 6 blank
+  street             0.0%   0.0% of    6   wrong: 6 blank
+
+shapes of wrong values (letters A/a, digits 9): engine value, then the right answer
+  deterministic · defendants
+    #1    blank          (blank)
+                        AAAA A. AAAAAA; AAA A. AAAAAA
+  deterministic · street
+    #1    blank          (blank)
+                        9999 AAAAAAAA AAAAA</code></pre>
+<p>This example comes from six made-up documents and is shortened. On each of them the engine left the defendants and the street blank, and the masked lines show what a grader typed in their place. A report like this is often enough for us to write a rule.</p>
+<p><strong>2. A form template file.</strong> If you approved a template in <a href="get-started.html#forms">step 6 of Get started</a>, its file is in the <code>templates</code> folder inside your sample folder, named <code>form-1.json</code> or similar. It holds the words your court's form prints, where they sit on the page, and a region for each field. It holds no names and no addresses. Open it and look before you send it.</p>
+<p><strong>3. Your corrections.</strong> Two files in the sample folder, <code>corrections.jsonl</code> and <code>corrections.csv</code>, hold every answer you saved. They hold tenants' names and addresses. With them we can measure a rule change against your answers before we release it. They travel only by the route the agreement names, never by email, chat, or GitHub.</p>
+<h3 id="next">What happens next</h3>
+<ol type="1">
+<li><strong>We look for a mistake that repeats.</strong> One odd document is not worth a rule. Several with the same shape are.</li>
+<li><strong>We write the rule change and measure it</strong> against graded documents, counting the readings it fixed and the readings it broke. A change that breaks readings goes back for another look.</li>
+<li><strong>We release it</strong> in a new version of the package and list it in the <a href="https://github.com/evictionresearch/extract-text/blob/main/CHANGELOG.md" target="_blank" rel="noopener noreferrer">changelog</a>.</li>
+<li><strong>You install the new version</strong> by running <a href="get-started.html#install">step 2 of Get started</a> again, scan your documents into the same results folder, and score again. Scanning into the same folder keeps your corrections, so the new score shows what the change fixed on your documents.</li>
+</ol>
+<h2 id="yourself"><span class="num">2</span> Change the rules yourself</h2>
+<p>This route is for someone who is comfortable reading and editing short text patterns (regular expressions). Most fixes are a line or two, and no other Python is needed for most of them. Nothing leaves your computer.</p>
+<p>The steps below are a summary. <a href="https://github.com/evictionresearch/extract-text/blob/main/docs/changing_rules.md" target="_blank" rel="noopener noreferrer">Changing the rules</a> is the full guide, with the reasoning for each step.</p>
+<p>You need two graded samples, the ones from steps 5 and 7 of Get started. You shape a change on the first and test it on the second. A change measured on the documents it was shaped on always looks better than it is.</p>
+<h3 id="get-your-own-copy-of-the-code">1. Get your own copy of the code</h3>
+<p>In Terminal on a Mac, or PowerShell on Windows:</p>
+<pre class="bash"><code>git clone https://github.com/evictionresearch/extract-text.git</code></pre>
+<p>Keep this folder apart from the folders that hold court documents, and never copy court documents or results into it.</p>
+<h3 id="run-the-engine-from-your-copy">2. Run the engine from your copy</h3>
+<pre class="r"><code>extracttext_install(source = "~/extract-text/python")</code></pre>
+<p>Then restart R. Run this line again and restart R after every edit. While you work this way, do not run <code>extracttext_install()</code> without <code>source</code>. It installs the published rules over yours.</p>
+<h3 id="find-what-to-fix">3. Find what to fix</h3>
+<p>Start from the score report described above. Look for a mistake that repeats. Two columns of the scan say which rule was involved: <code>defendant_anchor</code> names the rule that found the address, and <code>flags</code> lists the checks a document failed.</p>
+<h3 id="find-the-rule">4. Find the rule</h3>
+<p>Every path is inside the folder from step 1.</p>
+<ul>
+<li><code>python/src/extract_text/parties.py</code> cleans up party names.</li>
+<li><code>python/src/extract_text/deterministic/summons.py</code> is the core of the engine. It holds the street types, unit words, the city, state, and ZIP pattern, the four ways the address is found, and the plaintiff and attorney readers.</li>
+<li><code>python/src/extract_text/deterministic/patterns.py</code> holds patterns for other fields, such as the court name and filing date.</li>
+<li><code>python/src/extract_text/standardize.py</code> holds the USPS forms used in the standardized address columns.</li>
+</ul>
+<p>Most rules carry a comment saying why they exist and what they must not catch. Read it before you change the rule.</p>
+<h3 id="change-one-thing">5. Change one thing</h3>
+<p>Suppose the defendant names on your documents end in "OCCUPANTS OF THE PREMISES", and the engine keeps that as if it were a person. Open <code>parties.py</code>, find <code>_GROUP_TERM_RE</code>, and add one line after the "unknown occupants" line.</p>
+<pre><code>      | unknown\s+occupants?                   # "unknown occupants" (2026-11-09)
+      | occupants\s+of\s+the\s+premises        # "occupants of the premises"</code></pre>
+<p>Reinstall (step 2), restart R, and try it on a made-up name.</p>
+<pre class="r"><code>p &lt;- reticulate::import("extract_text.parties")
+reticulate::py_get_attr(p, "_strip_group_terms")("JANE Q. TENANT and OCCUPANTS OF THE PREMISES")</code></pre>
+<p>The first value returned should be <code>JANE Q. TENANT</code>. Change one thing at a time, keep the pattern narrow, and write a comment above the change with a made-up example.</p>
+<h3 id="measure-the-change">6. Measure the change</h3>
+<p><code>rules_eval.py</code> reads every graded document again with your rules. It counts, field by field, what the change fixed and what it broke.</p>
+<pre class="r"><code>py &lt;- reticulate::virtualenv_python("r-extracttext")
+eval_script &lt;- path.expand("~/extract-text/python/scripts/rules_eval.py")
+
+# the first sample, where you shaped the change
+system2(py, c("-I", eval_script, "--out", sample_dir))
+
+# the second sample, which the change was not shaped on
+system2(py, c("-I", eval_script, "--out", all_dir))</code></pre>
+<p>Keep a change that fixes documents in the second sample and breaks none.</p>
+<h3 id="use-it">7. Use it</h3>
+<p>Scan the same documents into the same folder again. Your graded answers are kept, <code>score_documents()</code> shows the new accuracy, and <code>case_table()</code> builds the table from the new readings.</p>
+<h3 id="keep-your-change-through-package-updates">8. Keep your change through package updates</h3>
+<p>Save the change on a branch of its own, from inside the <code>extract-text</code> folder.</p>
+<pre class="bash"><code>git checkout -b local-rules
+git commit -am "Drop 'occupants of the premises' from defendant names"</code></pre>
+<p>When a new version is published, bring it into your copy, reinstall (step 2), and measure again (step 6).</p>
+<pre class="bash"><code>git fetch origin
+git merge origin/main</code></pre>
+<h3 id="share-it-if-you-want-to">9. Share it, if you want to</h3>
+<p>A fix that would help others is welcome as a pull request on GitHub. <a href="https://github.com/evictionresearch/extract-text/blob/main/CONTRIBUTING.md" target="_blank" rel="noopener noreferrer"><code>CONTRIBUTING.md</code></a> says how. Every example and test in it must use made-up values.</p>
+<h2 id="never">What never to send, anywhere</h2>
+<ul>
+<li>A court document, or a picture of one.</li>
+<li>A real name, address, or case number, in an email, an issue, a pull request, or a chat.</li>
+<li>Any file made from your records on GitHub, masked or not. GitHub is public.</li>
+</ul>
+</div>
+</section>
+
+  </div>
+
+  <!-- ─────────── Footer ───────────
+       A copy of the main site's footer with absolute links, plus one column
+       for this site. The affiliation sentence is canonical (ERN library
+       ORG.md): do not paraphrase, never write "housed in". The UC Berkeley
+       Sociology lockup was approved for the ERN website by Brand Protection
+       (Project #1008, 2026-09-02). -->
+  <footer class="foot" role="contentinfo">
+    <div class="wrap foot-in">
+      <div class="foot-brand">
+        <img src="images/EvictionStudy_logo_v09_1A_LOGO_STACK_REV.png" alt="Eviction Research Network">
+        <a class="foot-berkeley" href="https://sociology.berkeley.edu" target="_blank" rel="noopener noreferrer"><img src="images/uc-berkeley-sociology_h_white_transparent.png" alt="UC Berkeley Sociology"></a>
+        <p>A research program led by Dr. Tim Thomas, Assistant Researcher in the UC Berkeley Department of Sociology, which serves as its academic home. Affiliated with the Berkeley Institute for Data Science.</p>
+      </div>
+      <div class="foot-col">
+        <span>extract-text</span>
+        <a href="get-started.html">Get started</a>
+        <a href="how-it-works.html">How it works</a>
+        <a href="improve.html">Improve it</a>
+        <a href="about.html">About</a>
+        <a href="https://github.com/evictionresearch/extract-text/blob/main/docs/manual.md" target="_blank" rel="noopener noreferrer">Manual</a>
+        <a href="https://github.com/evictionresearch/extract-text" target="_blank" rel="noopener noreferrer">Code on GitHub</a>
+      </div>
+      <div class="foot-col">
+        <span>Eviction Research Network</span>
+        <a href="https://evictionresearch.net/#atlas">Maps &amp; profiles</a>
+        <a href="https://evictionresearch.net/hprm/">HPRM risk maps</a>
+        <a href="https://evictionresearch.net/research.html">Publications</a>
+        <a href="https://evictionresearch.net/policy.html">What works</a>
+        <a href="https://evictionresearch.net/about.html">About ERN</a>
+      </div>
+      <div class="foot-col">
+        <span>Contact</span>
+        <a href="mailto:evictions@berkeley.edu?Subject=extract-text">evictions@berkeley.edu</a>
+        <a href="https://github.com/evictionresearch/extract-text/issues" target="_blank" rel="noopener noreferrer">Report a problem</a>
+        <a href="https://bsky.app/profile/evictionresearch.bsky.social" target="_blank" rel="noopener noreferrer">Bluesky</a>
+        <a href="https://www.linkedin.com/company/evictionresearch/" target="_blank" rel="noopener noreferrer">LinkedIn</a>
+      </div>
+    </div>
+    <div class="foot-bar">
+      <div class="wrap">
+        <span>© 2026 Eviction Research Network · University of California, Berkeley</span>
+        <span><a href="https://dap.berkeley.edu/get-help/report-web-accessibility-issue" target="_blank" rel="noopener noreferrer">Report a web accessibility issue</a></span>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    // Each block of code gets a strip above it that says what it is (R,
+    // Terminal, PowerShell, Python, or example output) and holds a Copy
+    // button, so the button never sits on the code. A block that scrolls
+    // sideways can be reached and scrolled from the keyboard.
+    (function () {
+      var names = { r: 'R', bash: 'Terminal', powershell: 'PowerShell', python: 'Python', output: 'Example of what you should see' };
+      document.querySelectorAll('.page pre').forEach(function (pre) {
+        var kind = Object.keys(names).filter(function (k) { return pre.classList.contains(k); })[0];
+        var box = document.createElement('div');
+        box.className = 'code' + (kind === 'output' ? ' out' : '');
+        var bar = document.createElement('div');
+        bar.className = 'code-bar';
+        var lang = document.createElement('span');
+        lang.className = 'lang';
+        lang.textContent = names[kind] || 'Code';
+        bar.appendChild(lang);
+        if (kind !== 'output' && navigator.clipboard) {
+          var b = document.createElement('button');
+          b.type = 'button';
+          b.className = 'copy';
+          b.textContent = 'Copy';
+          b.setAttribute('aria-live', 'polite');
+          b.addEventListener('click', function () {
+            var code = pre.querySelector('code') || pre;
+            navigator.clipboard.writeText(code.textContent).then(function () {
+              b.textContent = 'Copied';
+              setTimeout(function () { b.textContent = 'Copy'; }, 1600);
+            });
+          });
+          bar.appendChild(b);
+        }
+        pre.parentNode.insertBefore(box, pre);
+        box.appendChild(bar);
+        box.appendChild(pre);
+        if (pre.scrollWidth > pre.clientWidth + 1) {
+          pre.tabIndex = 0;
+          pre.setAttribute('role', 'region');
+          pre.setAttribute('aria-label', (names[kind] || 'Code') + ', scrolls sideways');
+        }
+      });
+    })();
+  </script>
+
+  <script>
+    // A video with a script: each line of the list under the player carries
+    // the second it starts at (data-start). As the video plays, the line for
+    // that moment is shown under the player and marked in the full list.
+    document.querySelectorAll('figure.video').forEach(function (fig) {
+      var video = fig.querySelector('video');
+      var line = fig.querySelector('.narration');
+      var items = Array.prototype.slice.call(fig.querySelectorAll('.script li[data-start]'));
+      if (!video || !line || !items.length) return;
+      line.hidden = false;
+      var shown = null;
+      function show() {
+        var now = items[0];
+        items.forEach(function (li) { if (parseFloat(li.dataset.start) <= video.currentTime) now = li; });
+        if (now === shown) return;
+        shown = now;
+        line.textContent = now.textContent;
+        items.forEach(function (li) { li.classList.toggle('now', li === now); });
+      }
+      video.addEventListener('timeupdate', show);
+      video.addEventListener('seeked', show);
+      show();
+    });
+  </script>
+
+
+
+</body></html>

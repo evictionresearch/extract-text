@@ -1,0 +1,219 @@
+---
+# Improve page of the extract-text site.
+# The do-it-yourself steps follow docs/changing_rules.md; when that guide
+# changes, change this page to match. The example report was printed by
+# `extract-text score --shapes` on six made-up documents (2026-11-17) and
+# shortened; print it again when the report changes shape.
+pagetitle: "Improve extract-text"
+description: "Two ways to make extract-text read your court's documents better: tell the Eviction Research Network what goes wrong, or change the rules on your own copy."
+format: extract-text-html
+current-improve: true
+hero:
+  eyebrow: "Improve it"
+  h1: "Make the engine *read your documents better*"
+  lede: "Tell us what goes wrong and we fix it for every user, or change the rules on your own copy. The first needs no programming."
+---
+
+<section>
+:::::: {.wrap .sec .article style="padding-top: 0;"}
+
+<ul class="jump">
+<li><a href="#what">What can change</a></li>
+<li><a href="#which">Wrong place or wrong reading</a></li>
+<li><a href="#tell-us"><b>Route 1</b> Tell us</a></li>
+<li><a href="#yourself"><b>Route 2</b> Change it yourself</a></li>
+<li><a href="#never">What never to send</a></li>
+</ul>
+
+## What can change, and who changes it {#what}
+
+Grading does not change the engine. It shows you what the engine gets wrong on your documents. Three things can then make it better.
+
+::: {.table-wrap}
+| | What it fixes | Who does it | What it takes |
+|---|---|---|---|
+| A form template | The engine looks in the wrong place on one of your court's forms | You | No code. It is [step 6 of Get started](get-started.html#forms) |
+| A rule change by us | The engine looks in the right place and reads the value wrong | The Eviction Research Network, from what you tell us | An email. No programming |
+| A rule change by you | The same | You, on your own copy of the code | Editing short text patterns |
+:::
+
+A rule change we make goes into the package, so every user gets it. A rule change you make stays on your computer unless you choose to share it.
+
+This page is about the rules engine. The AI engine comes next in the [development timeline](index.html#development).
+
+## First, tell a wrong place from a wrong reading {#which}
+
+Open the review page and find a document the engine got wrong. Look at the colored box for the field that is wrong.
+
+- **The box sits over the wrong part of the page, or the field has no box.** The engine looked in the wrong place. Move the box or draw one, save, and let a form template carry the fix to every document of that form. That is [step 6 of Get started](get-started.html#forms), and it needs no code.
+- **The box sits over the right words and the value is still wrong.** A rule misread what it found. It may have kept a phrase that is not a name, cut a street short, or missed a unit. That takes a rule change, by one of the two routes below.
+- **The page itself is too faint, skewed, or handwritten to read.** No rule fixes that. Your graded answer still goes into the final table for that document.
+
+## [1]{.num} Tell us, and we fix it for everyone {#tell-us}
+
+This route needs no programming. You grade, as you already do, and tell the Eviction Research Network what the engine gets wrong. We write the rule change, measure it, and release it in the package.
+
+### The quickest report needs no agreement {#describe}
+
+Write to [evictions@berkeley.edu](mailto:evictions@berkeley.edu?Subject=extract-text), or [open an issue on GitHub](https://github.com/evictionresearch/extract-text/issues){target="_blank" rel="noopener noreferrer"}, and describe what goes wrong in your own words. Say which court the documents come from, which field is wrong, and what the form looks like where that field is printed. For example:
+
+> On our county's summons the tenant's address is printed under the words "Served upon", halfway down the first page. The engine leaves the street blank.
+
+If the made-up summons from [step 3 of Get started](get-started.html#example) shows the same mistake, say so. We can then see it on our own computers.
+
+::: {.note}
+**Describe, do not attach.** Leave out every real name, address, and case number, and attach no document and no file made from your records.
+:::
+
+### To send more, write to us first {#agreement}
+
+A description is sometimes enough. Often we need to see the shape of what the engine got wrong, and that comes from your records. Anything made from your records needs a data agreement between your organization and UC Berkeley before it is sent. That holds for all three items below, the masked report included. UC Berkeley signs the agreement for the Network.
+
+Write to [evictions@berkeley.edu](mailto:evictions@berkeley.edu?Subject=extract-text%20data%20agreement) and say you would like to share results. We will tell you how to start the agreement.
+
+### What you would send, from least to most {#send}
+
+**1. The score report.** One line of R writes it, from a sample you have graded.
+
+```r
+score_documents(res, save = file.path(results, "score_report.txt"))
+```
+
+The report counts, field by field, how often the engine was right. It then shows each wrong value in masked form, where every letter becomes A or a and every digit becomes 9. The report shows the shape of a mistake without the name or the address.
+
+```{.output}
+deterministic engine, share of fields right, then right or near
+  plaintiff        100.0% 100.0% of    6
+  defendants         0.0%   0.0% of    6   wrong: 6 blank
+  street             0.0%   0.0% of    6   wrong: 6 blank
+
+shapes of wrong values (letters A/a, digits 9): engine value, then the right answer
+  deterministic · defendants
+    #1    blank          (blank)
+                        AAAA A. AAAAAA; AAA A. AAAAAA
+  deterministic · street
+    #1    blank          (blank)
+                        9999 AAAAAAAA AAAAA
+```
+
+This example comes from six made-up documents and is shortened. On each of them the engine left the defendants and the street blank, and the masked lines show what a grader typed in their place. A report like this is often enough for us to write a rule.
+
+**2. A form template file.** If you approved a template in [step 6 of Get started](get-started.html#forms), its file is in the `templates` folder inside your sample folder, named `form-1.json` or similar. It holds the words your court's form prints, where they sit on the page, and a region for each field. It holds no names and no addresses. Open it and look before you send it.
+
+**3. Your corrections.** Two files in the sample folder, `corrections.jsonl` and `corrections.csv`, hold every answer you saved. They hold tenants' names and addresses. With them we can measure a rule change against your answers before we release it. They travel only by the route the agreement names, never by email, chat, or GitHub.
+
+### What happens next {#next}
+
+1. **We look for a mistake that repeats.** One odd document is not worth a rule. Several with the same shape are.
+2. **We write the rule change and measure it** against graded documents, counting the readings it fixed and the readings it broke. A change that breaks readings goes back for another look.
+3. **We release it** in a new version of the package and list it in the [changelog](https://github.com/evictionresearch/extract-text/blob/main/CHANGELOG.md){target="_blank" rel="noopener noreferrer"}.
+4. **You install the new version** by running [step 2 of Get started](get-started.html#install) again, scan your documents into the same results folder, and score again. Scanning into the same folder keeps your corrections, so the new score shows what the change fixed on your documents.
+
+## [2]{.num} Change the rules yourself {#yourself}
+
+This route is for someone who is comfortable reading and editing short text patterns (regular expressions). Most fixes are a line or two, and no other Python is needed for most of them. Nothing leaves your computer.
+
+The steps below are a summary. [Changing the rules](https://github.com/evictionresearch/extract-text/blob/main/docs/changing_rules.md){target="_blank" rel="noopener noreferrer"} is the full guide, with the reasoning for each step.
+
+You need two graded samples, the ones from steps 5 and 7 of Get started. You shape a change on the first and test it on the second. A change measured on the documents it was shaped on always looks better than it is.
+
+### 1. Get your own copy of the code
+
+In Terminal on a Mac, or PowerShell on Windows:
+
+```bash
+git clone https://github.com/evictionresearch/extract-text.git
+```
+
+Keep this folder apart from the folders that hold court documents, and never copy court documents or results into it.
+
+### 2. Run the engine from your copy
+
+```r
+extracttext_install(source = "~/extract-text/python")
+```
+
+Then restart R. Run this line again and restart R after every edit. While you work this way, do not run `extracttext_install()` without `source`. It installs the published rules over yours.
+
+### 3. Find what to fix
+
+Start from the score report described above. Look for a mistake that repeats. Two columns of the scan say which rule was involved: `defendant_anchor` names the rule that found the address, and `flags` lists the checks a document failed.
+
+### 4. Find the rule
+
+Every path is inside the folder from step 1.
+
+- `python/src/extract_text/parties.py` cleans up party names.
+- `python/src/extract_text/deterministic/summons.py` is the core of the engine. It holds the street types, unit words, the city, state, and ZIP pattern, the four ways the address is found, and the plaintiff and attorney readers.
+- `python/src/extract_text/deterministic/patterns.py` holds patterns for other fields, such as the court name and filing date.
+- `python/src/extract_text/standardize.py` holds the USPS forms used in the standardized address columns.
+
+Most rules carry a comment saying why they exist and what they must not catch. Read it before you change the rule.
+
+### 5. Change one thing
+
+Suppose the defendant names on your documents end in "OCCUPANTS OF THE PREMISES", and the engine keeps that as if it were a person. Open `parties.py`, find `_GROUP_TERM_RE`, and add one line after the "unknown occupants" line.
+
+```
+      | unknown\s+occupants?                   # "unknown occupants" (2026-11-09)
+      | occupants\s+of\s+the\s+premises        # "occupants of the premises"
+```
+
+Reinstall (step 2), restart R, and try it on a made-up name.
+
+```r
+p <- reticulate::import("extract_text.parties")
+reticulate::py_get_attr(p, "_strip_group_terms")("JANE Q. TENANT and OCCUPANTS OF THE PREMISES")
+```
+
+The first value returned should be `JANE Q. TENANT`. Change one thing at a time, keep the pattern narrow, and write a comment above the change with a made-up example.
+
+### 6. Measure the change
+
+`rules_eval.py` reads every graded document again with your rules. It counts, field by field, what the change fixed and what it broke.
+
+```r
+py <- reticulate::virtualenv_python("r-extracttext")
+eval_script <- path.expand("~/extract-text/python/scripts/rules_eval.py")
+
+# the first sample, where you shaped the change
+system2(py, c("-I", eval_script, "--out", sample_dir))
+
+# the second sample, which the change was not shaped on
+system2(py, c("-I", eval_script, "--out", all_dir))
+```
+
+Keep a change that fixes documents in the second sample and breaks none.
+
+### 7. Use it
+
+Scan the same documents into the same folder again. Your graded answers are kept, `score_documents()` shows the new accuracy, and `case_table()` builds the table from the new readings.
+
+### 8. Keep your change through package updates
+
+Save the change on a branch of its own, from inside the `extract-text` folder.
+
+```bash
+git checkout -b local-rules
+git commit -am "Drop 'occupants of the premises' from defendant names"
+```
+
+When a new version is published, bring it into your copy, reinstall (step 2), and measure again (step 6).
+
+```bash
+git fetch origin
+git merge origin/main
+```
+
+### 9. Share it, if you want to
+
+A fix that would help others is welcome as a pull request on GitHub. [`CONTRIBUTING.md`](https://github.com/evictionresearch/extract-text/blob/main/CONTRIBUTING.md){target="_blank" rel="noopener noreferrer"} says how. Every example and test in it must use made-up values.
+
+## What never to send, anywhere {#never}
+
+- A court document, or a picture of one.
+- A real name, address, or case number, in an email, an issue, a pull request, or a chat.
+- Any file made from your records on GitHub, masked or not. GitHub is public.
+
+::::::
+</section>

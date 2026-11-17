@@ -316,6 +316,7 @@ The table has one row per document, with the case number, the plaintiff, the def
 
 - **The full script.** [`getting_started_example_script.R`](https://github.com/evictionresearch/extract-text/blob/main/getting_started_example_script.R){target="_blank" rel="noopener noreferrer"} holds every step on this page with more explanation, and says when to scan again.
 - **The whole procedure on one page.** [Start here](https://github.com/evictionresearch/extract-text/blob/main/docs/start_here.md){target="_blank" rel="noopener noreferrer"} gives the same steps in plain words, with the terminal command for each.
+- **Make the engine read your documents better.** [Improve it](improve.html) shows how to tell us what goes wrong, with no programming, and how to change the rules on your own copy.
 - **More on form templates.** The guide is the last chapter of [Changing the rules](https://github.com/evictionresearch/extract-text/blob/main/docs/changing_rules.md){target="_blank" rel="noopener noreferrer"}.
 - **Set up the AI engine.** It is optional and needs about 16 GB of memory. [Section 6 of the manual](https://github.com/evictionresearch/extract-text/blob/main/docs/manual.md#6-setting-up-the-ai-engine-optional){target="_blank" rel="noopener noreferrer"} has the two steps.
 - **Read the manual.** [The manual](https://github.com/evictionresearch/extract-text/blob/main/docs/manual.md){target="_blank" rel="noopener noreferrer"} covers every output column, the flags, and how to use the package outside Washington.

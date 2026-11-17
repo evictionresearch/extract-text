@@ -123,7 +123,7 @@ A template changes where the engine looks, not how it reads. The rules still rea
 
 Grading on your own computer does three things. The score tells you how accurate each field is on your documents. Your answers replace the engine's in the final table. And the boxes you draw can become a form template, once you approve it.
 
-Grading does not change the rules that read the text. A person changes them, in one of two ways.
+Grading does not change the rules that read the text. A person changes them, in one of two ways. [Improve it](improve.html) has the steps for both.
 
 - **On your own copy.** [Changing the rules](https://github.com/evictionresearch/extract-text/blob/main/docs/changing_rules.md){target="_blank" rel="noopener noreferrer"} shows how to edit a rule and measure the change against your graded documents.
 - **Through the Eviction Research Network.** ERN can write rule improvements from your corrections and release them in the package, where every user gets them. Corrections hold tenants' names and addresses, so that takes a data agreement between your organization and UC Berkeley before anything is sent. Write to [evictions@berkeley.edu](mailto:evictions@berkeley.edu?Subject=extract-text) to ask.

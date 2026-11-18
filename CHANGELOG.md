@@ -4,6 +4,10 @@ Every user-facing change to extract-text is recorded here, newest first. A chang
 
 ## Unreleased
 
+- The Get started page shows every step three ways, in tabs: R, the terminal, and Python. `docs/start_here.md` gained the eight steps in Python, and the IT checklist, the boxes guide, and the rules guide give the terminal command beside each R line. Reading a document and scanning a folder are Python functions; grading, the score, the templates, and the final table use the `extract-text` command from Python too.
+- The README opens with the site's illustration and shows a half-minute video of the package at work on the 15 made-up practice documents: a scan from the terminal, one document on the review page, and the table that comes out. It also says, with a three-line example of each, that the package runs from a terminal, from R, or from Python.
+- The About page, the rules guide, and the code's own notes no longer describe form templates as a version of the layout method in Cheng Ren's dissertation. The dissertation trained a model on about 20 labeled pages that covered many law firms' formats. A template stores where one printed form puts each field and lets the written rules read it. `MAINTENANCE.md` has the comparison, with page numbers.
+
 ## 0.4.2 (2026-11-17)
 
 - The install no longer needs git. The engine is downloaded as GitHub's zip of the repository, so step 1 asks for three programs (poppler, tesseract, and Python), where it asked for four.

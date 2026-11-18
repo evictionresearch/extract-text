@@ -6,9 +6,9 @@ This page is the whole procedure in plain words. It uses the rules engine, which
 
 ## Three places, the same eight steps
 
-- **The [Get started page](https://evictionresearch.net/extract-text/get-started.html)** has the R code for each step, to copy and run, and a one-minute video of grading.
-- **[`getting_started_example_script.R`](../getting_started_example_script.R)** is the same code in one file, with one-line notes. Open it in RStudio and run it a block at a time.
-- **This page** says what each step does and why, and ends with the same steps as terminal commands.
+- **The [Get started page](https://evictionresearch.net/extract-text/get-started.html)** has the code for each step, to copy and run, with a tab for R, one for the terminal, and one for Python, and a one-minute video of grading.
+- **[`getting_started_example_script.R`](../getting_started_example_script.R)** is the R code in one file, with one-line notes. Open it in RStudio and run it a block at a time.
+- **This page** says what each step does and why, and ends with the same steps as terminal commands and as Python.
 
 Step 5 means the same thing in all three, and so do the files each step writes.
 
@@ -17,7 +17,7 @@ Step 5 means the same thing in all three, and so do the files each step writes.
 - A Mac, Windows, or Linux computer that you are allowed to keep court records on. Its system has to be recent: on a Mac, macOS 15 (Sequoia) or later on an Apple chip (M1 or later), and on a PC, Windows 11. An older Mac cannot get poppler and tesseract ready-made from Homebrew, so update it before step 1. The Get started page says how to check and what Windows 10 can do. On a computer your organization manages, send your IT department [For your IT department](it_checklist.md).
 - Your documents in one folder on that computer. Subfolders are fine. Step 4 says which documents to put there.
 - An empty folder for the results. Everything written there holds names and addresses, so keep it where you keep the documents. Keep both folders out of Dropbox, iCloud Drive, OneDrive, and any Google Drive folder that syncs.
-- To follow the R code, R and RStudio. The Get started page says how to install them and how to run a line of code.
+- To follow the R code, R and RStudio. The Get started page says how to install them and how to run a line of code. The terminal commands need nothing more than the three programs of step 1, and the Python lines need the Python that step 1 installs.
 
 ## The eight steps
 
@@ -38,7 +38,7 @@ extract-text needs three programs that R does not install. poppler opens PDF fil
 
 ### 2. Install extract-text
 
-Install extract-text in R, then run `extracttext_install()` once. It installs the engine into a folder of its own inside your user folder and asks for no administrator password. Then run the checkup. The checkup ends with "Ready: the deterministic engine can run." Do not go on until it says so. The script says what to do when it does not. The checkup reports the AI program (Ollama) as missing, and that is fine.
+In R, install extract-text, then run `extracttext_install()` once. It installs the engine into a folder of its own inside your user folder and asks for no administrator password. At a terminal or in Python, one `pip install` line does the same in an environment you make (the last two sections of this page). Then run the checkup. The checkup ends with "Ready: the deterministic engine can run." Do not go on until it says so. The script says what to do when it does not. The checkup reports the AI program (Ollama) as missing, and that is fine.
 
 ### 3. Read one example
 
@@ -145,3 +145,43 @@ extract-text score --out RESULTS/all
 # 8. Build the table
 extract-text case-table --out RESULTS/all --graded RESULTS/sample --save RESULTS/case_table.csv
 ```
+
+## The same steps in Python
+
+The install is the one in the section above, since the engine is a Python package. Run the Python lines from a terminal window with that environment turned on, or in an editor or notebook pointed at `~/extract-text-env`. Reading a document and scanning a folder are Python functions. Grading, the score, the templates, and the final table have no Python function of their own, so those steps use the `extract-text` command the install put beside the package (the lines that begin with `$` go in the terminal, without the `$`).
+
+```python
+from extract_text import extract, scan
+
+# 3. Read one example (in the unzipped folder, as in the section above)
+one = extract("extract-text-main/python/tests/fixtures/synthetic_summons_scanned.pdf")
+one.record.defendant_address      # expect 1234 EXAMPLE AVE S APT 5, Seattle, WA 98100
+one.flags                         # problems the engine found; empty means none
+
+# 4. Scan a random 50
+docs_dir = "path/to/your/documents"
+results  = "path/to/your/results"
+rows = scan(docs_dir, engine="deterministic", sample=50, seed=1,
+            out_dir=f"{results}/sample")
+
+# 5. Grade the sample (Ctrl-C when done), then read the score
+#   $ extract-text review --out RESULTS/sample --random 50 --serve
+#   $ extract-text score --out RESULTS/sample
+
+# 6. Teach the engine your forms (optional)
+#   $ extract-text templates learn --out RESULTS/sample
+#   $ extract-text templates review --templates RESULTS/sample/templates --out RESULTS/sample
+#   $ extract-text templates approve form-1 --templates RESULTS/sample/templates
+
+# 7. Scan the whole folder (leave off templates= if you approved none),
+#    then grade a second 50 and score it
+rows_all = scan(docs_dir, engine="deterministic", out_dir=f"{results}/all",
+                templates=f"{results}/sample/templates")
+#   $ extract-text review --out RESULTS/all --random 50 --serve
+#   $ extract-text score --out RESULTS/all
+
+# 8. Build the table
+#   $ extract-text case-table --out RESULTS/all --graded RESULTS/sample --save RESULTS/case_table.csv
+```
+
+`rows` and `rows_all` are lists with one dictionary per document, and each scan also saves the same table as `extracted.csv` in its folder.

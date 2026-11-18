@@ -60,7 +60,7 @@
       <div class="hero-in">
         <p class="eyebrow">Get started</p>
         <h1>From install to a <em>table of cases</em></h1>
-        <p class="lede">Eight steps in R, using the rules engine, which needs no AI setup. Each step is a few lines to copy and run. The local AI engine is experimental and is not used here.</p>
+        <p class="lede">Eight steps, in R, at a terminal, or in Python, using the rules engine, which needs no AI setup. Each step is a few lines to copy and run. The local AI engine is experimental and is not used here.</p>
       </div>
     </section>
 
@@ -97,10 +97,12 @@
 <li>
 <a href="#help">If something goes wrong</a>
 </li>
-<li>
-<a href="#python">Python and the command line</a>
-</li>
 </ul>
+<div class="note">
+<p><strong>Choose R, Terminal, or Python.</strong> The same engine runs all three ways, and every step below has a tab for each. Choose a tab once and the whole page follows it. R is for someone who works in RStudio. Terminal needs no programming. Python hands the scan to your own code, and uses the terminal commands for grading and the final table.</p>
+</div>
+<div class="tabs">
+<div class="tab" data-tab="r">
 <div class="note">
 <p><strong>Before step 1.</strong> You need R and RStudio on your computer, both free, and your court documents (PDF or TIFF files) in a folder on it. If your computer's system is old, update it first: step 1 needs macOS 15 or later on an Apple chip, or Windows 10 version 1809 or later, and says how to check. R is the program that runs the code on this page, and RStudio is the window you work in.</p>
 <ol type="1">
@@ -109,20 +111,46 @@
 <li><strong>Open RStudio.</strong> The pane named Console, at the lower left, is where R code runs.</li>
 </ol>
 </div>
-<div class="note">
-<p><strong>How to run the code on this page.</strong> Each dark box below is code, and the strip above it says where it goes. A box marked R goes in RStudio: press Copy at its top right, click in the Console pane, paste, and press Return. A box marked Terminal or PowerShell goes in that program, which step 1 shows how to open. A light box shows what you should see afterward and is not for typing. A line that begins with <code>#</code> is a note to you, and the computer ignores it.</p>
 </div>
+<div class="tab" data-tab="terminal">
+<div class="note">
+<p><strong>Before step 1.</strong> You need your court documents (PDF or TIFF files) in a folder on your computer, and a terminal window, which every computer has: Terminal on a Mac or Linux, PowerShell on Windows. Step 1 shows how to open it. If your computer's system is old, update it first: step 1 needs macOS 15 or later on an Apple chip, or Windows 10 version 1809 or later, and says how to check. You type no code beyond the lines on this page.</p>
+</div>
+</div>
+<div class="tab" data-tab="python">
+<div class="note">
+<p><strong>Before step 1.</strong> You need your court documents (PDF or TIFF files) in a folder on your computer, a terminal window for the install, and Python 3.10 or newer, which step 1 installs. If your computer's system is old, update it first: step 1 needs macOS 15 or later on an Apple chip, or Windows 10 version 1809 or later, and says how to check. Run the Python lines wherever you run Python: at the <code>python</code> prompt, in a script, or in a notebook that uses the environment step 2 makes.</p>
+</div>
+</div>
+</div>
+<div class="note">
+<p><strong>How to run the code on this page.</strong> Each dark box below is code, and the strip above it says where it goes. A box marked R goes in RStudio: press Copy at its top right, click in the Console pane, paste, and press Return. A box marked Terminal or PowerShell goes in that program, which step 1 shows how to open. A box marked Python goes wherever you run Python. A light box shows what you should see afterward and is not for typing. A line that begins with <code>#</code> is a note to you, and the computer ignores it.</p>
+</div>
+<div class="tabs">
+<div class="tab" data-tab="r">
 <div class="note">
 <p><strong>Prefer one file to copy from?</strong> Every step on this page is in <a href="https://raw.githubusercontent.com/evictionresearch/extract-text/main/getting_started_example_script.R" target="_blank" rel="noopener noreferrer"><code>getting_started_example_script.R</code></a>, under the same eight numbers, as code with one-line notes. Save it, open it in RStudio, and run it a block at a time. This page explains each step.</p>
 </div>
+</div>
+<div class="tab" data-tab="terminal">
+<div class="note">
+<p><strong>Prefer one block to copy from?</strong> <a href="https://github.com/evictionresearch/extract-text/blob/main/docs/start_here.md#the-same-steps-at-a-terminal" target="_blank" rel="noopener noreferrer">Start here</a> lists the terminal command for every step on this page in one block, under the same eight numbers. This page explains each step.</p>
+</div>
+</div>
+<div class="tab" data-tab="python">
+<div class="note">
+<p><strong>Prefer one block to copy from?</strong> <a href="https://github.com/evictionresearch/extract-text/blob/main/docs/start_here.md#the-same-steps-in-python" target="_blank" rel="noopener noreferrer">Start here</a> lists the Python lines and terminal commands for every step on this page in one block, under the same eight numbers. This page explains each step.</p>
+</div>
+</div>
+</div>
 <h2 id="before"><span class="num">1</span> Install three free programs</h2>
-<p>extract-text needs three programs that R does not install.</p>
+<p>extract-text needs three programs that it does not install itself.</p>
 <ul>
 <li><strong>poppler</strong> opens PDF files.</li>
 <li><strong>tesseract</strong> reads scanned pages (OCR).</li>
 <li><strong>Python 3.10 or newer</strong> runs the engine, the part of extract-text that reads the documents. The Python that comes with a Mac is older.</li>
 </ul>
-<p>You install them once, in a terminal window outside R. Find your computer below. You need the internet only to install. After that, extract-text runs with the network unplugged.</p>
+<p>You install them once, in a terminal window. Find your computer below. You need the internet only to install. After that, extract-text runs with the network unplugged.</p>
 <div class="note">
 <p><strong>Check your system first, and update it if it is old.</strong></p>
 <ul>
@@ -150,7 +178,7 @@ winget install UB-Mannheim.TesseractOCR
 winget install Python.Python.3.12</code></pre>
 <ol start="3" type="1">
 <li>Add tesseract to your PATH, which its installer does not do. Open Start, type "Edit environment variables for your account", and open it. Select Path, choose Edit, choose New, and enter <code>C:\Program Files\Tesseract-OCR</code>.</li>
-<li>Restart RStudio.</li>
+<li>Restart RStudio if it is open. If you work at a terminal, close PowerShell and open it again, so that it sees the new PATH.</li>
 </ol>
 </section>
 <section id="linux-debian-or-ubuntu" class="os-group">
@@ -161,6 +189,8 @@ winget install Python.Python.3.12</code></pre>
 <p><strong>If you already have some of these,</strong> check before you install. Run <code>which pdftoppm tesseract python3</code> in Terminal on a Mac or Linux, or <code>where.exe pdftoppm tesseract python</code> in PowerShell on Windows. A program you have prints a path. On a Mac, <code>brew install</code> on a program you already have upgrades it and everything that depends on it, which can be a large download.</p>
 <p>On a work computer of any kind, these installs may need your IT department. Ask for poppler, tesseract, and Python 3.10 or newer, and send them <a href="https://github.com/evictionresearch/extract-text/blob/main/docs/it_checklist.md" target="_blank" rel="noopener noreferrer">For your IT department</a>, which lists each program, where it comes from, and what the rest of the install does.</p>
 <h2 id="install"><span class="num">2</span> Install extract-text</h2>
+<div class="tabs">
+<div class="tab" data-tab="r">
 <p>In RStudio, run these lines. They install extract-text, check that R can find Python, and then install the engine, the part of extract-text that reads the documents. You do this once per computer.</p>
 <pre class="r"><code>install.packages(c("remotes", "dplyr"))
 remotes::install_github("evictionresearch/extract-text", subdir = "r")
@@ -181,8 +211,36 @@ extracttext_doctor()</code></pre>
 <p>The last line of the checkup should be this one.</p>
 <pre class="output"><code>Ready: the deterministic engine can run.</code></pre>
 <p>The checkup lists poppler and tesseract with the folder it found each in. It reports Ollama as missing, and that is fine. Ollama belongs to the experimental AI engine, which these steps do not use. If the checkup says the Python engine is not installed, see <a href="#help">If something goes wrong</a>.</p>
+</div>
+<div class="tab" data-tab="terminal">
+<p>In the terminal, run these lines. They make a private Python environment for the engine, turn it on, and install extract-text into it. You do this once per computer. Python from Homebrew on a Mac, and from Debian or Ubuntu, refuses a plain <code>pip install</code> outside an environment like this one.</p>
+<pre class="bash"><code>python3 -m venv ~/extract-text-env
+source ~/extract-text-env/bin/activate
+pip install "extract-text @ https://github.com/evictionresearch/extract-text/archive/main.zip#subdirectory=python"</code></pre>
+<p>On Windows, skip the first two lines. The Python that step 1 installs accepts the <code>pip install</code> line as it is. On a Mac or Linux, run the <code>source</code> line again in every new terminal window, before any <code>extract-text</code> command. Then check your setup.</p>
+<pre class="bash"><code>extract-text doctor</code></pre>
+<p>The last line of the checkup should be this one.</p>
+<pre class="output"><code>Ready: the deterministic engine can run.</code></pre>
+<p>The checkup lists poppler and tesseract with the folder it found each in. It reports Ollama as missing, and that is fine. Ollama belongs to the experimental AI engine, which these steps do not use. If the terminal answers "command not found", see <a href="#help">If something goes wrong</a>.</p>
+</div>
+<div class="tab" data-tab="python">
+<p>The engine is a Python package, so the install is the same as at a terminal. Run these lines in a terminal window. They make a private Python environment for the engine, turn it on, and install extract-text into it. You do this once per computer. Python from Homebrew on a Mac, and from Debian or Ubuntu, refuses a plain <code>pip install</code> outside an environment like this one.</p>
+<pre class="bash"><code>python3 -m venv ~/extract-text-env
+source ~/extract-text-env/bin/activate
+pip install "extract-text @ https://github.com/evictionresearch/extract-text/archive/main.zip#subdirectory=python"</code></pre>
+<p>On Windows, skip the first two lines. The Python that step 1 installs accepts the <code>pip install</code> line as it is. On a Mac or Linux, run the <code>source</code> line again in every new terminal window, before any <code>extract-text</code> command. The install also gives you the <code>extract-text</code> command, which steps 5, 6, and 8 use. Check your setup with it.</p>
+<pre class="bash"><code>extract-text doctor</code></pre>
+<p>The last line of the checkup should be this one.</p>
+<pre class="output"><code>Ready: the deterministic engine can run.</code></pre>
+<p>The checkup lists poppler and tesseract with the folder it found each in. It reports Ollama as missing, and that is fine. Ollama belongs to the experimental AI engine, which these steps do not use.</p>
+<p>Then start Python from that same terminal window, with <code>python</code>, or point your editor or notebook at <code>~/extract-text-env</code>. If this line raises no error, Python has found the engine.</p>
+<pre class="python"><code>from extract_text import extract, scan</code></pre>
+</div>
+</div>
 <h2 id="example"><span class="num">3</span> Read one example document</h2>
 <p>This downloads a made-up summons from the package's test files and reads it.</p>
+<div class="tabs">
+<div class="tab" data-tab="r">
 <pre class="r"><code>f &lt;- file.path(tempdir(), "synthetic_summons_scanned.pdf")
 download.file(paste0("https://raw.githubusercontent.com/evictionresearch/",
                      "extract-text/main/python/tests/fixtures/",
@@ -199,18 +257,71 @@ one$record$defendant_address
 
 # Problems the engine found; empty means none
 one$flags</code></pre>
+</div>
+<div class="tab" data-tab="terminal">
+<pre class="bash"><code>curl -L -o synthetic_summons_scanned.pdf https://raw.githubusercontent.com/evictionresearch/extract-text/main/python/tests/fixtures/synthetic_summons_scanned.pdf
+
+extract-text extract synthetic_summons_scanned.pdf</code></pre>
+<p>In PowerShell on Windows, type <code>curl.exe</code> in place of <code>curl</code>. The first line saves the summons in the folder the terminal is in, where you can open it to compare. The second prints everything the engine read. Look for this part, the defendants' address, and for <code>"flags": []</code> near the end, which means the engine found no problem.</p>
+<pre class="output"><code>    "defendant_address": {
+      "raw": "1234 EXAMPLE AVE S APT 5 SEATTLE, WA 98100",
+      "street": "1234 EXAMPLE AVE S APT 5",
+      "unit": "APT 5",
+      "city": "Seattle",
+      "state": "WA",
+      "zip": "98100"
+    },</code></pre>
+</div>
+<div class="tab" data-tab="python">
+<pre class="python"><code>from urllib.request import urlretrieve
+from extract_text import extract
+
+# Saves the summons in the folder Python is running in, where you can open
+# it to compare with what the engine reads
+f, _ = urlretrieve("https://raw.githubusercontent.com/evictionresearch/"
+                   "extract-text/main/python/tests/fixtures/"
+                   "synthetic_summons_scanned.pdf",
+                   "synthetic_summons_scanned.pdf")
+
+one = extract(f)
+
+# Expect 1234 EXAMPLE AVE S APT 5, Seattle, WA 98100
+one.record.defendant_address
+
+# Problems the engine found; empty means none
+one.flags</code></pre>
+</div>
+</div>
 <h2 id="sample"><span class="num">4</span> Scan a random 50 of your own documents</h2>
 <p>Start with a random sample, not the whole folder. It takes minutes, and you grade every document in it in the next step.</p>
 <div class="note">
-<p><strong>Which documents to put in the folder.</strong> The engine reads one document at a time and writes one row for every file, whatever kind of document the file is. Its rules are built for the summons. If your folder holds whole case files (complaints, orders, returns of service), a case gets a row for each of them. When the file names say which documents are summonses, scan those alone, by giving <code>scan_documents()</code> a list of files in place of the folder.</p>
+<p><strong>Which documents to put in the folder.</strong> The engine reads one document at a time and writes one row for every file, whatever kind of document the file is. Its rules are built for the summons. If your folder holds whole case files (complaints, orders, returns of service), a case gets a row for each of them. When the file names say which documents are summonses, scan those alone, by giving the scan a list of files in place of the folder.</p>
+<div class="tabs">
+<div class="tab" data-tab="r">
 <pre class="r"><code>summonses &lt;- list.files(docs_dir, pattern = "summons", ignore.case = TRUE,
                         recursive = TRUE, full.names = TRUE)</code></pre>
+<p>Then give <code>scan_documents()</code> the list, <code>summonses</code>, in place of <code>docs_dir</code>.</p>
+</div>
+<div class="tab" data-tab="terminal">
+<pre class="bash"><code>extract-text scan DOCS/*summons* --engine deterministic --sample 50 --seed 1 --out RESULTS/sample</code></pre>
+<p>On a Mac or Linux, <code>DOCS/*summons*</code> names every file in the folder whose name holds "summons". The pattern minds capital letters and does not look in subfolders. PowerShell on Windows does not fill in such a pattern, so there, put the summonses in a folder of their own.</p>
+</div>
+<div class="tab" data-tab="python">
+<pre class="python"><code>from pathlib import Path
+
+summonses = sorted(p for p in Path(docs_dir).rglob("*")
+                   if p.is_file() and "summons" in p.name.lower())</code></pre>
+<p>Then give <code>scan()</code> the list, <code>summonses</code>, in place of <code>docs_dir</code>.</p>
+</div>
+</div>
 </div>
 <div class="note">
 <p><strong>If your documents are not from Washington.</strong> The rules that read the city and the state expect "WA" or "Washington" after the city. On a made-up Oregon summons and a made-up Texas one, the engine read the street, the unit, and the ZIP, left the city and state blank, and raised no flag. Every document you grade carries your city and state in the final table, and the others carry the street and ZIP alone. <a href="https://github.com/evictionresearch/extract-text/blob/main/docs/changing_rules.md#documents-from-another-state" target="_blank" rel="noopener noreferrer">Documents from another state</a> shows the four-line change that makes the engine read your state.</p>
 </div>
 <div class="note">
-<p><strong>Practice first, on made-up documents.</strong> Steps 4 to 8 run on the package's 15 made-up documents as well as on real ones, so you can learn the grading page before you open a court record. This block downloads the package's code (about 10 MB) into a folder in your home directory. Run it, skip the <code>docs_dir</code> and <code>results</code> lines below, and go on from <code>n_sample</code>. The documents are few and partly repeat one another, so the practice scores mean nothing. Delete the folder when you are done.</p>
+<p><strong>Practice first, on made-up documents.</strong> Steps 4 to 8 run on the package's 15 made-up documents as well as on real ones, so you can learn the grading page before you open a court record. The lines below download the package's code (about 10 MB) into a folder in your home directory. The documents are few and partly repeat one another, so the practice scores mean nothing. Delete the folder when you are done.</p>
+<div class="tabs">
+<div class="tab" data-tab="r">
 <pre class="r"><code>practice &lt;- path.expand("~/extract_text_practice")
 dir.create(practice, showWarnings = FALSE)
 download.file(paste0("https://github.com/evictionresearch/extract-text/",
@@ -220,8 +331,36 @@ unzip(file.path(practice, "extract-text.zip"), exdir = practice)
 docs_dir &lt;- file.path(practice, "extract-text-main", "python", "tests",
                       "fixtures")
 results  &lt;- file.path(practice, "results")</code></pre>
+<p>Run it, skip the <code>docs_dir</code> and <code>results</code> lines below, and go on from <code>n_sample</code>.</p>
 </div>
-<p><code>docs_dir</code> is the folder that holds your court documents (PDF or TIFF, subfolders included). If the documents come to you in a Google Drive folder, download the folder to your own computer first (Drive gives a zip; unzip it). <code>results</code> is a new folder where everything from here on is written. Type each path with forward slashes, on Windows too.</p>
+<div class="tab" data-tab="terminal">
+<pre class="bash"><code>mkdir -p ~/extract_text_practice
+cd ~/extract_text_practice
+curl -L -o extract-text.zip https://github.com/evictionresearch/extract-text/archive/refs/heads/main.zip
+unzip -q extract-text.zip</code></pre>
+<p>These four lines are for a Mac or Linux. On Windows, open that address in your browser, save the zip in a new folder, and unzip it there. Then, in every line from here on, type <code>~/extract_text_practice/extract-text-main/python/tests/fixtures</code> in place of <code>DOCS</code> and <code>~/extract_text_practice/results</code> in place of <code>RESULTS</code>.</p>
+</div>
+<div class="tab" data-tab="python">
+<pre class="python"><code>from pathlib import Path
+from urllib.request import urlretrieve
+from zipfile import ZipFile
+
+practice = Path.home() / "extract_text_practice"
+practice.mkdir(exist_ok=True)
+urlretrieve("https://github.com/evictionresearch/extract-text/"
+            "archive/refs/heads/main.zip",
+            practice / "extract-text.zip")
+ZipFile(practice / "extract-text.zip").extractall(practice)
+docs_dir = practice / "extract-text-main" / "python" / "tests" / "fixtures"
+results  = practice / "results"</code></pre>
+<p>Run it, skip the <code>docs_dir</code> and <code>results</code> lines below, and go on from <code>n_sample</code>.</p>
+</div>
+</div>
+</div>
+<p>You name two folders. The first holds your court documents (PDF or TIFF, subfolders included). If the documents come to you in a Google Drive folder, download the folder to your own computer first (Drive gives a zip; unzip it). The second is a new folder where everything from here on is written. Expect about 5 seconds a document when OCR is needed.</p>
+<div class="tabs">
+<div class="tab" data-tab="r">
+<p><code>docs_dir</code> is the documents folder and <code>results</code> the results folder. Type each path with forward slashes, on Windows too.</p>
 <pre class="r"><code># Mac:     "/Users/yourname/Documents/court_documents"
 # Windows: "C:/Users/yourname/Documents/court_documents"
 docs_dir &lt;- "path/to/your/documents"
@@ -233,7 +372,7 @@ all_dir    &lt;- file.path(results, "all")
 
 res &lt;- scan_documents(docs_dir, engine = "deterministic", sample = n_sample,
                       seed = 1, out_dir = sample_dir)</code></pre>
-<p>Expect about 5 seconds a document when OCR is needed. When the scan finishes, count what came back.</p>
+<p>When the scan finishes, count what came back.</p>
 <pre class="r"><code>res %&gt;%
   count(text_source,
         found   = defendant_street != "",
@@ -245,13 +384,65 @@ res &lt;- scan_documents(docs_dir, engine = "deterministic", sample = n_sample,
 2 pdf_ocr     TRUE  FALSE       4
 3 pdf_ocr     TRUE  TRUE        1</code></pre>
 <p>This example comes from six made-up documents, so your counts will differ. <code>found</code> says whether the engine read a street, and <code>flagged</code> says whether it raised a flag. <code>pdf_ocr</code> means the pages were scans read by OCR.</p>
+</div>
+<div class="tab" data-tab="terminal">
+<p>In this line and every one after it, type your documents folder in place of <code>DOCS</code> and your results folder in place of <code>RESULTS</code>. Put quotation marks around a path that has a space in it.</p>
+<pre class="bash"><code># Mac:     /Users/yourname/Documents/court_documents
+# Windows: C:/Users/yourname/Documents/court_documents
+extract-text scan DOCS --engine deterministic --sample 50 --seed 1 --out RESULTS/sample</code></pre>
+<p>When the scan finishes, it prints the count of what came back.</p>
+<pre class="output"><code>  scanned 6/6
+
+6 documents scanned, 6 with a defendant street address, 0 flagged for review.
+Results in RESULTS/sample/extracted.csv (and extracted.jsonl).
+Grade it on the review page with: extract-text review --out RESULTS/sample --serve</code></pre>
+<p>This example comes from six of the package's made-up practice documents, so your counts will differ. <code>extracted.csv</code> is the table, one row per document. Step 5 adds <code>--random 50</code> to the line the scan suggests, so that the page shows a random 50.</p>
+</div>
+<div class="tab" data-tab="python">
+<p><code>docs_dir</code> is the documents folder and <code>results</code> the results folder. Type each path with forward slashes, on Windows too.</p>
+<pre class="python"><code>from extract_text import scan
+
+# Mac:     "/Users/yourname/Documents/court_documents"
+# Windows: "C:/Users/yourname/Documents/court_documents"
+docs_dir = "path/to/your/documents"
+results  = "path/to/your/results"
+n_sample = 50
+
+sample_dir = f"{results}/sample"
+all_dir    = f"{results}/all"
+
+rows = scan(docs_dir, engine="deterministic", sample=n_sample, seed=1,
+            out_dir=sample_dir)</code></pre>
+<p><code>rows</code> is a list with one dictionary per document, and the same table is saved as <code>extracted.csv</code> in the sample folder. When the scan finishes, count what came back.</p>
+<pre class="python"><code>from collections import Counter
+
+Counter((r["text_source"], r["defendant_street"] != "", r["flags"] != "")
+        for r in rows)</code></pre>
+<pre class="output"><code>Counter({('image_ocr', True, False): 4, ('pdf_ocr', True, False): 1, ('pdf_text_layer', True, False): 1})</code></pre>
+<p>This example comes from six of the package's made-up practice documents, so your counts will differ. Each entry gives how the text was read, whether the engine read a street, whether it raised a flag, and how many documents that describes. <code>image_ocr</code> and <code>pdf_ocr</code> mean the pages were scans read by OCR.</p>
+</div>
+</div>
 <div class="note">
 <p><strong>Keep both folders private.</strong> Your documents and every file written from this step on hold tenants' names and addresses. Keep them wherever your organization keeps the court documents themselves, and out of any folder that syncs or is shared (Dropbox, iCloud Drive, OneDrive, or a Google Drive folder that syncs to your computer).</p>
 </div>
 <h2 id="grade"><span class="num">5</span> Grade the sample, then score the engine</h2>
 <p>Grading is required. Until you grade a sample, you do not know how often the scan is right on your documents.</p>
-<p>This line opens a page in your browser that shows each document beside what the engine read. Check each field against the page, change only what is wrong, and leave a field blank when the document does not have it. Then look at the colored boxes on the page image, which show where the engine read each value. Drag a box that sits over the wrong place to the right one. Where a field has no box, press the field's button under the image and drag across the value. A box you draw is added to the ones already there, and a box in the wrong place is deleted with its cross. Save every document, even when the engine got everything right. The top of the page has the grading rules in brief, and its foot says what to do when you finish. Fifty documents take about an hour. You can stop at any point by pressing Esc in RStudio, and running the line again picks up where you left off.</p>
+<p>The line below opens a page in your browser that shows each document beside what the engine read. Check each field against the page, change only what is wrong, and leave a field blank when the document does not have it. Then look at the colored boxes on the page image, which show where the engine read each value. Drag a box that sits over the wrong place to the right one. Where a field has no box, press the field's button under the image and drag across the value. A box you draw is added to the ones already there, and a box in the wrong place is deleted with its cross. Save every document, even when the engine got everything right. The top of the page has the grading rules in brief, and its foot says what to do when you finish. Fifty documents take about an hour.</p>
+<div class="tabs">
+<div class="tab" data-tab="r">
 <pre class="r"><code>review_documents(res, correct = TRUE, n = n_sample, draw = "random")</code></pre>
+<p>You can stop at any point by pressing Esc in RStudio, and running the line again picks up where you left off.</p>
+</div>
+<div class="tab" data-tab="terminal">
+<pre class="bash"><code>extract-text review --out RESULTS/sample --random 50 --serve</code></pre>
+<p>The terminal waits while you grade. You can stop at any point by pressing Ctrl-C there, and running the line again picks up where you left off.</p>
+</div>
+<div class="tab" data-tab="python">
+<p>Steps 5, 6, and 8 have no Python function of their own. They use the <code>extract-text</code> command, which the install in step 2 put beside the Python package. Run it in a terminal window with the environment from step 2 turned on, and type your results folder in place of <code>RESULTS</code>.</p>
+<pre class="bash"><code>extract-text review --out RESULTS/sample --random 50 --serve</code></pre>
+<p>The terminal waits while you grade. You can stop at any point by pressing Ctrl-C there, and running the line again picks up where you left off.</p>
+</div>
+</div>
 <figure class="video">
 <video controls="" preload="metadata" poster="media/grading-poster.jpg" width="1600" height="1080" aria-label="Grading one made-up document on the review page">
 <source src="media/grading.mp4" type="video/mp4">
@@ -277,6 +468,8 @@ res &lt;- scan_documents(docs_dir, engine = "deterministic", sample = n_sample,
 </details>
 </figure>
 <p>Then score the engine against your answers.</p>
+<div class="tabs">
+<div class="tab" data-tab="r">
 <pre class="r"><code>score_documents(res)</code></pre>
 <pre class="output"><code>  field      checked right  near blank wrong
 1 plaintiff        1     1     0     0     0
@@ -287,6 +480,41 @@ res &lt;- scan_documents(docs_dir, engine = "deterministic", sample = n_sample,
 6 state            1     1     0     0     0
 7 zip              1     1     0     0     0</code></pre>
 <p>This example is the one made-up document graded in the video, where the engine misread the city. It is shortened to the main columns. With 50 graded documents, <code>checked</code> reads 50. The score has one row per field and counts how many documents the engine got right, nearly right (the right content written differently, such as Ave for Avenue), left blank, or got wrong. Two more columns, <code>right_random</code> and <code>checked_random</code>, give the accuracy estimate for the whole folder when you divide the first by the second.</p>
+</div>
+<div class="tab" data-tab="terminal">
+<pre class="bash"><code>extract-text score --out RESULTS/sample</code></pre>
+<pre class="output"><code>Corrections in sample: 6 documents reviewed, 0 unreadable, 6 random
+Scored against the scan as it is now in that folder.
+Graded by yourname (6).
+
+deterministic engine, share of fields right, then right or near (random rows alone in brackets)
+  plaintiff        100.0% 100.0% of    6  [100.0% of 6]
+  defendants       100.0% 100.0% of    6  [100.0% of 6]
+  street            83.3%  83.3% of    6  [83.3% of 6]   wrong: 1 different
+  unit              66.7%  66.7% of    6  [66.7% of 6]   wrong: 1 different, 1 blank
+  city             100.0% 100.0% of    6  [100.0% of 6]
+  state            100.0% 100.0% of    6  [100.0% of 6]
+  zip               83.3%  83.3% of    6  [83.3% of 6]   wrong: 1 different</code></pre>
+<p>This example comes from six of the package's made-up practice documents, two of them graded with a correction. The score has one row per field. The first percentage is the share of graded documents the engine got right. The second adds those it got nearly right (the right content written differently, such as Ave for Avenue), and the number after "of" is how many you checked. The brackets hold the share right among the documents drawn at random, which is the accuracy estimate for the whole folder. The end of a row says how the wrong ones went wrong.</p>
+</div>
+<div class="tab" data-tab="python">
+<p>The score comes from the same command, in the terminal.</p>
+<pre class="bash"><code>extract-text score --out RESULTS/sample</code></pre>
+<pre class="output"><code>Corrections in sample: 6 documents reviewed, 0 unreadable, 6 random
+Scored against the scan as it is now in that folder.
+Graded by yourname (6).
+
+deterministic engine, share of fields right, then right or near (random rows alone in brackets)
+  plaintiff        100.0% 100.0% of    6  [100.0% of 6]
+  defendants       100.0% 100.0% of    6  [100.0% of 6]
+  street            83.3%  83.3% of    6  [83.3% of 6]   wrong: 1 different
+  unit              66.7%  66.7% of    6  [66.7% of 6]   wrong: 1 different, 1 blank
+  city             100.0% 100.0% of    6  [100.0% of 6]
+  state            100.0% 100.0% of    6  [100.0% of 6]
+  zip               83.3%  83.3% of    6  [83.3% of 6]   wrong: 1 different</code></pre>
+<p>This example comes from six of the package's made-up practice documents, two of them graded with a correction. The score has one row per field. The first percentage is the share of graded documents the engine got right. The second adds those it got nearly right (the right content written differently, such as Ave for Avenue), and the number after "of" is how many you checked. The brackets hold the share right among the documents drawn at random, which is the accuracy estimate for the whole folder. The end of a row says how the wrong ones went wrong.</p>
+</div>
+</div>
 <p><strong>Reading the score.</strong> Say the street row shows 43 right of 50 checked. The engine read the street right on 86 percent of your sample. Fifty documents is a small sample, so the share for the whole folder is probably between about 76 and 96 percent. Grade 100 or more before you publish counts or send anything to people.</p>
 <p>Decide here whether the fields you need are accurate enough to scan everything. No score is right for everyone, so ask what the table is for. A count of filings by ZIP code can live with a street that is wrong one time in seven, and a mailing to tenants cannot. Look only at the fields you will use, and grade those with care, because a field you leave as the engine filled it is counted as right.</p>
 <p>When a field you need is weak, there are three things to do.</p>
@@ -298,6 +526,8 @@ res &lt;- scan_documents(docs_dir, engine = "deterministic", sample = n_sample,
 <p>Your corrections do not change the engine's rules. They tell you which fields to trust, every document you grade carries your answer in the final table, and your boxes teach the engine your court's forms in the next step. <a href="how-it-works.html#rules">How the rules improve</a> says how the rules themselves get better.</p>
 <h2 id="forms"><span class="num">6</span> Teach the engine your court's forms</h2>
 <p>This step is optional and needs no code. Courts print their own forms, and a form can put the tenant's address where the engine's rules do not look. The boxes you fixed and drew while grading show where your court's forms print each field. From them the package writes a template for each form that has at least five graded documents.</p>
+<div class="tabs">
+<div class="tab" data-tab="r">
 <pre class="r"><code>learn_templates(res)
 
 # Opens a page showing each template over a page it was learned from
@@ -305,25 +535,94 @@ review_templates(res)
 
 # Approve each template whose regions sit where the form prints that field
 approve_template("form-1", res)</code></pre>
+</div>
+<div class="tab" data-tab="terminal">
+<pre class="bash"><code>extract-text templates learn --out RESULTS/sample
+
+# Writes a page showing each template over a page it was learned from, and
+# prints where the page is. Open that file in your browser.
+extract-text templates review --templates RESULTS/sample/templates --out RESULTS/sample
+
+# Approve each template whose regions sit where the form prints that field
+extract-text templates approve form-1 --templates RESULTS/sample/templates</code></pre>
+</div>
+<div class="tab" data-tab="python">
+<p>These are terminal commands too.</p>
+<pre class="bash"><code>extract-text templates learn --out RESULTS/sample
+
+# Writes a page showing each template over a page it was learned from, and
+# prints where the page is. Open that file in your browser.
+extract-text templates review --templates RESULTS/sample/templates --out RESULTS/sample
+
+# Approve each template whose regions sit where the form prints that field
+extract-text templates approve form-1 --templates RESULTS/sample/templates</code></pre>
+</div>
+</div>
 <p>Nothing learned is used until you approve it. A template holds the form's printed words and a region of the page for each field. It holds no names or addresses.</p>
 <p>Expect templates only for the forms your court uses most. A random 50 rarely holds five documents of a rare form, and the engine reads those with its rules alone. A template changes where the engine looks, not how it reads. <a href="how-it-works.html#templates">Form templates</a> says more.</p>
 <h2 id="full"><span class="num">7</span> Scan the whole folder and grade a second 50</h2>
 <p>The full run goes to its own folder, so the sample and its corrections stay as they are. It uses the templates you approved in step 6, and the rules alone if you approved none. It needs no attention while it runs. At about 5 seconds a document, 4,000 documents take five or six hours.</p>
+<div class="tabs">
+<div class="tab" data-tab="r">
 <pre class="r"><code>templates_dir &lt;- file.path(sample_dir, "templates")
 use_templates &lt;- dir.exists(templates_dir) &amp;&amp;
   any(list_templates(templates_dir)$approved)
 
 res_all &lt;- scan_documents(docs_dir, engine = "deterministic", out_dir = all_dir,
                           templates = if (use_templates) templates_dir)</code></pre>
+</div>
+<div class="tab" data-tab="terminal">
+<pre class="bash"><code># Leave off --templates and what follows it if you approved none in step 6
+extract-text scan DOCS --engine deterministic --out RESULTS/all --templates RESULTS/sample/templates</code></pre>
+</div>
+<div class="tab" data-tab="python">
+<pre class="python"><code># If you approved a template in step 6
+rows_all = scan(docs_dir, engine="deterministic", out_dir=all_dir,
+                templates=f"{sample_dir}/templates")
+
+# If you approved none
+rows_all = scan(docs_dir, engine="deterministic", out_dir=all_dir)</code></pre>
+<p>Run one of the two. The first stops with an error when the folder holds no approved template, so that a run without templates is never mistaken for one with them.</p>
+</div>
+</div>
 <p>The first sample told you whether to run everything. A second sample measures the run that becomes your table, templates included. A document you already graded may come up again; grade it again, and the later answer is the one kept.</p>
+<div class="tabs">
+<div class="tab" data-tab="r">
 <pre class="r"><code>review_documents(res_all, correct = TRUE, n = n_sample, draw = "random", seed = 1)
 
 score_documents(res_all)</code></pre>
+</div>
+<div class="tab" data-tab="terminal">
+<pre class="bash"><code>extract-text review --out RESULTS/all --random 50 --serve
+
+extract-text score --out RESULTS/all</code></pre>
+</div>
+<div class="tab" data-tab="python">
+<p>Grade and score in the terminal, as in step 5.</p>
+<pre class="bash"><code>extract-text review --out RESULTS/all --random 50 --serve
+
+extract-text score --out RESULTS/all</code></pre>
+</div>
+</div>
 <p>The share right in this score is the accuracy of the full run. Report it with the table.</p>
 <p>You can also fix every document the engine flagged, so the table carries a person's answer wherever the engine was unsure.</p>
+<div class="tabs">
+<div class="tab" data-tab="r">
 <pre class="r"><code>review_documents(res_all, correct = TRUE, n = sum(res_all$flags != ""),
                  draw = "flagged")</code></pre>
+</div>
+<div class="tab" data-tab="terminal">
+<pre class="bash"><code>extract-text review --out RESULTS/all --n 200 --serve</code></pre>
+<p>Without <code>--random</code>, the page shows flagged documents first. <code>--n</code> is how many documents it shows, 30 if you leave it off, so give it a number at least as large as the count of flagged documents the scan printed.</p>
+</div>
+<div class="tab" data-tab="python">
+<pre class="bash"><code>extract-text review --out RESULTS/all --n 200 --serve</code></pre>
+<p>Without <code>--random</code>, the page shows flagged documents first. <code>--n</code> is how many documents it shows, 30 if you leave it off, so give it a number at least as large as the count of flagged documents the scan printed.</p>
+</div>
+</div>
 <h2 id="table"><span class="num">8</span> Build the final table</h2>
+<div class="tabs">
+<div class="tab" data-tab="r">
 <pre class="r"><code>cases &lt;- case_table(res_all, graded = sample_dir,
                     save = file.path(results, "case_table.csv"))
 
@@ -334,45 +633,50 @@ count(cases, source)</code></pre>
   &lt;chr&gt;  &lt;int&gt;
 1 engine     5
 2 graded     1</code></pre>
-<p>The table has one row per document, with the case number, the plaintiff, the defendants, and the defendants' address. Your graded answers from both samples replace the engine's wherever you gave one, and the <code>source</code> column says which each row carries. In this example, from the six made-up documents, one row carries a graded answer and five carry the engine's reading. The table is saved as <code>case_table.csv</code> in your results folder.</p>
+<p>In this example, from six made-up documents, one row carries a graded answer and five carry the engine's reading.</p>
+</div>
+<div class="tab" data-tab="terminal">
+<pre class="bash"><code>extract-text case-table --out RESULTS/all --graded RESULTS/sample --save RESULTS/case_table.csv</code></pre>
+<pre class="output"><code>Table saved to RESULTS/case_table.csv
+Documents in the table: 15 (9 engine, 6 graded)</code></pre>
+<p>In this example, from the package's 15 made-up practice documents, six rows carry a graded answer and nine carry the engine's reading.</p>
+</div>
+<div class="tab" data-tab="python">
+<p>The table is built by a terminal command.</p>
+<pre class="bash"><code>extract-text case-table --out RESULTS/all --graded RESULTS/sample --save RESULTS/case_table.csv</code></pre>
+<pre class="output"><code>Table saved to RESULTS/case_table.csv
+Documents in the table: 15 (9 engine, 6 graded)</code></pre>
+<p>In this example, from the package's 15 made-up practice documents, six rows carry a graded answer and nine carry the engine's reading.</p>
+<p>To go on working with the table in Python, read the file.</p>
+<pre class="python"><code>import csv
+
+with open(f"{results}/case_table.csv", newline="", encoding="utf-8") as f:
+    cases = list(csv.DictReader(f))</code></pre>
+</div>
+</div>
+<p>The table has one row per document, with the case number, the plaintiff, the defendants, and the defendants' address. Your graded answers from both samples replace the engine's wherever you gave one, and the <code>source</code> column says which each row carries. The table is saved as <code>case_table.csv</code> in your results folder.</p>
 <h2 id="next">Go further</h2>
 <ul>
-<li><strong>The script.</strong> <a href="https://github.com/evictionresearch/extract-text/blob/main/getting_started_example_script.R" target="_blank" rel="noopener noreferrer"><code>getting_started_example_script.R</code></a> holds the code of every step on this page in one file.</li>
+<li><strong>The R script.</strong> <a href="https://github.com/evictionresearch/extract-text/blob/main/getting_started_example_script.R" target="_blank" rel="noopener noreferrer"><code>getting_started_example_script.R</code></a> holds the R code of every step on this page in one file.</li>
 <li><strong>When to scan again.</strong> Grading does not change the engine, so scan again only after you update the package, change a rule, or approve a template. <a href="https://github.com/evictionresearch/extract-text/blob/main/docs/start_here.md#what-grading-does" target="_blank" rel="noopener noreferrer">Start here</a> says more.</li>
-<li><strong>The whole procedure on one page.</strong> <a href="https://github.com/evictionresearch/extract-text/blob/main/docs/start_here.md" target="_blank" rel="noopener noreferrer">Start here</a> gives the same steps in plain words, with the terminal command for each.</li>
+<li><strong>The whole procedure on one page.</strong> <a href="https://github.com/evictionresearch/extract-text/blob/main/docs/start_here.md" target="_blank" rel="noopener noreferrer">Start here</a> gives the same steps in plain words, and ends with all eight as terminal commands and as Python.</li>
 <li><strong>Make the engine read your documents better.</strong> <a href="improve.html">Improve it</a> shows how to tell us what goes wrong, with no programming, and how to change the rules on your own copy.</li>
 <li><strong>More on form templates.</strong> The guide is the last chapter of <a href="https://github.com/evictionresearch/extract-text/blob/main/docs/changing_rules.md" target="_blank" rel="noopener noreferrer">Changing the rules</a>.</li>
 <li><strong>Try the local AI engine.</strong> It is experimental: it runs, but its test against hand-labeled documents is not finished. It needs about 16 GB of memory. <a href="https://github.com/evictionresearch/extract-text/blob/main/docs/manual.md#6-setting-up-the-ai-engine-optional" target="_blank" rel="noopener noreferrer">Section 6 of the manual</a> has the two steps.</li>
 <li><strong>Read the manual.</strong> <a href="https://github.com/evictionresearch/extract-text/blob/main/docs/manual.md" target="_blank" rel="noopener noreferrer">The manual</a> covers every output column, the flags, and how to use the package outside Washington.</li>
 </ul>
 <h2 id="help">If something goes wrong</h2>
-<p><strong>Run the checkup first.</strong> <code>extracttext_doctor()</code> in R looks at your computer and prints the command for anything missing.</p>
-<p><strong>The checkup says "The Python engine is not installed yet."</strong> Restart R and run it again. If the message stays, the install in step 2 stopped early, most often because Python was missing or older than 3.10. Run the Python check in step 2 and fix what it shows. Then remove the half-built environment with <code>reticulate::virtualenv_remove("r-extracttext")</code> and run <code>extracttext_install()</code> again.</p>
+<p><strong>Run the checkup first.</strong> <code>extracttext_doctor()</code> in R, or <code>extract-text doctor</code> at a terminal, looks at your computer and prints the command for anything missing.</p>
+<p><strong>In R, the checkup says "The Python engine is not installed yet."</strong> Restart R and run it again. If the message stays, the install in step 2 stopped early, most often because Python was missing or older than 3.10. Run the Python check in step 2 and fix what it shows. Then remove the half-built environment with <code>reticulate::virtualenv_remove("r-extracttext")</code> and run <code>extracttext_install()</code> again.</p>
 <p>If the install finished and the message still stays, something has told R to use another Python. In a fresh R session, point R at the engine's own environment before anything else, then run the checkup.</p>
 <pre class="r"><code>library(extracttext)
 reticulate::use_virtualenv("r-extracttext", required = TRUE)
 extracttext_doctor()</code></pre>
+<p><strong>At a terminal, <code>extract-text</code> gives "command not found".</strong> The environment from step 2 is not turned on in this window. On a Mac or Linux, run <code>source ~/extract-text-env/bin/activate</code> and try again.</p>
 <p><strong>Something else.</strong> Open an issue at <a href="https://github.com/evictionresearch/extract-text/issues" target="_blank" rel="noopener noreferrer">github.com/evictionresearch/extract-text/issues</a>, or write to <a href="mailto:evictions@berkeley.edu">evictions@berkeley.edu</a>.</p>
 <div class="note">
 <p><strong>Never paste a real document, name, address, or case number into an issue or an email.</strong> Describe the problem, or reproduce it with the made-up example document from step 3.</p>
 </div>
-<h2 id="python">Python and the command line</h2>
-<p>The eight steps above use R. The same engine runs from Python and from a terminal. Install the three programs from step 1 first. Then make a private Python environment for the engine and turn it on. Python from Homebrew on a Mac, and from Debian or Ubuntu, refuses a plain <code>pip install</code> outside one.</p>
-<pre class="bash"><code>python3 -m venv ~/extract-text-env
-source ~/extract-text-env/bin/activate
-pip install "extract-text @ https://github.com/evictionresearch/extract-text/archive/main.zip#subdirectory=python"
-extract-text doctor</code></pre>
-<p>On Windows, skip the first two lines. On a Mac or Linux, run the <code>source</code> line again in every new terminal window. <a href="https://github.com/evictionresearch/extract-text/blob/main/docs/start_here.md#the-same-steps-at-a-terminal" target="_blank" rel="noopener noreferrer">Start here</a> gives the terminal command for each of the eight steps.</p>
-<pre class="python"><code>from extract_text import extract, scan
-
-result = extract("summons.pdf")                 # rules only, no AI
-result.record.defendant_address.street
-result.flags                                    # empty means all checks passed
-
-rows = scan("documents/", engine="deterministic", out_dir="results/")</code></pre>
-<p>From a terminal, with no programming, this line scans a folder.</p>
-<pre class="bash"><code>extract-text scan documents/ --engine deterministic --out results/ --review</code></pre>
-<p>A folder scan writes <code>extracted.csv</code>, the table. It also writes <code>extracted.jsonl</code>, the full record of where each value came from, and <code>review/index.html</code>, a page that shows each flagged document beside what was read from it.</p>
 </div>
 </section>
 
@@ -465,6 +769,77 @@ rows = scan("documents/", engine="deterministic", out_dir="results/")</code></pr
           pre.setAttribute('aria-label', (names[kind] || 'Code') + ', scrolls sideways');
         }
       });
+    })();
+  </script>
+
+  <script>
+    // Tabs: a step that can be done in R, at a terminal, or in Python holds
+    // one panel for each (.tabs > .tab[data-tab]). This builds the row of
+    // buttons above each set, shows one panel, and keeps every set on the
+    // page on the same choice. The choice is remembered for the next visit,
+    // and a link can set it (get-started.html?tab=terminal). It runs after
+    // the code-block script, which measures blocks while all are on screen.
+    // With scripts off, the three panels show one after another, each under
+    // its name (the stylesheet adds the name).
+    (function () {
+      var sets = Array.prototype.slice.call(document.querySelectorAll('.tabs'));
+      if (!sets.length) return;
+      var names = { r: 'R', terminal: 'Terminal', python: 'Python' };
+      var key = 'extract-text-tab', chosen = 'r';
+      try { var kept = localStorage.getItem(key); if (names[kept]) chosen = kept; } catch (e) {}
+      var asked = /[?&]tab=(r|terminal|python)\b/.exec(location.search);
+      if (asked) chosen = asked[1];
+      function kids(el, cls) {
+        return Array.prototype.filter.call(el.children, function (c) { return c.classList.contains(cls); });
+      }
+      function show(which, from) {
+        // Keep the button that was pressed where it is on screen, since the
+        // sets above it change height
+        var before = from ? from.getBoundingClientRect().top : 0;
+        sets.forEach(function (set) {
+          kids(set, 'tab').forEach(function (panel) { panel.hidden = panel.getAttribute('data-tab') !== which; });
+          kids(set, 'tab-bar').forEach(function (bar) {
+            Array.prototype.forEach.call(bar.children, function (b) {
+              var on = b.getAttribute('data-tab') === which;
+              b.setAttribute('aria-selected', on ? 'true' : 'false');
+              b.tabIndex = on ? 0 : -1;
+            });
+          });
+        });
+        if (from) window.scrollBy(0, from.getBoundingClientRect().top - before);
+        try { localStorage.setItem(key, which); } catch (e) {}
+      }
+      sets.forEach(function (set, n) {
+        var bar = document.createElement('div');
+        bar.className = 'tab-bar';
+        bar.setAttribute('role', 'tablist');
+        bar.setAttribute('aria-label', 'Show this step in R, at a terminal, or in Python');
+        kids(set, 'tab').forEach(function (panel) {
+          var which = panel.getAttribute('data-tab');
+          panel.id = 'tabs' + n + '-' + which;
+          panel.setAttribute('role', 'tabpanel');
+          panel.setAttribute('aria-label', names[which] || which);
+          var b = document.createElement('button');
+          b.type = 'button';
+          b.setAttribute('role', 'tab');
+          b.setAttribute('data-tab', which);
+          b.setAttribute('aria-controls', panel.id);
+          b.textContent = names[which] || which;
+          b.addEventListener('click', function () { show(which, b); });
+          b.addEventListener('keydown', function (e) {
+            if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
+            var all = Array.prototype.slice.call(bar.children);
+            var next = all[(all.indexOf(b) + (e.key === 'ArrowRight' ? 1 : all.length - 1)) % all.length];
+            show(next.getAttribute('data-tab'), next);
+            next.focus();
+            e.preventDefault();
+          });
+          bar.appendChild(b);
+        });
+        set.insertBefore(bar, set.firstChild);
+        set.classList.add('on');
+      });
+      show(chosen);
     })();
   </script>
 

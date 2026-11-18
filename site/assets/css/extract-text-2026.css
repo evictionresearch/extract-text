@@ -123,6 +123,40 @@
 .os-group h3 { margin: 0 0 10px; font-size: 19px; }
 .os-group p, .os-group li { font-size: 15.5px; }
 
+/* ─── Tabs ─── one step shown in R, at a terminal, or in Python. The page's
+   script adds the row of buttons (.tab-bar) and the class .on. Until it
+   does, or with scripts off, the three panels show one after another, each
+   under its name. The chosen tab has a red rule under it and darker text,
+   never colour alone. */
+.tabs { border: 1px solid var(--rule); border-radius: 8px; margin: 18px 0 24px; }
+.tab { padding: 20px 22px 6px; }
+.tab > :first-child { margin-top: 0; }
+.tab[hidden] { display: none; }
+.tabs:not(.on) > .tab + .tab { border-top: 1px solid var(--rule); }
+.tabs:not(.on) > .tab::before {
+  display: block; margin-bottom: 12px;
+  font-family: var(--sans); font-size: 12px; font-weight: 700; letter-spacing: 0.12em;
+  text-transform: uppercase; color: var(--muted);
+}
+.tabs:not(.on) > .tab[data-tab="r"]::before { content: "R"; }
+.tabs:not(.on) > .tab[data-tab="terminal"]::before { content: "Terminal"; }
+.tabs:not(.on) > .tab[data-tab="python"]::before { content: "Python"; }
+.tab-bar {
+  display: flex; gap: 2px; padding: 0 10px;
+  background: var(--tint); border-bottom: 1px solid var(--rule); border-radius: 8px 8px 0 0;
+}
+.tab-bar button {
+  font-family: var(--sans); font-size: 13px; font-weight: 600; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--muted);
+  background: none; border: 0; border-bottom: 3px solid transparent; margin-bottom: -1px;
+  min-height: 46px; padding: 3px 16px 0; cursor: pointer;
+}
+.tab-bar button:hover { color: var(--ink); }
+.tab-bar button[aria-selected="true"] { color: var(--ink); font-weight: 700; border-bottom-color: var(--accent); }
+.tab-bar button:focus-visible { outline: 2px solid var(--ink); outline-offset: -2px; }
+.tab .note { margin: 0 0 14px; }
+.note .tabs { background: var(--paper); margin: 12px 0 4px; }
+
 /* ─── Code ─── */
 .page code {
   font-family: var(--mono); font-size: 0.88em;
@@ -290,6 +324,9 @@
   .page th { font-size: 11px; letter-spacing: 0.04em; padding-right: 10px; }
   .page td { padding-right: 10px; }
   .os-group { padding: 16px 16px 4px; }
+  .tab { padding: 16px 14px 4px; }
+  .tab-bar { padding: 0 4px; }
+  .tab-bar button { padding: 3px 12px 0; }
 }
 
 /* ─── Home page sub-heads inside a section ─── */

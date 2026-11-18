@@ -39,8 +39,15 @@ approved it.
 
 Everything here is arithmetic on positions and exact text matching: the same
 document with the same templates always gives the same answer, and no model
-is involved. This is the deterministic form of the per-form layout learning
-in Cheng Ren's dissertation (ten to twenty labeled pages per form).
+is involved.
+
+The idea of learning a form's layout from labeled pages comes from Cheng
+Ren's dissertation, but a template is not that method. The dissertation
+trained a neural model (Azure Document Intelligence) on about 20 labeled
+pages chosen to cover many law firms' formats, and the model learned both
+the location and the content of each field (pp. 34 to 36). A template
+stores locations for one printed form and leaves the reading to the rules.
+`MAINTENANCE.md` has the comparison (2026-11-18).
 
 A template holds the printed form's words and coordinates only; the values
 are excluded by construction. Inspect a generated file before sharing it all
@@ -85,8 +92,8 @@ SAME_FORM_THRESHOLD = 0.5
 FIXED_SHARE = 0.8
 #: fewer fingerprint words than this cannot identify a form
 MIN_FINGERPRINT = 12
-#: pages a form needs before a template is written (Cheng Ren's figure is
-#: ten to twenty; whether fewer suffice is measured, not assumed)
+#: pages a form needs before a template is written (this package's own
+#: floor; whether fewer suffice is measured, not assumed)
 MIN_PAGES = 5
 #: a box whose centre is farther than this from the others' is a slip of the
 #: mouse, not a position, and is left out of the region

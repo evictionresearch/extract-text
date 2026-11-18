@@ -84,7 +84,9 @@ Ren, Cheng. 2024. "Not All Eviction Cases are Alike: How Do Contextual and Indiv
 
 The dissertation asks what happens after an eviction is filed. It used natural language processing and computer vision to read 772,629 PDF files from 56,070 Pierce County cases, 2004 to 2022. It then followed each case to a dismissal or a judgment and, after a judgment, to an eviction by the sheriff.
 
-extract-text takes three things from the dissertation. The rules that read a whole case file and decide whether a case was dismissed, went to judgment, or ended with the sheriff follow the dissertation's. The form templates are a rule-based version of its method, which learned the layout of each court form from 10 to 20 labeled pages. And Cheng Ren first tested the AI engine's model, on 300 Pierce County summonses.
+extract-text takes two things from the dissertation. The rules that read a whole case file and decide whether a case was dismissed, went to judgment, or ended with the sheriff follow the dissertation's. And Cheng Ren first tested the AI engine's model, on 300 Pierce County summonses.
+
+The form templates are not the dissertation's method. The dissertation trained a model on about 20 labeled pages, chosen to cover many law firms' forms, and the model learned both where a summons prints each field and what the field holds. A form template uses no model. It stores where one printed form puts each field, from boxes a person draws, and the written rules read what is there. The idea of learning a form from labeled pages came from the dissertation. Templates have not yet been measured on real documents.
 
 ### The card game's design
 

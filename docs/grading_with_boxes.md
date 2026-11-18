@@ -10,7 +10,9 @@ Put the court documents in a folder on your own computer, somewhere that does no
 review_documents(res, correct = TRUE, n = n_sample, draw = "random")
 ```
 
-R waits while you grade. Press Esc in RStudio (Ctrl-C at a terminal) when you stop. Nothing is lost by stopping; run the same line again and the page shows what you saved. Use the same browser each time. Safari, Chrome, and Brave all work.
+At a terminal, or if you work in Python, the same page opens with `extract-text review --out RESULTS/sample --random 50 --serve`, where `RESULTS` is your results folder.
+
+R, or the terminal, waits while you grade. Press Esc in RStudio (Ctrl-C at a terminal) when you stop. Nothing is lost by stopping; run the same line again and the page shows what you saved. Use the same browser each time. Safari, Chrome, and Brave all work.
 
 ## What the boxes are
 
@@ -46,6 +48,8 @@ Close the tab and stop the page (Esc in RStudio, Ctrl-C at a terminal). Then sco
 ```r
 score_documents(res)
 ```
+
+At a terminal, the line is `extract-text score --out RESULTS/sample`.
 
 The foot of the review page says the same. If you want your grading to help improve the engine, do not send the corrections files. Describe what the engine got wrong in your own words, with no name, address, or case number, to evictions@berkeley.edu. Anything made from your records needs a data agreement between your organization and UC Berkeley first, and the [Improve it](https://evictionresearch.net/extract-text/improve.html) page has the steps.
 

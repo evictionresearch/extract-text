@@ -61,7 +61,7 @@
         <p class="eyebrow">Open-source software from the Eviction Research Network</p>
         <h1><code>extract-text</code> reads eviction court documents into a <em>table</em>.</h1>
         <p class="lede">Many courts keep eviction filings only as page images, and a filing cannot be counted or mapped until it is in a table. extract-text reads e-filed PDFs, scanned PDFs, and TIFF images and returns one row per document, with the plaintiffs, the defendants, the address where the defendants were served, the plaintiff’s attorney, and the case number.</p>
-        <p class="small">Free and open source. It runs on your own computer, from R or Python, on Mac, Windows, and Linux. The rules engine is the released tool. The local AI engine is experimental.</p>
+        <p class="small">Free and open source. It runs on your own computer, from R, Python, or a terminal, on Mac, Windows, and Linux. The rules engine is the released tool. The local AI engine is experimental.</p>
         <p class="badge"><a href="#development">Under development · version 0.4.2</a></p>
         <div class="actions">
           <a class="btn" href="get-started.html">Get started</a>
@@ -358,6 +358,77 @@ Under development
           pre.setAttribute('aria-label', (names[kind] || 'Code') + ', scrolls sideways');
         }
       });
+    })();
+  </script>
+
+  <script>
+    // Tabs: a step that can be done in R, at a terminal, or in Python holds
+    // one panel for each (.tabs > .tab[data-tab]). This builds the row of
+    // buttons above each set, shows one panel, and keeps every set on the
+    // page on the same choice. The choice is remembered for the next visit,
+    // and a link can set it (get-started.html?tab=terminal). It runs after
+    // the code-block script, which measures blocks while all are on screen.
+    // With scripts off, the three panels show one after another, each under
+    // its name (the stylesheet adds the name).
+    (function () {
+      var sets = Array.prototype.slice.call(document.querySelectorAll('.tabs'));
+      if (!sets.length) return;
+      var names = { r: 'R', terminal: 'Terminal', python: 'Python' };
+      var key = 'extract-text-tab', chosen = 'r';
+      try { var kept = localStorage.getItem(key); if (names[kept]) chosen = kept; } catch (e) {}
+      var asked = /[?&]tab=(r|terminal|python)\b/.exec(location.search);
+      if (asked) chosen = asked[1];
+      function kids(el, cls) {
+        return Array.prototype.filter.call(el.children, function (c) { return c.classList.contains(cls); });
+      }
+      function show(which, from) {
+        // Keep the button that was pressed where it is on screen, since the
+        // sets above it change height
+        var before = from ? from.getBoundingClientRect().top : 0;
+        sets.forEach(function (set) {
+          kids(set, 'tab').forEach(function (panel) { panel.hidden = panel.getAttribute('data-tab') !== which; });
+          kids(set, 'tab-bar').forEach(function (bar) {
+            Array.prototype.forEach.call(bar.children, function (b) {
+              var on = b.getAttribute('data-tab') === which;
+              b.setAttribute('aria-selected', on ? 'true' : 'false');
+              b.tabIndex = on ? 0 : -1;
+            });
+          });
+        });
+        if (from) window.scrollBy(0, from.getBoundingClientRect().top - before);
+        try { localStorage.setItem(key, which); } catch (e) {}
+      }
+      sets.forEach(function (set, n) {
+        var bar = document.createElement('div');
+        bar.className = 'tab-bar';
+        bar.setAttribute('role', 'tablist');
+        bar.setAttribute('aria-label', 'Show this step in R, at a terminal, or in Python');
+        kids(set, 'tab').forEach(function (panel) {
+          var which = panel.getAttribute('data-tab');
+          panel.id = 'tabs' + n + '-' + which;
+          panel.setAttribute('role', 'tabpanel');
+          panel.setAttribute('aria-label', names[which] || which);
+          var b = document.createElement('button');
+          b.type = 'button';
+          b.setAttribute('role', 'tab');
+          b.setAttribute('data-tab', which);
+          b.setAttribute('aria-controls', panel.id);
+          b.textContent = names[which] || which;
+          b.addEventListener('click', function () { show(which, b); });
+          b.addEventListener('keydown', function (e) {
+            if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
+            var all = Array.prototype.slice.call(bar.children);
+            var next = all[(all.indexOf(b) + (e.key === 'ArrowRight' ? 1 : all.length - 1)) % all.length];
+            show(next.getAttribute('data-tab'), next);
+            next.focus();
+            e.preventDefault();
+          });
+          bar.appendChild(b);
+        });
+        set.insertBefore(bar, set.firstChild);
+        set.classList.add('on');
+      });
+      show(chosen);
     })();
   </script>
 

@@ -1,8 +1,16 @@
 # extract-text
 
-extract-text reads eviction court documents (e-filed PDFs, scanned PDFs, and TIFF images) and returns a table with one row per document: the plaintiffs, the defendants, the address where the defendants were served, the plaintiff's attorney, and the case number. It runs on your own computer, and your documents never leave it. The [Eviction Research Network](https://evictionresearch.net) built it for housing research and policy work. Thomas, Ramiller, Ren, and Toomet (2024) were the first to use this method on eviction case records, in "[Toward a National Eviction Data Collection Strategy Using Natural Language Processing](https://www.huduser.gov/portal/periodicals/cityscape/vol26num1/article12.html)," *Cityscape* 26(1). This package takes what that paper did and makes it available to the public.
+<p align="center">
+  <img src="site/images/extract-text.svg" width="640" alt="A scanned court summons with a handwritten address, an arrow, and the same case as rows of digital text. Every value shown is made up.">
+</p>
 
-**Status (version 0.4.2, under development).** The rules engine is the released tool, and every instruction here uses it. The local AI engine runs as an option, but its test against hand-labeled documents is not finished, so treat it as experimental. Accuracy has been measured only on Washington documents. Command options and output columns can still change between releases, so pin the version you build on. [`CHANGELOG.md`](CHANGELOG.md) lists every release.
+extract-text reads eviction court documents (e-filed PDFs, scanned PDFs, and TIFF images) and returns a table with one row per document: the plaintiffs, the defendants, the address where the defendants were served, the plaintiff's attorney, and the case number. It runs on your own computer, and your documents never leave it. You can run it from a terminal, from R, or from Python, on Mac, Windows, or Linux. The [Eviction Research Network](https://evictionresearch.net) built it for housing research and policy work. Thomas, Ramiller, Ren, and Toomet (2024) were the first to use this method on eviction case records, in "[Toward a National Eviction Data Collection Strategy Using Natural Language Processing](https://www.huduser.gov/portal/periodicals/cityscape/vol26num1/article12.html)," *Cityscape* 26(1). This package takes what that paper did and makes it available to the public.
+
+**Status (version 0.4.2, under development).** The rules engine is the released tool, and the examples here use it. The local AI engine runs as an option and is experimental, because its test against hand-labeled documents is not finished. Accuracy has been measured only on Washington documents. Command options and output columns can still change between releases. [`CHANGELOG.md`](CHANGELOG.md) lists every release and shows how to install a specific one.
+
+<p align="center">
+  <a href="https://evictionresearch.net/extract-text/media/demo.mp4"><img src="site/media/demo.gif" width="800" alt="A half-minute video with no sound. A folder of 15 made-up documents is scanned from the terminal, one of them opens on the review page with colored boxes where each value was read, a person saves it, and the results appear as a table with one row per document."></a>
+</p>
 
 ## How it works
 
@@ -15,7 +23,7 @@ A person checks the engine's work before anyone trusts it. You grade a random 50
 
 ## Get started
 
-The [Get started page](https://evictionresearch.net/extract-text/get-started.html) walks through the install and a first run in eight steps, in R, on Mac, Windows, or Linux.
+The [Get started page](https://evictionresearch.net/extract-text/get-started.html) walks through the install and a first run in eight steps, with a tab for R, one for the terminal, and one for Python, on Mac, Windows, or Linux.
 
 1. **Install three free programs:** poppler, tesseract, and Python.
 2. **Install extract-text** and run its checkup.
@@ -26,16 +34,37 @@ The [Get started page](https://evictionresearch.net/extract-text/get-started.htm
 7. **Scan the whole folder** and grade a second random 50.
 8. **Build the final table**, with your graded answers in place of the engine's.
 
-The same eight steps, with the same numbers, are in [`getting_started_example_script.R`](getting_started_example_script.R), to open in RStudio and run a block at a time, and in [`docs/start_here.md`](docs/start_here.md), in plain words with the terminal command for each.
+The same eight steps, with the same numbers, are in [`getting_started_example_script.R`](getting_started_example_script.R), an R script that runs a block at a time, and in [`docs/start_here.md`](docs/start_here.md), in plain words, with all eight as terminal commands and as Python at the end.
 
-You can practice steps 4 to 8 on the package's made-up documents before you open a court record, and step 4 says what to expect from documents outside Washington.
+Reading one document looks like this in each of the three.
+
+```bash
+# Terminal
+extract-text extract summons.pdf
+```
+
+```r
+# R
+library(extracttext)
+extract_deterministic("summons.pdf")
+```
+
+```python
+# Python
+from extract_text import extract
+extract("summons.pdf")
+```
+
+The [manual](docs/manual.md) shows a first document and a whole folder in all three (sections 8 and 9).
+
+The package comes with made-up documents for practicing steps 4 to 8 before any court record is opened, and step 4 says what to expect from documents outside Washington.
 
 ## Where to read what
 
 | You want to | Read |
 |---|---|
 | Install it and run it, step by step | [Get started](https://evictionresearch.net/extract-text/get-started.html), or [`getting_started_example_script.R`](getting_started_example_script.R) |
-| See the whole procedure on one page, or use a terminal | [`docs/start_here.md`](docs/start_here.md) |
+| See the whole procedure on one page, as terminal commands or as Python | [`docs/start_here.md`](docs/start_here.md) |
 | Know what belongs in each field when you grade | [`GRADING.md`](GRADING.md) |
 | Get the programs approved or installed on a computer your organization manages | [`docs/it_checklist.md`](docs/it_checklist.md) |
 | Fix and draw the boxes on the review page | [`docs/grading_with_boxes.md`](docs/grading_with_boxes.md) |
@@ -82,4 +111,4 @@ Code is AGPL-3.0-or-later (`LICENSE`). Commercial use is permitted; building a c
 
 Cheng Ren (University at Albany, SUNY), Tim Thomas (Eviction Research Network, UC Berkeley), Aaron Culich (UC Berkeley).
 
-Citation metadata is in `CITATION.cff`. Contributions are welcome; read `CONTRIBUTING.md` first, especially its one rule with no exceptions: no real court records anywhere in this repository.
+Citation metadata is in `CITATION.cff`. Contributions are welcome. `CONTRIBUTING.md` holds the terms, and the one rule with no exceptions, that no real court record goes anywhere in this repository.

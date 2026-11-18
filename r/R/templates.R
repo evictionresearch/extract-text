@@ -31,8 +31,8 @@
 #' @param templates Where to write the templates. Default: a `templates`
 #'   folder inside the scan folder.
 #' @param min_pages Pages a form needs before a template is written.
-#'   Default 5; ten to twenty is the figure from the method's source, and a
-#'   template learned from fewer pages says so on the review page.
+#'   Default 5. A template learned from fewer than ten pages says so on
+#'   the review page.
 #' @param rows Learn from these documents only (their numbers on the review
 #'   page). With `name`, they are treated as one form.
 #' @param name With `rows`, the name to give the one template they make.

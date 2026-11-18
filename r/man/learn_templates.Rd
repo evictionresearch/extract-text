@@ -21,8 +21,8 @@ learn_templates(
 folder inside the scan folder.}
 
 \item{min_pages}{Pages a form needs before a template is written.
-Default 5; ten to twenty is the figure from the method's source, and a
-template learned from fewer pages says so on the review page.}
+Default 5. A template learned from fewer than ten pages says so on
+the review page.}
 
 \item{rows}{Learn from these documents only (their numbers on the review
 page). With \code{name}, they are treated as one form.}

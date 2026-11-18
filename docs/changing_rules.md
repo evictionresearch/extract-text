@@ -187,7 +187,7 @@ In R, from the scan you graded (here `res`, the first sample, as in step 6 of th
 learn_templates(res)
 ```
 
-This reads every graded document that has a box again (the text is cached beside the scan), groups the documents by the printed form of their first page, and writes one template per form that has at least five graded documents, as `form-1.json`, `form-2.json`, and so on in `results/sample/templates/`. The report says how many graded documents had a labeled position, how they grouped, and for each region how many drawn and confirmed boxes it came from. A form on fewer than five documents is named in the report and gets no template. Grade more of its documents, or lower `min_pages` if you accept a thinner template. Ten to twenty per form is the figure from the method this follows, Cheng Ren's dissertation, where a layout model is trained per form. The review page says when a template has fewer than ten.
+This reads every graded document that has a box again (the text is cached beside the scan), groups the documents by the printed form of their first page, and writes one template per form that has at least five graded documents, as `form-1.json`, `form-2.json`, and so on in `results/sample/templates/`. The report says how many graded documents had a labeled position, how they grouped, and for each region how many drawn and confirmed boxes it came from. A form on fewer than five documents is named in the report and gets no template. Grade more of its documents, or lower `min_pages` if you accept a thinner template. Five is this package's own floor, and it has not been measured on real documents. The review page says when a template has fewer than ten.
 
 ```r
 review_templates(res)
@@ -206,6 +206,16 @@ res_all <- scan_documents(docs_dir, out_dir = all_dir,
                           templates = file.path(sample_dir, "templates"))
 table(res_all$template)
 score_documents(res_all)
+```
+
+At a terminal, or if you work in Python, the same four steps are these commands, where `DOCS` is your documents folder and `RESULTS` your results folder. The review command writes the page and prints where it is, for you to open in your browser.
+
+```bash
+extract-text templates learn --out RESULTS/sample
+extract-text templates review --templates RESULTS/sample/templates --out RESULTS/sample
+extract-text templates approve form-1 --templates RESULTS/sample/templates
+extract-text scan DOCS --engine deterministic --out RESULTS/all --templates RESULTS/sample/templates
+extract-text score --out RESULTS/all
 ```
 
 The `template` column names the form each document matched (blank for none), and `defendant_anchor` reads `template:form-1` wherever the address came from the template's region (`template:form-1@p3` when the region is on page 3). On a document that matches, each field is read from its regions first, in page order. A region that is empty on that document, or holds nothing that parses as that field, leaves the field to the ordinary rules, so a template can only add readings, never remove the rules' own. A document that matches no template is read exactly as before. A folder with no approved template is an error rather than a silent no-op, so a run that used none is never mistaken for one that did.

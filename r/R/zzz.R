@@ -79,9 +79,6 @@ extracttext_available <- function() {
 #' from your system package manager, and [extracttext_doctor()] tells you
 #' exactly what to install if they are missing.
 #'
-#' @param anthropic Also install the SDK for the cloud API backend. Leave
-#'   `FALSE` for a local-only setup, which is the right default for records
-#'   that must not leave the machine.
 #' @param parquet Also install pyarrow so batch runs write `.parquet` files
 #'   alongside the CSV. Default `TRUE`.
 #' @param source Path to a local clone's `python/` directory, to install
@@ -92,10 +89,9 @@ extracttext_available <- function() {
 #' @return Invisibly, the environment name.
 #' @importFrom reticulate py_install
 #' @export
-extracttext_install <- function(anthropic = FALSE, parquet = TRUE,
-                                source = NULL, envname = "r-extracttext",
-                                ref = "main") {
-  extras <- c(if (anthropic) "anthropic", if (parquet) "parquet")
+extracttext_install <- function(parquet = TRUE, source = NULL,
+                                envname = "r-extracttext", ref = "main") {
+  extras <- c(if (parquet) "parquet")
   extra_txt <- if (length(extras)) paste0("[", paste(extras, collapse = ","), "]") else ""
   # the engine comes as GitHub's zip of the repository, so git is not needed
   spec <- if (is.null(source)) {

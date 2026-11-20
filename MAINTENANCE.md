@@ -1191,3 +1191,12 @@ Changed with this entry: `site/about.qmd`, the module comment and one constant's
   full sets the later mining pass improved every column of both large King
   sets and regressed the 27-case hand-swiped set, which is recorded with
   the rest of the full-set numbers above.
+- **No cloud backend** (Tim, 2026-11-19). The package's fixed rule is that
+  everything runs on the user's own computer. Through 0.4.2 it also carried
+  an optional backend for a cloud API (`ai/anthropic_backend.py`, the
+  `anthropic` extra, `backend="anthropic"`), text only, off unless a user
+  installed it and asked for it by name. A re-evaluation of the package on
+  2026-11-19 found it at odds with that rule, and it was removed. `extract_ai`
+  keeps its `backend` argument and accepts `"local"` only. A backend that
+  sends a document, its text, or a reading off the computer does not come
+  back without a recorded decision here.

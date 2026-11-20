@@ -204,15 +204,12 @@ accepts the `pip install` line as it is, so the first two lines can be
 skipped.
 
 That installs the package and its two Python dependencies (pydantic, which
-enforces the data structure, and Pillow, which reads TIFF files). Two optional
-extras exist.
+enforces the data structure, and Pillow, which reads TIFF files). One optional
+extra exists.
 
 ```bash
 # adds .parquet output files alongside the CSV
 pip install "extract-text[parquet] @ https://github.com/evictionresearch/extract-text/archive/main.zip#subdirectory=python"
-
-# adds the cloud API backend. Read section 14 before considering this.
-pip install "extract-text[anthropic] @ https://github.com/evictionresearch/extract-text/archive/main.zip#subdirectory=python"
 ```
 
 If you cloned the repository, `pip install -e "python[parquet]"` from the
@@ -1074,12 +1071,9 @@ What backs that claim.
   security team, can read every line and verify each statement above, and
   the project considers that checkability part of the security story.
 
-One exception exists and is opt-in three times over. A backend for Anthropic's
-cloud API ships in the package for corpora that are already cleared for
-third-party processing. It is never a default, it requires installing a
-separate extra, it requires an API key, and its own documentation repeats
-this warning. If your records must stay local, simply never type
-`backend="anthropic"`, and nothing will ever leave.
+No part of the package sends a document, its text, or a reading to a cloud
+service. Versions through 0.4.2 carried an optional backend for a cloud API,
+off unless a user installed it and asked for it by name. It has been removed.
 
 Two practices this project follows and recommends.
 

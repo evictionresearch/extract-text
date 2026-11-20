@@ -25,15 +25,13 @@ classifiers = [
 # Two runtime dependencies: pydantic for the field contract, Pillow for TIFF
 # frames and page rendering. PDFs and OCR go through the poppler and
 # tesseract system programs (see `extract-text doctor`). The local AI backend
-# uses the standard library; the Anthropic SDK is only needed for the cloud
-# API backend, which is optional by design.
+# uses the standard library. No dependency talks to a cloud service.
 dependencies = ["pydantic>=2.7", "pillow>=10"]
 
 [project.optional-dependencies]
-anthropic = ["anthropic>=0.69"]
 parquet = ["pyarrow>=16"]
 dev = [
-  "extract-text[anthropic,parquet]",
+  "extract-text[parquet]",
   "pytest>=8",
   "ruff>=0.6",
 ]

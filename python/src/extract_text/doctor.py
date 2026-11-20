@@ -122,8 +122,6 @@ def run_doctor(model: str | None = None, file=None) -> bool:
     say("Optional extras")
     for mod, why, fix in (
         ("pyarrow", "parquet output", "pip install 'extract-text[parquet]'"),
-        ("anthropic", "cloud API backend (sends text off this machine)",
-         "pip install 'extract-text[anthropic]'"),
     ):
         try:
             __import__(mod)

@@ -615,7 +615,7 @@
   "description": "Generated from extract_text.schema. Do not hand-edit; run python/scripts/build_schema.py instead.",
   "properties": {
     "backend": {
-      "description": "Backend identifier, e.g. 'rules', 'anthropic', 'local'.",
+      "description": "Backend identifier, e.g. 'rules', 'local', 'local-vision-lists:qwen3.5:9b'.",
       "title": "Backend",
       "type": "string"
     },

@@ -5,7 +5,6 @@
 \title{Install the Python engine}
 \usage{
 extracttext_install(
-  anthropic = FALSE,
   parquet = TRUE,
   source = NULL,
   envname = "r-extracttext",
@@ -13,10 +12,6 @@ extracttext_install(
 )
 }
 \arguments{
-\item{anthropic}{Also install the SDK for the cloud API backend. Leave
-\code{FALSE} for a local-only setup, which is the right default for records
-that must not leave the machine.}
-
 \item{parquet}{Also install pyarrow so batch runs write \code{.parquet} files
 alongside the CSV. Default \code{TRUE}.}
 

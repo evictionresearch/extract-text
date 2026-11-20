@@ -1,4 +1,4 @@
-"""Backend interface and the grounding check both AI backends share.
+"""Backend interface and the grounding check the text backend uses.
 
 A language model will happily return a well-formed record for a document that
 says none of it. The defense here is to require a verbatim quote for every

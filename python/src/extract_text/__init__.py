@@ -21,9 +21,8 @@ A whole folder:
     rows = scan("documents/", engine="deterministic", out_dir="results/")
 
 Everything runs on this machine. The deterministic engine is rules and
-geometry; the AI engine is a local model served by Ollama. The one backend
-that sends text elsewhere (`backend="anthropic"`) exists for cleared corpora
-only, is never a default, and says so loudly in its own documentation.
+geometry; the AI engine is a local model served by Ollama. No backend sends
+a document, its text, or a reading anywhere else.
 """
 
 from __future__ import annotations
@@ -91,14 +90,15 @@ def extract_deterministic(source, expected_case_number=None, templates=None) -> 
 def extract_ai(source, backend: str = "local", **kwargs) -> Extraction:
     """Extract a court record using a language model.
 
-    `backend` is 'local' for a model on your own machine through Ollama (the
-    default, because court records carry personally identifying information
-    and the safe default keeps the text here), or 'anthropic' for the cloud
-    API, which sends the text off this machine and needs a key.
+    The model runs on your own machine through Ollama, and nothing is sent
+    anywhere else. `backend` takes 'local' only. It is kept so earlier calls
+    still run; the cloud backend this package once carried was removed,
+    because court records carry personally identifying information and the
+    package's rule is that they stay on the computer that holds them.
 
-    With the local backend, a file path goes to the vision model (it reads
-    the page image, which is what handles handwriting), and plain text goes
-    to the text model. Keyword arguments reach the backend constructor, e.g.
+    A file path goes to the vision model (it reads the page image, which is
+    what handles handwriting), and plain text goes to the text model.
+    Keyword arguments reach the backend constructor, e.g.
     `model="qwen3.5:9b"`, `host=`, `temperature=`.
     """
     if backend == "local":
@@ -111,17 +111,10 @@ def extract_ai(source, backend: str = "local", **kwargs) -> Extraction:
         from .ai.local_backend import LocalBackend
 
         return LocalBackend(**kwargs).extract(source)
-    if backend == "anthropic":
-        from .ai.anthropic_backend import AnthropicBackend
-
-        if _is_path(source):
-            raise ValueError(
-                "The anthropic backend takes document text, not a file path. "
-                "Extract the text first, and read DATA-USE.md before sending "
-                "real records to any cloud API."
-            )
-        return AnthropicBackend(**kwargs).extract(source)
-    raise ValueError(f"Unknown backend {backend!r}. Use 'local' or 'anthropic'.")
+    raise ValueError(
+        f"Unknown backend {backend!r}. The only backend is 'local': this package "
+        "runs models on your own computer and has no cloud backend."
+    )
 
 
 @dataclass

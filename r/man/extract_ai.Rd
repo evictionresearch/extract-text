@@ -4,16 +4,15 @@
 \alias{extract_ai}
 \title{Extract a court record using a language model}
 \usage{
-extract_ai(source, backend = c("local", "anthropic"), ...)
+extract_ai(source, backend = "local", ...)
 }
 \arguments{
 \item{source}{A path to a document file, or document text as a single
 character string.}
 
-\item{backend}{\code{"local"} for a model on this machine (the default, and
-the only backend that keeps the text here), or \code{"anthropic"} for the
-cloud API, which sends text off this machine and is only appropriate
-for records cleared for third-party processing.}
+\item{backend}{\code{"local"}, a model on this machine, and the only backend.
+The argument is kept so earlier calls still run; the cloud backend the
+package once carried was removed.}
 
 \item{...}{Passed to the backend, for example \code{model = "qwen3.5:9b"},
 \verb{host =}, or \verb{temperature =}.}
@@ -22,10 +21,10 @@ for records cleared for third-party processing.}
 An \code{extracttext_extraction}.
 }
 \description{
-The AI engine. With the default local backend, a file path goes to a
-vision model that reads the page image (which is what handles handwriting
-OCR cannot read), and plain text goes to a text model. Either way the
-model runs on this machine through Ollama; the document never leaves it.
+The AI engine. A file path goes to a vision model that reads the page
+image (which is what handles handwriting OCR cannot read), and plain text
+goes to a text model. Either way the model runs on this machine through
+Ollama; the document never leaves it.
 }
 \examples{
 \dontrun{

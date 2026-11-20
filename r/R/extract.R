@@ -57,17 +57,16 @@ extract_deterministic <- function(source, expected_case_number = NULL) {
 
 #' Extract a court record using a language model
 #'
-#' The AI engine. With the default local backend, a file path goes to a
-#' vision model that reads the page image (which is what handles handwriting
-#' OCR cannot read), and plain text goes to a text model. Either way the
-#' model runs on this machine through Ollama; the document never leaves it.
+#' The AI engine. A file path goes to a vision model that reads the page
+#' image (which is what handles handwriting OCR cannot read), and plain text
+#' goes to a text model. Either way the model runs on this machine through
+#' Ollama; the document never leaves it.
 #'
 #' @param source A path to a document file, or document text as a single
 #'   character string.
-#' @param backend `"local"` for a model on this machine (the default, and
-#'   the only backend that keeps the text here), or `"anthropic"` for the
-#'   cloud API, which sends text off this machine and is only appropriate
-#'   for records cleared for third-party processing.
+#' @param backend `"local"`, a model on this machine, and the only backend.
+#'   The argument is kept so earlier calls still run; the cloud backend the
+#'   package once carried was removed.
 #' @param ... Passed to the backend, for example `model = "qwen3.5:9b"`,
 #'   `host =`, or `temperature =`.
 #' @return An `extracttext_extraction`.
@@ -77,9 +76,12 @@ extract_deterministic <- function(source, expected_case_number = NULL) {
 #' model <- extract_ai("summons.pdf")
 #' model$record$defendant_address$raw
 #' }
-extract_ai <- function(source, backend = c("local", "anthropic"), ...) {
+extract_ai <- function(source, backend = "local", ...) {
   stopifnot("source must be a single string" = is.character(source) && length(source) == 1)
-  backend <- match.arg(backend)
+  if (!identical(backend, "local")) {
+    stop("The only backend is \"local\": the model runs on this computer, ",
+         "and the package has no cloud backend.", call. = FALSE)
+  }
   as_extraction(engine()$extract_ai(source, backend = backend, ...))
 }
 

@@ -216,7 +216,7 @@ class Extraction(BaseModel):
     record: CourtRecord
     method: Method
     backend: str = Field(
-        description="Backend identifier, e.g. 'rules', 'anthropic', 'local'."
+        description="Backend identifier, e.g. 'rules', 'local', 'local-vision-lists:qwen3.5:9b'."
     )
     evidence: dict[str, Evidence] = Field(
         default_factory=dict,

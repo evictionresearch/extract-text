@@ -167,7 +167,10 @@ def test_review_page_script_parses(tmp_path):
     if node is None:
         pytest.skip("node is not installed")
     scan([FIXTURES / "synthetic_summons_efiled.pdf"], out_dir=tmp_path, progress=False)
-    for name, kwargs in (("plain", {}), ("graders", {"graders": True})):
+    for name, kwargs in (("plain", {}), ("graders", {"graders": True}),
+                         ("blind", {"blind": True}),
+                         ("blind_address", {"blind": True, "fields": "address"}),
+                         ("blind_graders", {"graders": True, "blind": True})):
         html = write_review(tmp_path, n=5, **kwargs).read_text()
         script = html.split("<script>", 1)[1].rsplit("</script>", 1)[0]
         js = tmp_path / f"page_{name}.js"
@@ -1203,3 +1206,92 @@ def test_case_table_command_writes_the_table_and_prints_counts_only(tmp_path, ca
     assert printed.strip() == "Documents in the table: 1 (1 engine)"
     assert saved.read_text().splitlines()[0].startswith("doc,file,case_number")
     assert len(saved.read_text().splitlines()) == 2
+
+
+# ---------------------------------------------------------------------------
+# the blind page (#50): an empty form and nothing an engine read
+
+
+@needs_system_tools
+def test_a_blind_page_shows_the_page_and_an_empty_form_and_nothing_read(tmp_path):
+    scan([FIXTURES / "synthetic_summons_efiled.pdf",
+          FIXTURES / "synthetic_summons_scanned.pdf"], out_dir=tmp_path, progress=False)
+    seen = write_review(tmp_path, n=5).read_text()
+    # the everyday page carries the engine's reading, file name, and case number
+    read_values = ("JANE Q. TENANT", "1234 EXAMPLE AVE S", "synthetic_summons_efiled", "25-2-00001-0",
+                   'class="hl ', 'class="quiet use-ai"', "flags:")
+    assert all(v in seen for v in read_values if "use-ai" not in v)  # no AI on this scan
+    for kwargs in ({"blind": True}, {"blind": True, "graders": True},
+                   {"blind": True, "fields": "address"}):
+        html = write_review(tmp_path, n=5, **kwargs).read_text()
+        for v in read_values:
+            assert v not in html, f"{v!r} is on a blind page built with {kwargs}"
+        assert 'src="doc_0001.png"' in html and 'name="street" value=""' in html
+        assert "const BLIND = true;" in html and 'const GUIDE = "0.9";' in html
+    address = write_review(tmp_path, n=5, blind=True, fields="address").read_text()
+    assert 'name="plaintiff"' not in address and 'name="defendants"' not in address
+    assert 'name="note"' in address and "Can't tell from the page" in address
+    assert 'data-field="plaintiff"' not in address and 'data-field="address"' in address
+    # the graders' blind page is in random order, never worst first by the engines' flags
+    graders = write_review(tmp_path, n=5, blind=True, graders=True).read_text()
+    assert 'data-tier="0"' in graders and 'data-tier="3"' not in graders
+    with pytest.raises(ValueError):
+        write_review(tmp_path, fields="address")  # the address alone is for blind pages
+    with pytest.raises(ValueError):
+        write_review(tmp_path, blind=True, rows=[1])  # the settling page shows answers
+
+
+@needs_system_tools
+def test_a_blind_answer_records_that_it_was_blind_and_the_guide_version(tmp_path):
+    import threading
+    import urllib.request
+
+    from extract_text.corrections import make_review_server
+
+    scan([FIXTURES / "synthetic_summons_efiled.pdf"], out_dir=tmp_path, progress=False)
+    write_review(tmp_path, blind=True, fields="address")
+    server = make_review_server(tmp_path, port=0)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    base = f"http://127.0.0.1:{server.server_address[1]}"
+    try:
+        body = {"row": 1, "verdict": "checked", "note": "", "blind": True, "fields": "address",
+                "guide_version": "0.9",
+                "truth": {"street": "1234 Example Ave S", "unit": "Apt 5", "city": "Seattle",
+                          "state": "WA", "zip": "98100"}}
+        req = urllib.request.Request(f"{base}/api/corrections", data=json.dumps(body).encode(),
+                                     headers={"Content-Type": "application/json"})
+        with urllib.request.urlopen(req) as r:
+            back = json.loads(r.read())
+        with urllib.request.urlopen(f"{base}/api/corrections") as r:
+            again = json.loads(r.read())["1"]
+    finally:
+        server.shutdown()
+        server.server_close()
+    # the page gets its answer back without anything an engine read
+    for got in (back, again):
+        assert "machine" not in got and "ai" not in got and "changed_fields" not in got
+        assert got["verdict"] == "answered" and got["blind"] is True
+    saved = json.loads((tmp_path / "corrections.jsonl").read_text().splitlines()[0])
+    assert (saved["blind"], saved["asked"], saved["guide_version"]) == (True, "address", "0.9")
+    assert saved["verdict"] == "answered"
+    assert saved["machine"]["street"]  # kept in the folder, for scoring the engine
+    with open(tmp_path / "corrections.csv", newline="") as f:
+        row = next(csv.DictReader(f))
+    assert (row["blind"], row["asked"], row["guide_version"]) == ("True", "address", "0.9")
+
+
+def test_the_guide_version_on_the_page_is_the_one_in_grading_md():
+    from extract_text.pipeline import GRADING_VERSION
+
+    guide = (Path(__file__).resolve().parents[2] / "GRADING.md").read_text()
+    assert f"Guide version: {GRADING_VERSION}." in guide
+
+
+def test_a_blind_page_carries_no_ai_reading_either(tmp_path):
+    _fake_both_engine_scan(tmp_path)
+    seen = write_review(tmp_path, n=5).read_text()
+    assert "EXAMPLE GREENS LLC" in seen and 'class="quiet use-ai"' in seen
+    blind = write_review(tmp_path, n=5, blind=True).read_text()
+    for v in ("EXAMPLE GREENS LLC", "PAT EXAMPLE", "SAMPLE AVE", 'class="quiet use-ai"',
+              "engines disagree", "engines agree", 'data-ai="{'):
+        assert v not in blind, f"{v!r} is on the blind page"

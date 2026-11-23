@@ -116,22 +116,24 @@ def cmd_review(args):
     from .pipeline import write_review
 
     pages = args.pages
+    # a blind page (gold sets): an empty form and nothing an engine read
+    look = {"blind": args.blind, "fields": args.fields}
     if args.rows and args.graders:
         page = write_review(args.out, seed=args.seed, graders=True, attorneys=args.attorneys,
-                            order=args.order, overlap=args.overlap, rows=args.rows, pages=pages)
+                            order=args.order, overlap=args.overlap, rows=args.rows, pages=pages, **look)
     elif args.rows:
         # the settling page adds the attorney box wherever a grader answered
         # it; asking on every card saved an unread box as "no attorney"
         page = write_review(args.out, seed=args.seed, attorneys=args.attorneys, rows=args.rows,
-                            pages=pages)
+                            pages=pages, **look)
     elif args.graders:
         page = write_review(args.out, seed=args.seed, graders=True, attorneys=args.attorneys,
-                            order=args.order, overlap=args.overlap, pages=pages)
+                            order=args.order, overlap=args.overlap, pages=pages, **look)
     elif args.random:
         page = write_review(args.out, n=args.random, seed=args.seed, flagged_first=False,
-                            attorneys=args.attorneys, pages=pages)
+                            attorneys=args.attorneys, pages=pages, **look)
     else:
-        page = write_review(args.out, n=args.n, seed=args.seed, attorneys=args.attorneys, pages=pages)
+        page = write_review(args.out, n=args.n, seed=args.seed, attorneys=args.attorneys, pages=pages, **look)
     if args.serve:
         from .corrections import serve_review
 
@@ -371,6 +373,12 @@ def main(argv=None):
                         "(default 1). Served, every other page is rendered when a reviewer "
                         "turns to it; opened as a file (the graders' page) only rendered "
                         "pages can be shown")
+    a.add_argument("--blind", action="store_true",
+                   help="for gold sets: an empty form, no engine reading, box, or flag on the "
+                        "page, documents in random order; each answer records that it was "
+                        "blind and the grading guide's version")
+    a.add_argument("--fields", choices=("all", "address"), default="all",
+                   help="with --blind: 'address' asks for the defendant's address alone")
     a.add_argument("--serve", action="store_true",
                    help="open the page with correction saving on (this computer only)")
     a.add_argument("--port", type=int, default=8765)

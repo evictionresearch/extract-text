@@ -589,6 +589,32 @@ def write_outputs(rows, details, out_dir, parquet=None):
 # repository root is the full text; keep the two in step.
 GRADING_URL = "https://github.com/evictionresearch/extract-text/blob/main/GRADING.md"
 IMPROVE_URL = "https://evictionresearch.net/extract-text/improve.html"
+#: the version line at the top of GRADING.md; every saved answer records it,
+#: so a later change to the rules can tell which answers followed which.
+#: Change both together (a test checks they match). 1.0 is the guide frozen
+#: for the gold set, with the trade-name rule of issue #55.
+GRADING_VERSION = "0.9"
+#: the fields a blind page can ask for: every field, or the address alone
+BLIND_FIELDS = ("all", "address")
+# The rules on a blind page that asks for the address alone. The form starts
+# empty and nothing an engine read is on the page.
+BLIND_ADDRESS_PANEL = f"""
+<details id="rules" open>
+  <summary>Blind grading of the address: the rules</summary>
+  <ul>
+    <li>The form starts empty, and nothing any software read is shown. Type what the page prints.</li>
+    <li><b>Address.</b> The defendant's, in the caption or after "TO:", never the attorney's address
+      in the bottom right. Street without the unit, the unit on its own (<code>Apt 5</code>,
+      <code>BLDG C Apt 5</code>, <code>#12</code>), then city, state, and ZIP.</li>
+    <li>Two addresses for the defendant: the property the eviction is about, and the other in the note.
+      Unclear which: the first one, and say so in the note.</li>
+    <li>Leave a field empty when the page does not print it. Do not look anything up to fill a gap.</li>
+    <li>If the page does not settle the address, press <b>Can't tell from the page</b>.</li>
+    <li>The address can run onto a later page; turn to it with the arrows under the image.</li>
+  </ul>
+  <p>Guide version {GRADING_VERSION}. The full rules are in
+    <a href="{GRADING_URL}" target="_blank" rel="noopener noreferrer">GRADING.md</a>.</p>
+</details>"""
 RULES_PANEL = f"""
 <details id="rules">
   <summary>Grading rules, in brief</summary>
@@ -624,6 +650,13 @@ DONE_PANEL = f"""
     address, or case number, to evictions@berkeley.edu. Do not send your answers or any file made from
     your records: that takes a data agreement between your organization and UC Berkeley first.
     <a href="{IMPROVE_URL}" target="_blank" rel="noopener noreferrer">Improve it</a> has the steps.</p>
+</div>"""
+DONE_BLIND = """
+<div id="done" hidden>
+  <h2>When you stop</h2>
+  <p>Close this tab, and press Ctrl-C in the terminal to stop the page. Every answer you saved is in
+    <code>corrections.jsonl</code> in this folder, and the page opens where you left off next time.
+    The answers hold addresses, so they stay on this computer, with the court documents.</p>
 </div>"""
 DONE_GRADERS = """
 <div id="done" hidden>
@@ -723,7 +756,8 @@ def evidence_boxes(detail: dict) -> tuple[str, str]:
 
 
 def write_review(out_dir, n=30, seed=SAMPLE_SEED, flagged_first=True, graders=False,
-                 attorneys=0, order="worst", overlap=0, rows=None, pages=1):
+                 attorneys=0, order="worst", overlap=0, rows=None, pages=1, blind=False,
+                 fields="all"):
     """Build review/index.html from a finished scan directory: page-1 image
     beside the extracted fields, flagged documents first, then a seeded
     sample of the rest. This is where a person checks the machine's work.
@@ -760,12 +794,39 @@ def write_review(out_dir, n=30, seed=SAMPLE_SEED, flagged_first=True, graders=Fa
     is a graders' page of just those documents instead: each save records
     the grader's name, and no other answer is shown, so a chosen set (say,
     the documents one person has already graded) can be graded again
-    blind."""
+    blind.
+
+    `blind` is for gold sets, whose answers measure accuracy: the form
+    starts empty, and no engine's reading, box, flag, or agreement note is
+    on the page, nor a button that fills the form from an engine. The order
+    is random, never worst first, since an order by the engines' flags
+    would itself tell the grader something. Each saved answer records that
+    it was blind and the guide's version (`GRADING_VERSION`). `fields` is
+    "all", or "address" for a form with the defendant's address alone (and
+    the note). A folder holding `blind.json` (written by the head-to-head
+    harness's `grade` command) is always built blind, with the fields it
+    names, whatever the call says, so rebuilding the page cannot unblind
+    it."""
     out = Path(out_dir)
     rev = out / "review"
     rev.mkdir(parents=True, exist_ok=True)
+    marker = out / "blind.json"
+    if marker.is_file():
+        blind, fields = True, json.loads(marker.read_text()).get("fields", "all")
+    if fields not in BLIND_FIELDS:
+        raise ValueError(f"fields must be one of {', '.join(BLIND_FIELDS)}, not {fields!r}")
+    if fields != "all" and not blind:
+        raise ValueError("a form with the address alone is for blind pages only")
+    if blind and rows and not graders:
+        raise ValueError("the settling page shows graders' answers, so it cannot be blind")
+    address_only = blind and fields == "address"
+    if blind:
+        flagged_first, order = False, "random"
     rows_scan, details = read_scan(out)
     numbered = list(enumerate(rows_scan, 1))
+    if marker.is_file() and not rows:
+        # a graded batch is every document in the folder, in its own order
+        n = len(rows_scan)
     if order not in ("worst", "random"):
         raise ValueError(f"order must be 'worst' or 'random', not {order!r}")
     random_order = graders and order == "random"
@@ -818,6 +879,8 @@ def write_review(out_dir, n=30, seed=SAMPLE_SEED, flagged_first=True, graders=Fa
     else:
         ask_attorney = set(random.Random(f"attorneys-{seed}").sample(
             [i for i, _ in numbered], min(int(attorneys or 0), len(numbered))))
+    if address_only:
+        ask_attorney = set()
     # the settling page asks for the attorney block wherever a grader
     # answered it; without the box a settled answer would drop that block
     # It also marks, on each document, the fields where the graders differ
@@ -826,6 +889,9 @@ def write_review(out_dir, n=30, seed=SAMPLE_SEED, flagged_first=True, graders=Fa
     differ_by_row, settle_summary = {}, ""
     hint = ("Boxes start with the machine's reading; fix what is wrong, clear what is "
             "not there, then save.")
+    if blind:
+        hint = ("The form starts empty. Type what the page prints, leave empty what it does "
+                "not, then save.")
     if rows and not graders:
         hint = ("Press Keep this one above to fill these boxes from a grader's answer, "
                 "fix anything wrong, then save.")
@@ -872,8 +938,9 @@ def write_review(out_dir, n=30, seed=SAMPLE_SEED, flagged_first=True, graders=Fa
         both_parts = lambda *parts: ", ".join(x for x in parts if x)
         ai_col = (lambda v: f"<td>{esc(v)}</td>") if both else (lambda v: "")
         sim = r.get("address_similarity", "")
-        start = review_prefill(r, details[i - 1])
-        ai_answer = ai_reading(details[i - 1])
+        # a blind page starts from nothing and carries nothing an engine read
+        start = machine_reading({}) if blind else review_prefill(r, details[i - 1])
+        ai_answer = None if blind else ai_reading(details[i - 1])
         differ = engine_differences(r, ai_answer) if ai_answer else {}
         mark = lambda field: ' class="differ"' if field in differ else ""
         if not ai_answer:
@@ -893,10 +960,38 @@ def write_review(out_dir, n=30, seed=SAMPLE_SEED, flagged_first=True, graders=Fa
       </fieldset>""" if i in ask_attorney else ""
         ai_button = ('<button type="button" class="quiet use-ai">Use AI engine\'s reading</button>'
                      if ai_answer else "")
-        boxes, box_note = evidence_boxes(details[i - 1])
+        boxes, box_note = ("", "") if blind else evidence_boxes(details[i - 1])
         box_legend = ('<p class="legend"><label><input type="checkbox" class="showboxes" checked> '
                       'Boxes show where the deterministic engine read each value</label></p>'
                       if boxes else "")
+        box_buttons = "".join(
+            f'<button type="button" data-field="{cls}">{label}</button>'
+            for cls, label in (("plaintiff", "Plaintiff"), ("defendants", "Defendants"),
+                               ("address", "Address"), ("attorney", "Attorney"), ("case", "Case number"))
+            if not address_only or cls == "address")
+        box_help = ("Optional: pick a field, then drag across the page where it is printed "
+                    "(on any page; draw again for another). Drag a box to move it, a corner to "
+                    "reshape it, &#215; to delete it." if blind else
+                    "Hover a box to see its field. Drag it to move it, a corner to reshape it, "
+                    "&#215; to delete it.\n      Missing one? Pick the field, then drag across the page "
+                    "to draw it (on any page; draw again for another).\n      A box you draw is added "
+                    "to the ones already there.")
+        # a blind card names the document by its number on this page alone:
+        # no file name, case number, flag, or engine reading
+        heading = (f"<h3>#{i}</h3>" if blind else
+                   f"""<h3>#{i} · {esc(r.get('file',''))} · {esc(r.get('case_number','')) or 'no case number'}</h3>
+    <p class="meta">flags: {esc(r.get('flags','')) or 'none'} · source: {esc(r.get('text_source',''))}
+       conf {esc(str(r.get('ocr_mean_conf','')))}</p>""")
+        table = "" if blind else f"""<table class="read">
+      <tr><th></th><th>{'Deterministic engine' if r.get('method') != 'ai' else 'AI engine'}</th>{'<th>AI engine</th>' if both else ''}</tr>
+      <tr{mark('plaintiff')}><th>Plaintiff</th><td>{esc(r.get('plaintiffs',''))}</td>{ai_col(r.get('ai_plaintiff',''))}</tr>
+      <tr{mark('defendants')}><th>Defendants</th><td>{esc(r.get('defendant_names',''))}</td>{ai_col(r.get('ai_defendant_names',''))}</tr>
+      <tr{mark('address')}><th>Address</th><td>{esc(r.get('defendant_address_raw',''))}
+          <i>{esc(r.get('defendant_anchor',''))}</i></td>{ai_col(r.get('ai_defendant_address','') + (f'  (similarity {sim})' if sim != '' else ''))}</tr>
+      <tr{mark('attorney firm')}><th>Attorney</th><td>{esc(both_parts(r.get('attorney_names'), r.get('attorney_firm'), r.get('attorney_address_raw')))}</td>{ai_col(both_parts('; '.join((ai_answer or {}).get('attorneys', [])), r.get('ai_law_firm'), r.get('ai_law_firm_address')))}</tr>
+    </table>"""
+        names = "" if address_only else f"""<label>Plaintiff, the name only (several plaintiffs, one per line) <textarea name="plaintiff" rows="1">{esc(chr(10).join(p.strip() for p in start['plaintiff'].split(';') if p.strip()))}</textarea></label>
+      <label>Defendants, one per line <textarea name="defendants" rows="2">{esc(chr(10).join(start['defendants']))}</textarea></label>"""
         cells.append(f"""
 <div class="doc" id="doc{i}" data-tier="{tiers.get(i, 0)}"{f' data-shared="{shared_at[i]}"' if i in shared_at else ''} data-row="{i}" data-pages="{n_pages}" data-rendered="{rendered}">
   <div class="page">
@@ -905,32 +1000,20 @@ def write_review(out_dir, n=30, seed=SAMPLE_SEED, flagged_first=True, graders=Fa
     <p class="pager" hidden><button type="button" class="prev quiet" title="Previous page">&#9664;</button>
       Page <span class="pno">1</span> of {n_pages} <button type="button" class="next quiet" title="Next page">&#9654;</button></p>
     {box_note}{box_legend}
-    <div class="fixbox" hidden>Hover a box to see its field. Drag it to move it, a corner to reshape it, &#215; to delete it.
-      Missing one? Pick the field, then drag across the page to draw it (on any page; draw again for another).
-      A box you draw is added to the ones already there.
-      <button type="button" data-field="plaintiff">Plaintiff</button><button type="button" data-field="defendants">Defendants</button><button type="button" data-field="address">Address</button><button type="button" data-field="attorney">Attorney</button><button type="button" data-field="case">Case number</button>
+    <div class="fixbox" hidden>{box_help}
+      {box_buttons}
       <button type="button" class="none" hidden>Not in this document</button></div>
     <p class="pagelinks">Click the page to enlarge it.
       <a class="full" href="doc/{i}" target="_blank" hidden>Open the full document</a></p>
   </div>
   <div class="fields">
-    <h3>#{i} · {esc(r.get('file',''))} · {esc(r.get('case_number','')) or 'no case number'}</h3>
-    <p class="meta">flags: {esc(r.get('flags','')) or 'none'} · source: {esc(r.get('text_source',''))}
-       conf {esc(str(r.get('ocr_mean_conf','')))}</p>
+    {heading}
     {verdict}
-    <table class="read">
-      <tr><th></th><th>{'Deterministic engine' if r.get('method') != 'ai' else 'AI engine'}</th>{'<th>AI engine</th>' if both else ''}</tr>
-      <tr{mark('plaintiff')}><th>Plaintiff</th><td>{esc(r.get('plaintiffs',''))}</td>{ai_col(r.get('ai_plaintiff',''))}</tr>
-      <tr{mark('defendants')}><th>Defendants</th><td>{esc(r.get('defendant_names',''))}</td>{ai_col(r.get('ai_defendant_names',''))}</tr>
-      <tr{mark('address')}><th>Address</th><td>{esc(r.get('defendant_address_raw',''))}
-          <i>{esc(r.get('defendant_anchor',''))}</i></td>{ai_col(r.get('ai_defendant_address','') + (f'  (similarity {sim})' if sim != '' else ''))}</tr>
-      <tr{mark('attorney firm')}><th>Attorney</th><td>{esc(both_parts(r.get('attorney_names'), r.get('attorney_firm'), r.get('attorney_address_raw')))}</td>{ai_col(both_parts('; '.join((ai_answer or {}).get('attorneys', [])), r.get('ai_law_firm'), r.get('ai_law_firm_address')))}</tr>
-    </table>
+    {table}
     <form class="fix" data-row="{i}" data-ai="{esc(json.dumps(ai_answer)) if ai_answer else ''}"
           data-differ="{esc(json.dumps(differ_by_row.get(i, {})))}">
       <p class="hint">The right answer, as printed on the page. {hint}</p>
-      <label>Plaintiff, the name only (several plaintiffs, one per line) <textarea name="plaintiff" rows="1">{esc(chr(10).join(p.strip() for p in start['plaintiff'].split(';') if p.strip()))}</textarea></label>
-      <label>Defendants, one per line <textarea name="defendants" rows="2">{esc(chr(10).join(start['defendants']))}</textarea></label>
+      {names}
       <div class="addr">
         <label class="street">Street <input name="street" value="{esc(start['street'])}"></label>
         <label class="unit">Unit <input name="unit" value="{esc(start['unit'])}"></label>
@@ -1063,10 +1146,11 @@ def write_review(out_dir, n=30, seed=SAMPLE_SEED, flagged_first=True, graders=Fa
  .status.ok{{color:#2e6b2e}} .status.err{{color:#a02020}}
 </style>
 <header>
-<h1>Review: {len(subset)} of {len(rows_scan)} documents
-    ({len(flagged)} flagged in total; {('in random order' if random_order else 'worst first') if graders else 'flagged shown first' if flagged_first else 'a random draw'})</h1>
+{f'<h1>Blind grading{" of the address" if address_only else ""}: {len(subset)} documents, in random order</h1>' if blind else
+ f'''<h1>Review: {len(subset)} of {len(rows_scan)} documents
+    ({len(flagged)} flagged in total; {('in random order' if random_order else 'worst first') if graders else 'flagged shown first' if flagged_first else 'a random draw'})</h1>'''}
 <p id="count"></p>
-{RULES_PANEL}
+{BLIND_ADDRESS_PANEL if address_only else RULES_PANEL}
 {settle_summary}
 {GRADER_PANEL if graders else ''}
 {f'<div id="stale">{stale} earlier answer{"s" if stale != 1 else ""} saved in this folder belong to documents that are no longer at the same rows (the folder was scanned again with a different draw). They stay in corrections.jsonl and are not shown here, scored, or learned from.</div>' if stale else ''}
@@ -1075,10 +1159,16 @@ def write_review(out_dir, n=30, seed=SAMPLE_SEED, flagged_first=True, graders=Fa
   or in R with <code>review_documents("YOUR_SCAN_FOLDER", correct = TRUE)</code>.</div>
 </header>
 {''.join(cells)}
-{DONE_GRADERS if graders else DONE_PANEL}
+{DONE_GRADERS if graders else DONE_BLIND if address_only else DONE_PANEL}
 <script>
 const GRADERS = {'true' if graders else 'false'};
 const SETTLE = {'true' if rows and not graders else 'false'};
+// a blind page: nothing an engine read is shown, before or after a save,
+// and each answer says it was blind, which fields were asked, and which
+// version of the grading guide it followed
+const BLIND = {'true' if blind else 'false'};
+const ASKED = {json.dumps(fields)};
+const GUIDE = {json.dumps(GRADING_VERSION)};
 // the scan folder the page was built from; every answer carries it, so
 // `extract-text import` can refuse answers from another folder's page
 const PAGE = {json.dumps(out.resolve().name)};
@@ -1128,6 +1218,8 @@ function fill(f, c) {{
 function mark(f, c) {{
   f.classList.add("saved");
   if (c.verdict === "unreadable") return setStatus(f, "Saved: can't tell from the page", "ok");
+  // how the engines did would tell a blind grader what they read
+  if (BLIND) return setStatus(f, "Saved.", "ok");
   const missed = fields => fields.length ? "wrong on " + fields.join(", ") : "all right";
   let what = "Saved. Deterministic engine " + missed(c.changed_fields);
   if (c.ai && c.ai.changed_fields) what += "; AI engine " + missed(c.ai.changed_fields);
@@ -1634,7 +1726,8 @@ for (const f of forms) {{
     // not scored on the attorney block
     for (const k of FIELDS) if (k !== "note" && f.elements[k]) truth[k] = f.elements[k].value.trim();
     // several plaintiffs, typed one per line, are saved as one name list
-    truth.plaintiff = truth.plaintiff.split("\\n").map(s => s.trim()).filter(Boolean).join("; ");
+    if ("plaintiff" in truth)
+      truth.plaintiff = truth.plaintiff.split("\\n").map(s => s.trim()).filter(Boolean).join("; ");
     for (const k of LISTS) if (f.elements[k])
       truth[k] = f.elements[k].value.split("\\n").map(s => s.trim()).filter(Boolean);
     const body = {{
@@ -1646,6 +1739,7 @@ for (const f of forms) {{
       reviewer_email: GRADERS ? grader.email.value.trim() : "",
       settled: SETTLE,
       boxes: getEdits(f),
+      blind: BLIND, fields: ASKED, guide_version: GUIDE,
     }};
     if (GRADERS && !body.reviewer) {{
       setStatus(f, "Not saved: put your name at the top of the page first", "err");

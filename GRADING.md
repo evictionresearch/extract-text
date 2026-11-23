@@ -1,5 +1,12 @@
 # Grading: what belongs in each field
 
+Guide version: 0.9. Every saved answer records this version, so a later
+change to these rules can tell which answers followed which. A ruling
+raises it, together with `GRADING_VERSION` in
+`python/src/extract_text/pipeline.py`, and applies from the next round,
+never inside one. Version 1.0 is the guide frozen for the gold set, with
+the trade-name rule.
+
 You are checking what the software read off an eviction summons and typing
 the right answer where it is wrong. Your answers are what the engine is
 scored against, and they go into the final table in place of the engine's,

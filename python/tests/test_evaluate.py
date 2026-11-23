@@ -4,6 +4,7 @@ documents. Every address and case number here is synthetic."""
 import csv
 import importlib.util
 import shutil
+from collections import Counter
 from pathlib import Path
 
 import pytest
@@ -236,3 +237,231 @@ def test_scores_on_the_made_up_documents(setup):
     s = ev.score_lane(truths, readings, cases)
     assert (s["n"], s["extracted"], s["street"]) == (3, 3, 2)
     assert s["unit_kept"] == 1 and s["truth_units"] == 1
+
+
+# ---------------------------------------------------------------------------
+# the blind check
+
+
+def test_a_blind_batch_is_grouped_by_which_lane_is_right_and_shuffled_by_seed():
+    typed = {f"c{i}": f"{1000 + i} Example Ave S, Seattle, WA 98100" for i in range(40)}
+    truths = {c: ev.truth_key(a) for c, a in typed.items()}
+    right = lambda c: {"street": f"{1000 + int(c[1:])} EXAMPLE AVE S"}
+    wrong = {"street": "1 NOWHERE ST"}
+    # rules right on 0 to 19, model right on 10 to 29: 10 rules only, 10 model only,
+    # 10 both, 10 neither
+    rules = {c: right(c) if int(c[1:]) < 20 else wrong for c in typed}
+    model = {c: right(c) if 10 <= int(c[1:]) < 30 else wrong for c in typed}
+    cases = sorted(typed)
+    split = ev.blind_batch(truths, rules, model, cases, "split", seed=5)
+    assert sorted(g for _, g in split) == ["ai only"] * 10 + ["rules only"] * 10
+    assert split == ev.blind_batch(truths, rules, model, list(reversed(cases)), "split", seed=5)
+    assert split != ev.blind_batch(truths, rules, model, cases, "split", seed=6)
+    # not in case order, so the page's order says nothing
+    assert [c for c, _ in split] != sorted(c for c, _ in split)
+    rest = ev.blind_batch(truths, rules, model, cases, "rest", seed=5, n_both=4)
+    groups = Counter(g for _, g in rest)
+    assert (groups["neither"], groups["both"]) == (10, 4)
+    assert not {c for c, _ in split} & {c for c, _ in rest}
+    with pytest.raises(ValueError):
+        ev.blind_batch(truths, rules, model, cases, "other", seed=5)
+
+
+def test_a_blind_answer_is_compared_with_the_typed_line_and_each_engine():
+    typed = ev.truth_key("1234 Example Avenue South, Seattle, WA 98100")
+    answer = ev.answer_key({"street": "1234 Example Ave S", "unit": "Apt 5", "city": "Seattle",
+                            "state": "WA", "zip": "98100"})
+    assert answer["street"] == "1234 EXAMPLE AVE S" and answer["unit"] == "APT 5"
+    rules = {"street": "1234 EXAMPLE AVE S APT 5", "unit": "APT 5"}
+    model = {"street": "1234 EXAMPLE AVE", "unit": ""}
+    assert ev.blind_compare(answer, typed, {"rules": rules, "ai": model}) == \
+        {"typed": True, "rules": True, "ai": False}
+    # the typist's slip: the person and both engines agree, the typed line does not
+    slip = ev.truth_key("1243 Example Avenue South, Seattle, WA 98100")
+    got = ev.blind_compare(answer, slip, {"rules": rules, "ai": {**model, "street": "1234 Example Ave S"}})
+    assert got == {"typed": False, "rules": True, "ai": True}
+    assert not ev.same_street(ev.answer_key({}), ev.answer_key({}))
+
+
+@needs_system_tools
+def test_the_blind_check_end_to_end_prints_no_value(setup, capsys, monkeypatch):
+    import json
+    import threading
+    import urllib.request
+
+    from extract_text.corrections import make_review_server
+
+    archive, truth, listed, out = setup
+    h2h = _script()
+    h2h.main(["split", "--truth", str(truth), "--archive", str(archive), "--out", str(out), "--test", "3"])
+    real_lane = h2h.make_lane
+
+    def lane(name, model, cache):  # the stand-in model of the test above
+        rules = real_lane("rules", model, cache)
+        if name == "rules":
+            return rules
+
+        def read(path):
+            r = rules(path)
+            r["street"] = r["street"].replace(" AVE S", " AVE")
+            return r
+        return read
+
+    monkeypatch.setattr(h2h, "make_lane", lane)
+    h2h.main(["run", "--out", str(out), "--lanes", "rules,ai", "--n", "0"])
+    capsys.readouterr()
+
+    assert h2h.main(["grade", "--truth", str(truth), "--out", str(out), "--n", "0",
+                     "--batch", "split"]) == 0
+    said = capsys.readouterr().out
+    assert "1 documents of the test part (rules only 1, ai only 0)" in said
+    folder = out / "grade_split"
+    page = (folder / "review" / "index.html").read_text()
+    # the page holds no file name, case number, typed line, or engine reading
+    for word in PRIVATE + ("summons", "1234", "5678", "99999", "Seattle", "Pkwy"):
+        assert word not in page, f"{word!r} is on the blind page"
+    assert 'name="street" value=""' in page and 'name="plaintiff"' not in page
+    key = json.loads((folder / "key.json").read_text())
+    assert [r["group"] for r in key["rows"]] == ["rules only"]
+    # built again, the same batch, and answers kept; the plain review command keeps it blind too
+    assert h2h.main(["grade", "--truth", str(truth), "--out", str(out), "--n", "0",
+                     "--batch", "split"]) == 0
+    assert "as made before" in capsys.readouterr().out
+    from extract_text.pipeline import write_review
+    assert "const BLIND = true;" in write_review(folder).read_text()
+
+    assert h2h.main(["grade", "--truth", str(truth), "--out", str(out), "--n", "0",
+                     "--batch", "rest"]) == 0
+    assert "(neither 1, both 1)" in capsys.readouterr().out
+
+    server = make_review_server(folder, port=0)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    try:
+        body = {"row": 1, "verdict": "checked", "blind": True, "fields": "address",
+                "guide_version": "0.9", "note": "",
+                "truth": {"street": "1234 Example Avenue South", "unit": "Apt 5", "city": "Seattle",
+                          "state": "WA", "zip": "98100"}}
+        req = urllib.request.Request(f"http://127.0.0.1:{server.server_address[1]}/api/corrections",
+                                     data=json.dumps(body).encode(),
+                                     headers={"Content-Type": "application/json"})
+        urllib.request.urlopen(req).read()
+    finally:
+        server.shutdown()
+        server.server_close()
+
+    assert h2h.main(["score", "--truth", str(truth), "--out", str(out), "--n", "0",
+                     "--blind", "split,rest"]) == 0
+    report = capsys.readouterr().out
+    assert "1 documents, 1 graded blind so far" in report
+    assert "batch 'rest'" in report and "0 graded blind so far" in report
+    row = next(line for line in report.splitlines() if line.strip().startswith("rules only"))
+    # answered 1, = typed 1, = rules 1, = ai 0
+    assert row.split()[2:6] == ["1", "1", "1", "0"]
+    for text in (said, report):
+        for word in PRIVATE:
+            assert word not in text, f"{word!r} was printed"
+
+
+def test_the_ai_v1_lane_is_chengs_prompt_on_the_same_backend():
+    h2h = _script()
+    read = h2h.make_lane("ai-v1", "qwen3.5:9b", Path("unused"))
+    backend = read.__closure__[0].cell_contents  # built, not called: no model is asked
+    assert backend.prompt_format == "v1" and backend.model == "qwen3.5:9b"
+    assert h2h.make_lane("ai", "qwen3.5:9b", Path("unused")).__closure__[0].cell_contents.prompt_format == "lists"
+
+
+@needs_system_tools
+def test_score_prints_every_pair_and_the_rule_for_chengs_prompt(setup, capsys, monkeypatch):
+    archive, truth, listed, out = setup
+    h2h = _script()
+    h2h.main(["split", "--truth", str(truth), "--archive", str(archive), "--out", str(out), "--test", "3"])
+    real_lane = h2h.make_lane
+
+    def lane(name, model, cache):
+        rules = real_lane("rules", model, cache)
+        if name == "rules":
+            return rules
+
+        def read(path):  # ai drops a direction; ai-v1 reads as the rules do
+            r = rules(path)
+            if name == "ai":
+                r["street"] = r["street"].replace(" AVE S", " AVE")
+            return r
+        return read
+
+    monkeypatch.setattr(h2h, "make_lane", lane)
+    h2h.main(["run", "--out", str(out), "--lanes", "rules,ai,ai-v1", "--n", "0"])
+    capsys.readouterr()
+    assert h2h.main(["score", "--truth", str(truth), "--out", str(out), "--n", "0"]) == 0
+    report = capsys.readouterr().out
+    for pair in ("rules / ai ", "rules / ai-v1", "ai / ai-v1"):
+        assert pair in report
+    assert "Reading rule for Cheng Ren's prompt" in report
+    # one document separates them (ai-v1 right, ai wrong): 33.3 points, p = 1.0, not met
+    assert "ai-v1 minus ai: 33.3 points, p = 1.0000. The rule is not met." in report
+    for word in PRIVATE:
+        assert word not in report
+
+
+def test_a_word_shape_keeps_the_build_of_a_street_and_drops_its_names():
+    assert ev.word_shape("1234 Example Ave S #5") == "9 Aa Aa A #9"
+    assert ev.word_shape("1234 EXAMPLE AVE S APT 5") == "9 A A A A 9"
+    assert ev.word_shape("99999 NOWHERE PKWY") == ev.word_shape("12 SAMPLE ST")
+    assert ev.word_shape("12th Ave") == "9a Aa" and ev.word_shape("") == ""
+
+
+@needs_system_tools
+def test_loss_shapes_read_the_dev_part_only_and_keep_the_rules_readings(setup, capsys, monkeypatch):
+    archive, truth, listed, out = setup
+    h2h = _script()
+    # every case in the dev part
+    h2h.main(["split", "--truth", str(truth), "--archive", str(archive), "--out", str(out), "--test", "0"])
+    # the rules' readings on dev are kept, from the page-text cache, so later
+    # reports need no second reading
+    assert h2h.main(["run", "--out", str(out), "--lanes", "rules", "--part", "dev", "--n", "0"]) == 0
+    assert "3 read now" in capsys.readouterr().out
+    assert len(h2h.load_readings(out, "rules")) == 3 and any((out / "_cache").iterdir())
+    h2h.main(["run", "--out", str(out), "--lanes", "rules", "--part", "dev", "--n", "0"])
+    assert "3 already read, 0 read now" in capsys.readouterr().out
+
+    with pytest.raises(SystemExit) as refused:
+        h2h.main(["loss", "--truth", str(truth), "--out", str(out), "--n", "0", "--shapes"])
+    assert "dev part only" in str(refused.value)
+
+    # before the model has read dev, the report says so
+    assert h2h.main(["loss", "--truth", str(truth), "--out", str(out), "--part", "dev", "--n", "0",
+                     "--shapes"]) == 0
+    report = capsys.readouterr().out
+    assert "2 right, 1 lost" in report and "no ai readings for these documents yet" in report
+    # the lost street is typed "99999 Nowhere Pkwy": its shape, never its words
+    assert "9 Aa Aa" in report and "99999 Aaaaaaa Aaaa" in report
+
+    # a stand-in model that reads the lost street right
+    import json
+    with open(out / "readings" / "ai.jsonl", "w") as f:
+        for case in h2h.load_readings(out, "rules"):
+            f.write(json.dumps({"case": case, "street": "99999 NOWHERE PKWY"}) + "\n")
+    h2h.main(["loss", "--truth", str(truth), "--out", str(out), "--part", "dev", "--n", "0", "--shapes"])
+    report = capsys.readouterr().out
+    assert "The ai lane read 1 of them and has the street right on 1" in report
+    for word in PRIVATE:
+        assert word not in report, f"{word!r} was printed"
+
+
+@needs_system_tools
+def test_score_can_be_held_to_chosen_lanes(setup, capsys):
+    archive, truth, listed, out = setup
+    h2h = _script()
+    h2h.main(["split", "--truth", str(truth), "--archive", str(archive), "--out", str(out), "--test", "3"])
+    h2h.main(["run", "--out", str(out), "--lanes", "rules", "--n", "0"])
+    # a lane read on one document only would shrink the scored set to one
+    import json
+    case = next(iter(h2h.load_readings(out, "rules")))
+    (out / "readings" / "ai-v1.jsonl").write_text(json.dumps({"case": case, "street": ""}) + "\n")
+    capsys.readouterr()
+    h2h.main(["score", "--truth", str(truth), "--out", str(out), "--n", "0"])
+    assert "1 of 3 drawn cases read by every lane (rules, ai-v1)" in capsys.readouterr().out
+    h2h.main(["score", "--truth", str(truth), "--out", str(out), "--n", "0", "--lanes", "rules"])
+    assert "3 of 3 drawn cases read by every lane (rules)" in capsys.readouterr().out
+    with pytest.raises(SystemExit):
+        h2h.main(["score", "--truth", str(truth), "--out", str(out), "--n", "0", "--lanes", "rules,ai"])

@@ -17,13 +17,20 @@ A correction is a labeled example, and the file is built to be used as one:
 - `used_ai_fill` says the reviewer started from the AI engine's reading
   (the page's "Use AI engine's reading" button) before saving
 - `verdict` is `confirmed` (nothing changed), `corrected` (with the fields
-  in `changed_fields`), or `unreadable` (the page does not settle it)
+  in `changed_fields`), or `unreadable` (the page does not settle it); a
+  blind answer is `answered` or `unreadable`
 - `sampled_as` records whether the document was shown because it was
   flagged or drawn at random. Only the random ones estimate accuracy for a
   whole corpus; the flagged ones are the hard cases, which is what a rule fix
   or a model evaluation needs most.
 - `sha256` identifies the document itself, so a label survives the file
   being moved or renamed.
+- `blind` says the answer was typed into an empty form on a page that
+  showed nothing an engine read (from 2026-11-20); only blind answers give
+  a fair accuracy figure. `asked` is "address" when the form held the
+  defendant's address alone, and the other fields are then empty because
+  nobody was asked, not because the page lacks them. `guide_version` is
+  the version of GRADING.md the page was built with.
 
 The file holds whatever the documents hold, names and addresses included.
 It lives in the scan directory, which must be governed storage.
@@ -62,6 +69,7 @@ CSV_COLUMNS = [
     "ai_plaintiff", "ai_defendant_names", "ai_defendant_address",
     "ai_attorneys", "ai_attorney_firm", "ai_attorney_address", "ai_changed_fields",
     "used_ai_fill", "flags", "reviewer", "reviewer_email", "saved_at",
+    "blind", "asked", "guide_version",
 ]
 
 
@@ -236,6 +244,10 @@ def build_correction(row_no: int, body: dict, rows: list, details: list,
     changed = _changed(truth, machine)
     if body.get("verdict") == "unreadable":
         verdict = "unreadable"
+    elif body.get("blind"):
+        # the form started empty, so nothing was confirmed or corrected;
+        # `changed_fields` still says where the engine differs from the answer
+        verdict = "answered"
     else:
         verdict = "corrected" if changed else "confirmed"
 
@@ -267,6 +279,11 @@ def build_correction(row_no: int, body: dict, rows: list, details: list,
         "reviewer": _text(body.get("reviewer")) or getpass.getuser(),
         "reviewer_email": _text(body.get("reviewer_email")),
         "saved_at": _dt.datetime.now().astimezone().isoformat(timespec="seconds"),
+        # graded blind: an empty form, and no engine reading on the page. A
+        # page built before 2026-11-20 sends no guide version
+        "blind": bool(body.get("blind")),
+        "asked": "address" if body.get("fields") == "address" else "all",
+        "guide_version": _text(body.get("guide_version"), 40),
         # saved on the settling page, where graders disagreed; that page
         # shows such a document as done and every other one as still open
         **({"settled": True} if body.get("settled") else {}),
@@ -421,8 +438,20 @@ def write_corrections_csv(out_dir) -> Path:
                 "used_ai_fill": c.get("used_ai_fill", False),
                 "flags": c["flags"], "reviewer": c["reviewer"],
                 "reviewer_email": c.get("reviewer_email", ""), "saved_at": c["saved_at"],
+                "blind": c.get("blind", False), "asked": c.get("asked", "all"),
+                "guide_version": c.get("guide_version", ""),
             })
     return path
+
+
+def _for_page(c: dict) -> dict:
+    """A saved answer as the review page gets it back. A blind answer goes
+    back without the engines' readings or the fields they got wrong: the
+    page shows neither, and a blind page should not hold them at all."""
+    if not c.get("blind"):
+        return c
+    return {k: v for k, v in c.items() if k not in ("machine", "ai", "changed_fields", "verdict")} | {
+        "verdict": "unreadable" if c.get("verdict") == "unreadable" else "answered"}
 
 
 def make_review_server(out_dir, port=8765):
@@ -471,7 +500,7 @@ def make_review_server(out_dir, port=8765):
             if path == "/api/corrections":
                 with lock:
                     saved = load_corrections(out)
-                return self._json(200, {str(k): v for k, v in saved.items()})
+                return self._json(200, {str(k): _for_page(v) for k, v in saved.items()})
             if path == "/api/answers":
                 with lock:
                     every = load_answers(out)
@@ -557,7 +586,7 @@ def make_review_server(out_dir, port=8765):
                 with open(out / "corrections.jsonl", "a") as f:
                     f.write(json.dumps(correction) + "\n")
                 write_corrections_csv(out)
-            return self._json(200, correction)
+            return self._json(200, _for_page(correction))
 
     return ThreadingHTTPServer(("127.0.0.1", port), Handler)
 

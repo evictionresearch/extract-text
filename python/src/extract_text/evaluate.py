@@ -15,6 +15,9 @@ comparison in the project is made the same way:
   number and the same standardized street name and direction)
 - `score_lane`, `paired`, `tiers`: the tables, in counts
 - `loss_category`: for a street the rules missed, which stage lost it
+- `blind_batch`, `answer_key`, `blind_compare`: the blind check, where a
+  person types the address into an empty form and the answer is compared
+  with the typed line and with each engine
 
 Nothing here reads a file or prints a value. The functions take values and
 return counts, shares, and row keys; the script that calls them decides
@@ -259,6 +262,23 @@ def tiers(truths: dict[str, dict], lanes: dict[str, dict[str, dict]], cases: lis
     return out
 
 
+def word_shape(text: str) -> str:
+    """A coarser masked shape than `score.mask`: each run of capitals
+    becomes A, of lower-case letters a, of mixed letters Aa, of digits 9,
+    and other marks stay, so "1234 Example Ave S #5" is "9 Aa Aa A #9".
+    Streets of the same build share a shape whatever their names' lengths."""
+    def one(m):
+        run = m.group(0)
+        if run.isdigit():
+            return "9"
+        if run.isupper():
+            return "A"
+        if run.islower():
+            return "a"
+        return "Aa"
+    return re.sub(r"[A-Za-z]+|[0-9]+", one, re.sub(r"\s+", " ", text or "").strip())
+
+
 #: where a street the rules missed was lost, in the order the engine works
 LOSS_KINDS = ("not in the text", "in the text, no candidate", "a candidate, not chosen",
               "chosen block, parsed wrong")
@@ -288,3 +308,65 @@ def loss_category(truth: dict, in_text: str, candidate_streets: list[tuple[str, 
     if in_text == "absent":
         return "not in the text"
     return "in the text, no candidate"
+
+
+# ---------------------------------------------------------------------------
+# the blind check: a person's answer, typed into an empty form, against the
+# typed line and each engine
+
+
+def answer_key(answer: dict) -> dict:
+    """A grader's address answer (`street` without the unit, `unit`, `city`,
+    `state`, `zip`) as a comparison key shaped like `truth_key`, so an
+    engine's reading can be compared with it the same way."""
+    a = answer or {}
+    street, unit = (a.get("street") or "").strip(), (a.get("unit") or "").strip()
+    city, state, zip_code = ((a.get(k) or "").strip() for k in ("city", "state", "zip"))
+    line = " ".join(x for x in (street, unit) if x)
+    plain = ", ".join(x for x in (line, city, " ".join(x for x in (state, zip_code) if x)) if x)
+    return {**_key(street, unit, zip_code), "how": "answer", "plain": plain}
+
+
+def same_street(a: dict, b: dict) -> bool:
+    """Two keys name the same house number and standardized street."""
+    return bool(a["street"]) and a["street"] == b["street"]
+
+
+def blind_compare(answer: dict, typed: dict, readings: dict[str, dict | None]) -> dict:
+    """One blind answer (an `answer_key`) on the strict street: whether the
+    typed line (a `truth_key`) agrees with it, and whether each engine's
+    reading does."""
+    out = {"typed": same_street(answer, typed)}
+    for lane, reading in readings.items():
+        out[lane] = bool(compare_address(answer, reading)["street"])
+    return out
+
+
+#: the batches of the blind check, and the groups in each
+BLIND_BATCHES = {"split": ("rules only", "ai only"), "rest": ("neither", "both")}
+
+
+def blind_batch(truths: dict[str, dict], first: dict[str, dict], second: dict[str, dict],
+                cases: list[str], batch: str, seed: int, n_both: int = 30,
+                names: tuple[str, str] = ("rules", "ai")) -> list[tuple[str, str]]:
+    """The documents of one blind batch as (case, group), in a seeded
+    shuffle, so the page's order says nothing about the group.
+
+    `split`: the documents where exactly one of the two lanes has the
+    strict street, grouped by which. `rest`: those where neither has it,
+    and a seeded draw of `n_both` of those where both have it, as a check
+    of the grader against the typed lines."""
+    if batch not in BLIND_BATCHES:
+        raise ValueError(f"no batch called {batch!r}; known: {', '.join(BLIND_BATCHES)}")
+    right = {c: (bool(compare_address(truths[c], first.get(c))["street"]),
+                 bool(compare_address(truths[c], second.get(c))["street"])) for c in cases}
+    if batch == "split":
+        picked = [(c, f"{names[0]} only" if a else f"{names[1]} only")
+                  for c, (a, b) in right.items() if a != b]
+    else:
+        both = [c for c, (a, b) in right.items() if a and b]
+        picked = ([(c, "neither") for c, (a, b) in right.items() if not a and not b]
+                  + [(c, "both") for c in (seeded_draw(both, n_both, seed) if n_both > 0 else [])])
+    picked.sort()
+    random.Random(f"blind-{batch}-{seed}").shuffle(picked)
+    return picked

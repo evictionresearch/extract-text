@@ -10,10 +10,13 @@ number, or a file name.
 
     python scripts/head_to_head.py describe --truth TRUTH.csv
     python scripts/head_to_head.py split    --truth TRUTH.csv --archive ARCHIVE --out OUT
-    python scripts/head_to_head.py run      --out OUT --lanes rules,ai,ai-text --n 500
+    python scripts/head_to_head.py run      --out OUT --lanes rules,ai --n 500
     python scripts/head_to_head.py score    --truth TRUTH.csv --out OUT --n 500 \\
                                             [--addresses LIST.csv --preset king_county_wa]
     python scripts/head_to_head.py loss     --truth TRUTH.csv --out OUT --n 500
+    python scripts/head_to_head.py loss     --truth TRUTH.csv --out OUT --part dev --n 0 --shapes
+    python scripts/head_to_head.py grade    --truth TRUTH.csv --out OUT --batch split [--serve]
+    python scripts/head_to_head.py score    --truth TRUTH.csv --out OUT --blind split
 
 `describe` says what the truth file holds and how its address lines split,
 before anything is run. `split` writes OUT/manifest.csv once: every case of
@@ -22,10 +25,25 @@ a seeded draw. The test part is for scoring only; rule work reads shapes
 from the dev part and never from the test part. `run` reads a seeded draw
 of one part with each lane and keeps the readings in OUT/readings/; it can
 be stopped and started again. `score` prints the tables. `loss` says, for
-each street the rules missed, which stage lost it.
+each street the rules missed, which stage lost it; with `--shapes`, on the
+dev part only, it also prints the masked shape of each lost street beside
+the shape of what the rules read, for rule work.
+
+`grade` builds a blind grading page for one batch of the scored part in
+OUT/grade_BATCH/: the form starts empty, no engine reading, box, flag, file
+name, or case number is on the page, and the documents come in a seeded
+shuffle. Batch `split` is the documents where exactly one of `rules` and
+`ai` has the strict street; batch `rest` is those where neither has it plus
+a seeded draw of 30 where both do. Which group each document is in stays in
+OUT/grade_BATCH/key.json, which the page never reads. `score --blind BATCH`
+prints, per group, how often the blind answer agrees with the typed line,
+with the rules, and with the model, in counts.
 
 Lanes: `rules` is the rules engine as it is in this checkout. `ai` is the
 local model through Ollama reading the page image with the default prompt.
+`ai-v1` is the same model and backend with Cheng Ren's prompt (`v1`), which
+says where on the page each field sits; its reading rule against `ai` is in
+MAINTENANCE.md (2026-11-20) and `score` prints it.
 `ai-text` is the same model reading the page text through the text backend
 (`extract(text, backend="local")`), which holds the answer to a schema and
 asks for a quotation for every value. On 2026-11-19, on the made-up
@@ -50,7 +68,7 @@ from extract_text import evaluate as ev
 
 DEFAULT_SEED = 20261119
 DEFAULT_MODEL = "qwen3.5:9b"
-LANES = ("rules", "ai", "ai-text")
+LANES = ("rules", "ai", "ai-v1", "ai-text")
 MANIFEST_FIELDS = ("case_number", "county", "year", "truth_status", "doc_variant", "doc_path", "part")
 
 
@@ -197,6 +215,12 @@ def make_lane(name: str, model: str, cache: Path):
 
         backend = LocalVisionBackend(model=model)
         return lambda path: _reading(flatten_extraction(backend.extract_file(path)))
+    if name == "ai-v1":
+        # Cheng Ren's prompt, which says where on the page each field sits
+        from extract_text.ai.vision import LocalVisionBackend
+
+        backend = LocalVisionBackend(model=model, prompt_format="v1")
+        return lambda path: _reading(flatten_extraction(backend.extract_file(path)))
     if name == "ai-text":
         from extract_text.ai.local_backend import LocalBackend
 
@@ -261,16 +285,23 @@ def _listed(readings: dict[str, dict], addresses) -> dict[str, str]:
 
 
 def cmd_score(args) -> int:
+    if args.blind:
+        return cmd_score_blind(args)
     out = Path(args.out).expanduser()
     manifest = read_manifest(out)
     status = json.loads((out / "split.json").read_text())["status"]
     truth_rows = load_truth(args.truth, status)
     drawn = drawn_cases(manifest, args.part, args.n, args.seed)
     lanes = {}
-    for lane in LANES:
+    wanted = [x.strip() for x in args.lanes.split(",") if x.strip()] if args.lanes else LANES
+    for lane in wanted:
+        if lane not in LANES:
+            raise SystemExit(f"no lane called {lane!r}; known: {', '.join(LANES)}")
         got = load_readings(out, lane)
         if got:
             lanes[lane] = got
+        elif args.lanes:
+            raise SystemExit(f"no readings for the {lane} lane yet; run 'run' first")
     if not lanes:
         raise SystemExit("no readings yet; run 'run' first")
     cases = [c for c in drawn if c in truth_rows and all(c in got for got in lanes.values())]
@@ -321,6 +352,18 @@ def cmd_score(args) -> int:
             if args.n and len(cases) < args.n:
                 lines.append(f"  The rule was written for {args.n} documents; this is {len(cases)}, "
                              "so it is a reading in progress, not the result.")
+        if "ai" in lanes and "ai-v1" in lanes:
+            p = ev.paired(truths, lanes["ai"], lanes["ai-v1"], cases)
+            met = 100 * p["difference"] >= 3 and p["p"] < 0.05
+            lines += ["", "Reading rule for Cheng Ren's prompt, written before the run (2026-11-20): if ai-v1 "
+                          "beats ai by 3 points or more on strict street with p below 0.05, its position "
+                          "wording goes into the default prompt for the address, once names are checked on "
+                          "the graded 2017 documents; otherwise the default stays.",
+                      f"  ai-v1 minus ai: {100 * p['difference']:.1f} points, p = {p['p']:.4f}. "
+                      f"The rule is {'met' if met else 'not met'}."]
+            if args.n and len(cases) < args.n:
+                lines.append(f"  The rule was written for {args.n} documents; this is {len(cases)}, "
+                             "so it is a reading in progress, not the result.")
     listed = {}
     if args.addresses:
         from extract_text.address_check import AddressList
@@ -348,6 +391,168 @@ def cmd_score(args) -> int:
 
 
 # ---------------------------------------------------------------------------
+# the blind check: grade, and score --blind
+
+GRADE_LANES = ("rules", "ai")
+
+
+def _scored_cases(args, out: Path):
+    """The cases of the drawn part that every lane of the blind check read,
+    their typed lines as keys, and those lanes' readings."""
+    manifest = read_manifest(out)
+    status = json.loads((out / "split.json").read_text())["status"]
+    truth_rows = load_truth(args.truth, status)
+    drawn = drawn_cases(manifest, args.part, args.n, args.seed)
+    lanes = {lane: load_readings(out, lane) for lane in GRADE_LANES}
+    for lane, got in lanes.items():
+        if not got:
+            raise SystemExit(f"no readings for the {lane} lane yet; run 'run' first")
+    cases = [c for c in drawn if c in truth_rows and all(c in got for got in lanes.values())]
+    truths = {c: ev.truth_key(truth_rows[c]["plainAddress"]) for c in cases}
+    return cases, truths, lanes, {r["case_number"]: r for r in manifest}
+
+
+def cmd_grade(args) -> int:
+    from extract_text.documents import doc_pages
+    from extract_text.pipeline import write_review
+
+    out = Path(args.out).expanduser()
+    cases, truths, lanes, manifest = _scored_cases(args, out)
+    picked = ev.blind_batch(truths, lanes["rules"], lanes["ai"], cases, args.batch, args.seed,
+                            n_both=args.both)
+    if not picked:
+        raise SystemExit(f"batch {args.batch!r} holds no documents")
+    folder = out / f"grade_{args.batch}"
+    key_path = folder / "key.json"
+    if key_path.is_file():
+        # the batch is fixed once made: answers are kept by row number, so a
+        # different draw or order would put them against the wrong documents
+        earlier = [r["case"] for r in json.loads(key_path.read_text())["rows"]]
+        if earlier != [c for c, _ in picked] and not args.force:
+            raise SystemExit(f"{folder.name} already holds a batch of other documents or another "
+                             "order. Pass --force only to throw it and its answers away on purpose.")
+        made = earlier == [c for c, _ in picked]
+    else:
+        made = False
+    folder.mkdir(parents=True, exist_ok=True)
+    if not made:
+        # answers to an earlier batch are set aside under a dated name, never deleted
+        stamp = time.strftime("%Y%m%d_%H%M%S")
+        for stale in ("corrections.jsonl", "corrections.csv"):
+            if (folder / stale).exists():
+                (folder / stale).rename(folder / f"{stale}.set_aside_{stamp}")
+        key_path.write_text(json.dumps({
+            "batch": args.batch, "part": args.part, "n": args.n, "seed": args.seed,
+            "made": time.strftime("%Y-%m-%d %H:%M"),
+            "rows": [{"row": i, "case": c, "group": g} for i, (c, g) in enumerate(picked, 1)]}))
+    # a scan-shaped folder holding the documents and nothing any engine read,
+    # so the page has nothing to show even by mistake
+    rows = []
+    for case, _ in picked:
+        path = Path(manifest[case]["doc_path"])
+        try:
+            n_pages = doc_pages(path)
+        except Exception:
+            n_pages = 1
+        rows.append({"file": str(path), "n_pages": n_pages})
+    with open(folder / "extracted.csv", "w", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=("file", "n_pages"))
+        w.writeheader()
+        w.writerows(rows)
+    with open(folder / "extracted.jsonl", "w") as f:
+        for r in rows:
+            f.write(json.dumps({"file": r["file"]}) + "\n")
+    (folder / "blind.json").write_text(json.dumps({"fields": "address", "batch": args.batch}))
+    write_review(folder, n=len(rows), blind=True, fields="address", pages=1)
+    groups = Counter(g for _, g in picked)
+    print(f"Batch '{args.batch}': {len(picked)} documents of the {args.part} part "
+          f"({', '.join(f'{g} {groups[g]}' for g in ev.BLIND_BATCHES[args.batch])}), "
+          f"in a shuffled order (seed {args.seed})" + (", as made before" if made else "") + ". "
+          "Which group each document is in is kept in the batch folder's key file, not on the page.",
+          flush=True)
+    if args.serve:
+        from extract_text.corrections import serve_review
+
+        serve_review(folder, port=args.port, open_browser=not args.no_open)
+    else:
+        # the same command with --serve opens it; it finds the batch made before
+        # and keeps every answer. (`extract-text review --serve` does too, from
+        # a package new enough to know blind pages, 2026-11-20 on.)
+        print("To grade, run this same command again with --serve.")
+    return 0
+
+
+def _blind_report(args, out: Path, batch: str) -> list[str]:
+    from extract_text.corrections import load_corrections
+
+    folder = out / f"grade_{batch}"
+    if not (folder / "key.json").is_file():
+        return [f"Batch '{batch}': not built yet ('grade --batch {batch}')."]
+    key = json.loads((folder / "key.json").read_text())
+    cases, truths, lanes, _ = _scored_cases(args, out)
+    answers = load_corrections(folder)
+    tally = {g: Counter() for g in ev.BLIND_BATCHES[batch]}
+    for r in key["rows"]:
+        t = tally.setdefault(r["group"], Counter())
+        t["documents"] += 1
+        c = answers.get(r["row"])
+        if c is None:
+            continue
+        if not c.get("blind"):
+            t["not blind"] += 1
+            continue
+        t["graded"] += 1
+        if c.get("verdict") == "unreadable":
+            t["cannot tell"] += 1
+            continue
+        answer = ev.answer_key(c["truth"])
+        if not answer["street"]:
+            t["no street typed"] += 1
+            continue
+        case = r["case"]
+        m = ev.blind_compare(answer, truths[case], {lane: lanes[lane].get(case) for lane in GRADE_LANES})
+        t["answered"] += 1
+        t["typed"] += m["typed"]
+        t["rules"] += m["rules"]
+        t["ai"] += m["ai"]
+        engines = [m[lane] for lane in GRADE_LANES]
+        t["typed differs, an engine agrees"] += (not m["typed"]) and any(engines)
+        t["typed differs, both engines agree"] += (not m["typed"]) and all(engines)
+        t["agrees with none"] += not (m["typed"] or any(engines))
+    total = sum(tally.values(), Counter())
+    lines = [f"Blind check, batch '{batch}' (seed {key['seed']}): {total['documents']} documents, "
+             f"{total['graded']} graded blind so far"
+             + (f", {total['not blind']} answers not blind (left out)" if total["not blind"] else "")
+             + f"; {total['cannot tell']} can't tell, {total['no street typed']} with no street typed, "
+             f"{total['answered']} with a street.",
+             "Strict street (house number and standardized street) of the blind answer, where a street was typed:",
+             f"  {'group':<12}{'answered':>9}{'= typed line':>14}{'= rules':>10}{'= ai':>8}"
+             f"{'typed differs,':>18}{'typed differs,':>16}{'agrees':>11}",
+             f"  {'':<12}{'':>9}{'':>14}{'':>10}{'':>8}{'an engine agrees':>18}{'both agree':>16}{'with none':>11}"]
+    for g, t in [*tally.items(), ("all", total)]:
+        lines.append(f"  {g:<12}{t['answered']:>9}{t['typed']:>14}{t['rules']:>10}{t['ai']:>8}"
+                     f"{t['typed differs, an engine agrees']:>18}{t['typed differs, both engines agree']:>16}"
+                     f"{t['agrees with none']:>11}")
+    return lines
+
+
+def cmd_score_blind(args) -> int:
+    out = Path(args.out).expanduser()
+    batches = [b.strip() for b in args.blind.split(",") if b.strip()]
+    for b in batches:
+        if b not in ev.BLIND_BATCHES:
+            raise SystemExit(f"no batch called {b!r}; known: {', '.join(ev.BLIND_BATCHES)}")
+    lines = []
+    for b in batches:
+        lines += ([""] if lines else []) + _blind_report(args, out, b)
+    report = "\n".join(lines)
+    print(report)
+    if args.save:
+        Path(args.save).expanduser().write_text(report + "\n")
+    return 0
+
+
+# ---------------------------------------------------------------------------
 # loss
 
 
@@ -356,14 +561,21 @@ def cmd_loss(args) -> int:
     from extract_text.deterministic.summons import extract_summons_fields
     from extract_text.documents import cached_document
     from extract_text.pipeline import flatten_extraction
-    from extract_text.score import _street_in_text
+    from extract_text.score import _street_in_text, mask
 
+    if args.shapes and args.part == "test":
+        raise SystemExit("--shapes reads the dev part only: no shape from the test part may "
+                         "inform a rule, or the test part stops being a test")
     out = Path(args.out).expanduser()
     manifest = {r["case_number"]: r for r in read_manifest(out)}
     status = json.loads((out / "split.json").read_text())["status"]
     truth_rows = load_truth(args.truth, status)
     cases = [c for c in drawn_cases(list(manifest.values()), args.part, args.n, args.seed) if c in truth_rows]
     kinds, by_state, anchors, n_right, errors = Counter(), Counter(), Counter(), 0, 0
+    # with --shapes: (kind, typed shape, rules shape) for each lost street, and
+    # how the model did on it where it read the document
+    exact, words, model = Counter(), Counter(), Counter()
+    ai = load_readings(out, "ai") if args.shapes else {}
     for case in cases:
         truth = ev.truth_key(truth_rows[case]["plainAddress"])
         try:
@@ -382,6 +594,14 @@ def cmd_loss(args) -> int:
         streets = [(c.get("street") or "", c.get("unit") or "") for c in candidates]
         kind = ev.loss_category(truth, in_text, streets, reading["raw"])
         kinds[kind] += 1
+        if args.shapes:
+            read_street = reading["street"]
+            exact[(kind, mask(typed_street), mask(read_street) if read_street else "(blank)")] += 1
+            words[(kind, ev.word_shape(typed_street), ev.word_shape(read_street) if read_street else "(blank)")] += 1
+            got = ai.get(case)
+            if got and not got.get("error"):
+                model[(kind, "read")] += 1
+                model[(kind, "right")] += bool(ev.compare_address(truth, got)["street"])
         by_state[(kind, "blank" if not reading["street"] else "wrong")] += 1
         anchors[reading["anchor"] or "(no address)"] += 1
     n_lost = sum(kinds.values())
@@ -397,6 +617,24 @@ def cmd_loss(args) -> int:
               "in the text, no candidate: the street is on the page and no address-shaped candidate was built from it.",
               "a candidate, not chosen: the engine found it and picked another address.",
               "chosen block, parsed wrong: the engine picked the right block and split it wrongly."]
+    if args.shapes:
+        lines += ["", "Shapes of the lost streets: the typed street beside the street the rules read, "
+                      "letters A or a, digits 9 (the typed line's street part, unit included; "
+                      "'(blank)' where the rules read none).",
+                  "By words (each run of letters or digits as one mark), then letter by letter, "
+                  f"the {args.top} most common pairs in each category."]
+        for kind in ev.LOSS_KINDS:
+            if not kinds[kind]:
+                continue
+            read, right = model[(kind, "read")], model[(kind, "right")]
+            lines += ["", f"{kind}: {kinds[kind]} lost. The ai lane read {read} of them"
+                      + (f" and has the street right on {right} ({_pct(right, read)})" if read else
+                         " (no ai readings for these documents yet)") + "."]
+            for title, table in (("by words", words), ("letter by letter", exact)):
+                pairs = Counter({(t, r): v for (k, t, r), v in table.items() if k == kind})
+                lines.append(f"  {title} ({len(pairs)} different pairs):")
+                for (typed, got), count in pairs.most_common(args.top):
+                    lines.append(f"    {count:>5}  {typed:<34} read as  {got}")
     report = "\n".join(lines)
     print(report)
     if args.save:
@@ -454,12 +692,34 @@ def main(argv=None) -> int:
     a.add_argument("--zip-column", default=None)
     a.add_argument("--city-column", default=None)
     a.add_argument("--save", default=None, help="also write the report here")
+    a.add_argument("--lanes", default=None,
+                   help="comma-separated lanes to score (default: every lane with readings); "
+                        "only documents every chosen lane read are scored")
+    a.add_argument("--blind", default=None, metavar="BATCH",
+                   help="score the blind answers of a batch made by 'grade' (split, rest, or both "
+                        "as split,rest) instead of the lanes")
     a.set_defaults(fn=cmd_score)
+
+    a = sub.add_parser("grade", help="build the blind grading page for one batch, in counts")
+    common(a)
+    draw(a)
+    a.add_argument("--batch", required=True, choices=tuple(ev.BLIND_BATCHES))
+    a.add_argument("--both", type=int, default=30,
+                   help="with --batch rest: how many documents both lanes have right to draw")
+    a.add_argument("--serve", action="store_true", help="open the page for grading when it is built")
+    a.add_argument("--port", type=int, default=8765)
+    a.add_argument("--no-open", action="store_true", help="with --serve, do not open a browser window")
+    a.add_argument("--force", action="store_true")
+    a.set_defaults(fn=cmd_grade)
 
     a = sub.add_parser("loss", help="which stage lost each street the rules missed")
     common(a)
     draw(a)
     a.add_argument("--save", default=None)
+    a.add_argument("--shapes", action="store_true",
+                   help="also the masked shapes of each lost street beside the rules' reading, "
+                        "and how often the ai lane has it right; dev part only")
+    a.add_argument("--top", type=int, default=15, help="with --shapes: pairs shown per category")
     a.set_defaults(fn=cmd_loss)
 
     args = p.parse_args(argv)
